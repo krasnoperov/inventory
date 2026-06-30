@@ -205,6 +205,43 @@ test('composition placement is gated to finished variants', async ({ page }) => 
   await expect(page.getByText('Add to composition')).toHaveCount(1);
 });
 
+test('media triggers open image assets without changing thumbnail chrome', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await mountComponent(page, 'SpaceBoard', {
+    spaceId: 'space-1',
+    assets: [asset('hero', 'Hero sprite'), audioAsset],
+    variants: [readyVariant('hero'), audioVariant],
+    collections: [deliverables],
+    collectionItems: [audioCollectionItem],
+    canEdit: true,
+    onAssetClick: '__record__:assetClick',
+    createCollection: '__noop__',
+    updateCollection: '__noop__',
+    deleteCollection: '__noop__',
+    addCollectionItem: '__noop__',
+    updateCollectionItem: '__noop__',
+    reorderCollectionItems: '__noop__',
+    deleteCollectionItem: '__noop__',
+  });
+
+  const imageThumbnailTrigger = page.locator('button[class*="thumbnailButton"][title="Hero sprite"]');
+  await expect(imageThumbnailTrigger).toBeVisible();
+  await expect(imageThumbnailTrigger).toHaveCSS('padding', '0px');
+  await expect(imageThumbnailTrigger).toHaveCSS('border-top-width', '0px');
+
+  await expect(page.locator('div[class*="thumbnailButton"][title="Merchant greeting"]')).toBeVisible();
+  await expect(page.locator('button[class*="thumbnailButton"][title="Merchant greeting"]')).toHaveCount(0);
+
+  await imageThumbnailTrigger.hover();
+  await screenshot(page, 'space-board-media-triggers', { fullPage: true });
+  await imageThumbnailTrigger.click();
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls).toHaveLength(1);
+  expect(calls[0].eventName).toBe('assetClick');
+  expect((calls[0].args[0] as { id: string }).id).toBe('hero');
+});
+
 test('asset name triggers open image and audio assets', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await mountComponent(page, 'SpaceBoard', {
