@@ -60,6 +60,7 @@ export function ForgeChat({
 }: ForgeChatProps) {
   const [inputValue, setInputValue] = useState('');
   const [descriptionProgress, setDescriptionProgress] = useState<DescriptionProgress[]>([]);
+  const [expandedDescriptionIds, setExpandedDescriptionIds] = useState<Set<string>>(() => new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -148,6 +149,18 @@ export function ForgeChat({
     onClose();
   }, [onApplyPrompt, onClose]);
 
+  const toggleDescriptions = useCallback((messageId: string) => {
+    setExpandedDescriptionIds((current) => {
+      const next = new Set(current);
+      if (next.has(messageId)) {
+        next.delete(messageId);
+      } else {
+        next.add(messageId);
+      }
+      return next;
+    });
+  }, []);
+
   // Handle clear chat
   const handleClear = useCallback(() => {
     clearChat();
@@ -203,53 +216,63 @@ export function ForgeChat({
           </div>
         )}
 
-        {messages.map((msg) => (
-          <div key={msg.id} className={`${styles.message} ${styles[msg.role]}`}>
-            <div className={styles.messageBubble}>
-              {msg.content}
-            </div>
-            {/* Collapsible descriptions section */}
-            {msg.descriptions && msg.descriptions.length > 0 && (
-              <details className={styles.descriptionsDetails}>
-                <summary className={styles.descriptionsSummary}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                  Image analysis ({msg.descriptions.length})
-                </summary>
-                <div className={styles.descriptionsContent}>
-                  {msg.descriptions.map((desc) => (
-                    <div key={desc.variantId} className={styles.descriptionItem}>
-                      <div className={styles.descriptionName}>
-                        {desc.assetName}
-                        {desc.cached && <span className={styles.cachedBadge}>cached</span>}
-                      </div>
-                      <div className={styles.descriptionText}>{desc.description}</div>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
-            {msg.suggestedPrompt && (
-              <div className={styles.suggestedPrompt}>
-                <div className={styles.suggestedLabel}>Suggested Prompt</div>
-                <div className={styles.suggestedText}>"{msg.suggestedPrompt}"</div>
-                <Button
-                  className={styles.applyButton}
-                  onClick={() => handleApply(msg.suggestedPrompt!)}
-                  variant="primary"
-                  size="sm"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  Apply
-                </Button>
+        {messages.map((msg) => {
+          const descriptionsOpen = expandedDescriptionIds.has(msg.id);
+          return (
+            <div key={msg.id} className={`${styles.message} ${styles[msg.role]}`}>
+              <div className={styles.messageBubble}>
+                {msg.content}
               </div>
-            )}
-          </div>
-        ))}
+              {msg.descriptions && msg.descriptions.length > 0 && (
+                <div className={`${styles.descriptionsDetails} ${descriptionsOpen ? styles.descriptionsOpen : ''}`}>
+                  <Button
+                    className={styles.descriptionsSummary}
+                    onClick={() => toggleDescriptions(msg.id)}
+                    aria-expanded={descriptionsOpen}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Image analysis ({msg.descriptions.length})
+                  </Button>
+                  {descriptionsOpen && (
+                    <div className={styles.descriptionsContent}>
+                      {msg.descriptions.map((desc) => (
+                        <div key={desc.variantId} className={styles.descriptionItem}>
+                          <div className={styles.descriptionName}>
+                            {desc.assetName}
+                            {desc.cached && <span className={styles.cachedBadge}>cached</span>}
+                          </div>
+                          <div className={styles.descriptionText}>{desc.description}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {msg.suggestedPrompt && (
+                <div className={styles.suggestedPrompt}>
+                  <div className={styles.suggestedLabel}>Suggested Prompt</div>
+                  <div className={styles.suggestedText}>"{msg.suggestedPrompt}"</div>
+                  <Button
+                    className={styles.applyButton}
+                    onClick={() => handleApply(msg.suggestedPrompt!)}
+                    variant="primary"
+                    size="sm"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Apply
+                  </Button>
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {/* Loading indicator with description progress */}
         {isLoading && (

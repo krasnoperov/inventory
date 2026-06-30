@@ -696,12 +696,16 @@ test('forge chat actions send messages and apply suggested prompts', async ({ pa
     await resolvedColor(page, 'var(--button-primary-text)'),
   );
   await expect(page.locator('[class*="suggestedPrompt"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
-  const descriptionsSummary = page.locator('[class*="descriptionsSummary"]');
-  await expect(descriptionsSummary).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  const descriptionsPanel = page.locator('[class*="descriptionsDetails"]');
+  const descriptionsSummary = page.getByRole('button', { name: 'Image analysis (1)' });
+  await expect(descriptionsPanel.locator('summary')).toHaveCount(0);
+  await expect(descriptionsSummary).toHaveAttribute('aria-expanded', 'false');
+  await expect(descriptionsSummary).toHaveCSS('background-color', await resolvedBackground(page, 'var(--color-surface)'));
   await page.getByText('Image analysis (1)').hover();
-  await expect(descriptionsSummary).toHaveCSS('background-color', await resolvedColor(page, 'var(--button-ghost-bg-hover)'));
+  await expect(descriptionsSummary).toHaveCSS('background-color', await resolvedBackground(page, 'var(--button-ghost-bg-hover)'));
   await screenshot(page, 'forge-tray-chat-token-surfaces', { fullPage: true });
   await descriptionsSummary.click();
+  await expect(descriptionsSummary).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByText('A blue crystal gate with a clean silhouette.')).toBeVisible();
   await screenshot(page, 'forge-tray-chat-analysis-expanded', { fullPage: true });
 
