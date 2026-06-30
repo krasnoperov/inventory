@@ -156,6 +156,7 @@
   --thumb-badge-size: 20px;
   --thumb-badge-bg: var(--color-primary);
   --thumb-badge-shadow: 0 2px 4px oklch(0% 0 0 / 0.25);
+  --thumb-video-backdrop: oklch(0% 0 0);
 
   /* ---- Scale: layout spacing ---- */
   --header-height: 90px;

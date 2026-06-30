@@ -48,6 +48,7 @@ const TIER_PREFIXES = {
     '--forge-',
     '--thumb-action-',
     '--thumb-badge-',
+    '--thumb-video-',
     '--landing-',
     '--terminal-',
     '--canvas-',
@@ -258,6 +259,7 @@ const GROUPS = [
   // ---- component: thumbnail action buttons & selection badge. ----
   { match: /^--thumb-action-(.+)$/, group: 'thumbAction', leaf: ($1) => kebabToCamel($1), type: undefined },
   { match: /^--thumb-badge-(.+)$/, group: 'thumbBadge', leaf: ($1) => kebabToCamel($1), type: undefined },
+  { match: /^--thumb-video-(.+)$/, group: 'thumbVideo', leaf: ($1) => kebabToCamel($1), type: 'color' },
 
   // ---- component: landing / marketing surfaces. Heterogeneous (colours,
   // shadows, gradients). Type undefined → inferTypeFromValue per token. ----
