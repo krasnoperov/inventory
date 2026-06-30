@@ -27,8 +27,8 @@ test('shared select uses tokenized trigger and popup chrome', async ({ page }) =
   const popup = page.locator('[class*="popup"]').first();
   await expect(popup).toBeVisible();
   await expect(popup).toHaveCSS('border-radius', '8px');
-  await expect(popup).toHaveCSS('box-shadow', await resolvedShadow(page, 'var(--shadow-header)'));
+  await expect(popup).toHaveCSS('box-shadow', 'none');
   await expect(page.getByRole('option', { name: 'Video' })).toHaveCSS('font-size', '12px');
 
-  await screenshot(page, 'ui-select-tokenized-popup', { fullPage: true });
+  await screenshot(page, 'ui-select-flat-popup', { fullPage: true });
 });
