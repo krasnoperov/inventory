@@ -322,7 +322,9 @@ export function SpaceBoard({
         )}
         {(canEdit || onAddToTray || onCreateRelation || onPlaceInComposition) && (
           <details className={styles.cardMenu}>
-            <summary title={`Actions for ${asset.name}`}>Actions</summary>
+            <summary title={`Actions for ${asset.name}`} aria-label={`Actions for ${asset.name}`}>
+              <span className={styles.visuallyHidden}>Actions for {asset.name}</span>
+            </summary>
             <div className={styles.cardMenuPanel}>
               {onAddToTray && displayVariant && isVariantForgeTrayReady(displayVariant) && (
                 <Button className={styles.menuButton} onClick={() => onAddToTray(displayVariant, asset)}>
@@ -451,7 +453,9 @@ export function SpaceBoard({
           </div>
           {canEdit && (
             <details className={styles.collectionMenu}>
-              <summary>Manage</summary>
+              <summary aria-label={`Manage collection ${collection.name}`} title={`Manage ${collection.name}`}>
+                <span className={styles.visuallyHidden}>Manage collection {collection.name}</span>
+              </summary>
               <div className={styles.collectionMenuPanel}>
                 <label>
                   <span>Name</span>
@@ -572,7 +576,10 @@ export function SpaceBoard({
         </div>
         {canEdit && (
           <details className={styles.createControls}>
-            <summary>New collection</summary>
+            <summary>
+              <span aria-hidden="true">+</span>
+              <span>New collection</span>
+            </summary>
             <div className={styles.createPanel}>
               <TextInput
                 value={newName}
