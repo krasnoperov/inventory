@@ -81,6 +81,8 @@ export function AssetMenu({
       ref={menuRef}
       className={styles.menu}
       style={{ left: position.x, top: position.y }}
+      role="menu"
+      aria-label={`${asset.name} actions`}
     >
       <div className={styles.header}>
         <span className={styles.assetName}>{asset.name}</span>
@@ -96,6 +98,7 @@ export function AssetMenu({
             className={styles.action}
             onClick={() => handleAction(onRename)}
             variant="ghost"
+            role="menuitem"
           >
             <span className={styles.actionIcon}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
@@ -112,6 +115,7 @@ export function AssetMenu({
             className={styles.action}
             onClick={() => handleAction(onCreateRelation)}
             variant="ghost"
+            role="menuitem"
           >
             <span className={styles.actionIcon}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
@@ -119,7 +123,7 @@ export function AssetMenu({
                 <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L13 19.07" />
               </svg>
             </span>
-            <span className={styles.actionLabel}>Create Relation</span>
+            <span className={styles.actionLabel}>Create relation</span>
           </Button>
         )}
       </div>
@@ -130,6 +134,7 @@ export function AssetMenu({
             className={`${styles.action} ${styles.danger}`}
             onClick={() => handleAction(onDelete)}
             variant="ghost"
+            role="menuitem"
           >
             <span className={styles.actionIcon}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
@@ -137,7 +142,7 @@ export function AssetMenu({
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
               </svg>
             </span>
-            <span className={styles.actionLabel}>Delete Asset</span>
+            <span className={styles.actionLabel}>Delete asset</span>
           </Button>
         </div>
       )}
