@@ -1,6 +1,17 @@
 import { expect, test } from '@playwright/test';
 import { mountComponent, screenshot } from './harness';
 
+async function resolvedBackground(page: import('@playwright/test').Page, value: string) {
+  return page.evaluate((backgroundValue) => {
+    const probe = document.createElement('div');
+    probe.style.background = backgroundValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
 test('asset context menu actions use shared button styling', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 260 });
   await mountComponent(page, 'AssetMenu', {
@@ -25,7 +36,13 @@ test('asset context menu actions use shared button styling', async ({ page }) =>
 
   await expect(page.getByRole('button', { name: 'Rename' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Create Relation' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Delete Asset' })).toBeVisible();
+  const deleteAction = page.getByRole('button', { name: 'Delete Asset' });
+  await expect(deleteAction).toBeVisible();
+  await deleteAction.hover();
+  await expect(deleteAction).toHaveCSS(
+    'background-color',
+    await resolvedBackground(page, 'var(--color-danger-bg)'),
+  );
   await screenshot(page, 'asset-menu-shared-buttons', { fullPage: true });
 
   await page.getByRole('button', { name: 'Rename' }).click();

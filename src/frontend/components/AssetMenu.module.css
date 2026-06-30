@@ -87,7 +87,7 @@
 }
 
 .action.danger:hover:not(:disabled) {
-  background: oklch(55% 0.2 25 / 0.1);
+  background: var(--color-danger-bg);
 }
 
 .action.danger .actionIcon,
