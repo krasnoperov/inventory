@@ -32,6 +32,19 @@
   overflow: hidden;
 }
 
+.thumbnailButton.thumbnailButton {
+  --ui-button-height: auto;
+  --ui-button-pad-x: 0;
+  --ctl-hover: var(--color-bg);
+
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+}
+
 .thumbnailWrapper {
   position: relative;
   width: 100%;

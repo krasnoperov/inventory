@@ -85,27 +85,49 @@ export function AssetCard(props: AssetCardProps) {
       onContextMenu={handleContextMenu}
     >
       {/* Thumbnail Area */}
-      <div className={styles.thumbnailArea} onClick={handleCardClick}>
-        {primaryVariant ? (
-          <div className={styles.thumbnailWrapper}>
-            <Thumbnail
-              variant={primaryVariant}
-              size="fill"
-              spaceId={spaceId}
-              className={styles.thumbnailPreview}
-              showAudioControls={isAudioCard}
-            />
-          </div>
-        ) : (
-          <div className={styles.emptyThumbnail}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <polyline points="21 15 16 10 5 21" />
-            </svg>
-          </div>
-        )}
-      </div>
+      {isAudioCard ? (
+        <div className={styles.thumbnailArea}>
+          {primaryVariant && (
+            <div className={styles.thumbnailWrapper}>
+              <Thumbnail
+                variant={primaryVariant}
+                size="fill"
+                spaceId={spaceId}
+                className={styles.thumbnailPreview}
+                showAudioControls
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        <Button
+          className={`${styles.thumbnailArea} ${styles.thumbnailButton}`}
+          onClick={handleCardClick}
+          title={asset.name}
+          aria-label={`Open ${asset.name}`}
+          variant="ghost"
+          size="sm"
+        >
+          {primaryVariant ? (
+            <div className={styles.thumbnailWrapper}>
+              <Thumbnail
+                variant={primaryVariant}
+                size="fill"
+                spaceId={spaceId}
+                className={styles.thumbnailPreview}
+              />
+            </div>
+          ) : (
+            <div className={styles.emptyThumbnail}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="24" height="24">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+            </div>
+          )}
+        </Button>
+      )}
 
       {/* Asset Info Row */}
       <div className={styles.infoRow}>
