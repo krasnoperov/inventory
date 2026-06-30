@@ -250,7 +250,7 @@
   text-decoration: none;
   font-size: 0.8125rem;
   font-weight: 500;
-  box-shadow: var(--button-primary-shadow);
+  box-shadow: none;
 }
 
 /* Loading and error states */

@@ -38,7 +38,7 @@
   background: var(--button-primary-bg);
   color: var(--button-primary-text);
   border: var(--button-primary-border);
-  box-shadow: var(--button-primary-shadow);
+  box-shadow: none;
   text-decoration: none;
   font-weight: 600;
   cursor: pointer;
