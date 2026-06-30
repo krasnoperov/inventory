@@ -441,6 +441,8 @@ test('collection menus use shared form controls', async ({ page }) => {
   const collectionMenu = page.locator('[class*="collectionMenu"]').first();
   const collectionMenuTrigger = page.getByRole('button', { name: 'Manage collection Cast' });
   await expect(collectionMenu.locator('summary')).toHaveCount(0);
+  await expect(collectionMenuTrigger).not.toContainText('...');
+  await expect(collectionMenuTrigger.locator('svg')).toHaveCount(1);
   await collectionMenuTrigger.click();
   await expect(collectionMenuTrigger).toHaveAttribute('aria-expanded', 'true');
   await expect(createTrigger).toHaveAttribute('aria-expanded', 'false');
@@ -462,6 +464,8 @@ test('collection menus use shared form controls', async ({ page }) => {
   const cardMenu = page.locator('[class*="cardMenu"]').first();
   const cardMenuTrigger = page.getByRole('button', { name: 'Actions for Hero sprite' });
   await expect(cardMenu.locator('summary')).toHaveCount(0);
+  await expect(cardMenuTrigger).not.toContainText('...');
+  await expect(cardMenuTrigger.locator('svg')).toHaveCount(1);
   await cardMenuTrigger.click();
   await expect(cardMenuTrigger).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('[class*="cardMenuPanel"]').first()).toHaveCSS('box-shadow', 'none');
