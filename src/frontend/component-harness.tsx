@@ -845,6 +845,53 @@ function LandingCardHoverChromePreview() {
   );
 }
 
+function LandingDualChromePreview() {
+  return (
+    <div className={landingStyles.page} style={{ colorScheme: 'dark' }}>
+      <main style={{ width: 'min(900px, calc(100% - 2rem))', margin: '0 auto', padding: '3rem 0' }}>
+        <div className={landingStyles.dual}>
+          <div className={landingStyles.dualWeb}>
+            <div className={landingStyles.dualBar}>
+              <span className={landingStyles.dualBarDot} />
+              <span className={landingStyles.dualBarDot} />
+              <span className={landingStyles.dualBarLabel}>A person · the web app</span>
+            </div>
+            <div className={landingStyles.dualWebBody}>
+              <div className={landingStyles.dualPath}>forest-tactics / Scout</div>
+              <div className={landingStyles.variantRow}>
+                <div className={`${landingStyles.variantCell} ${landingStyles.variantCellActive}`}>
+                  <span className={landingStyles.variantStar} aria-hidden="true">★</span>
+                </div>
+                <div className={landingStyles.variantCell} />
+                <div className={landingStyles.variantCell} />
+              </div>
+              <div className={landingStyles.dualActions}>
+                <span className={landingStyles.dualBtnPrimary}>Keep v3</span>
+                <span className={landingStyles.dualBtnGhost}>Hand off →</span>
+              </div>
+            </div>
+          </div>
+          <div className={landingStyles.dualSeam} aria-hidden="true">
+            <span className={landingStyles.dualSeamPill}>space://forest-tactics</span>
+          </div>
+          <div className={landingStyles.dualShell}>
+            <div className={landingStyles.dualShellBar}>
+              <span className={landingStyles.dualShellDot} />
+              <span className={landingStyles.dualShellLabel}>An agent · the shell</span>
+            </div>
+            <pre className={landingStyles.dualShellBody}>
+              <span className={landingStyles.tPrompt}>agent$</span> makefx assets --space forest-tactics
+              {'\n[\n  { "name": '}
+              <span className={landingStyles.tOk}>&quot;Scout&quot;</span>
+              {' }\n]'}
+            </pre>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
 function ProfileSignInButtonPreview() {
   return (
     <div className={profileStyles.page}>
@@ -889,6 +936,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   HyperbolicCanvas: HyperbolicCanvas as unknown as ComponentType<Record<string, unknown>>,
   LandingCreateSpaceDialog: LandingCreateSpaceDialog as unknown as ComponentType<Record<string, unknown>>,
   LandingCardHoverChrome: LandingCardHoverChromePreview,
+  LandingDualChrome: LandingDualChromePreview,
   FormContainerPreview,
   ForgeTray: ForgeTray as unknown as ComponentType<Record<string, unknown>>,
   ImageLightbox: ImageLightbox as unknown as ComponentType<Record<string, unknown>>,
