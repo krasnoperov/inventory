@@ -31,6 +31,7 @@ import { VariantCanvas } from './components/VariantCanvas';
 import { VariantDetailsPanel } from './components/VariantCanvas/VariantDetailsPanel';
 import { BillingPlanActions, UsageBar } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
+import { WorkspaceChrome } from './components/WorkspaceChrome';
 import { AuthContext, type AuthContextType } from './contexts/AuthContextProvider';
 import { Button, Checkbox, IconButton, TextArea, TextInput, UiSelect, type SelectOption } from './ui';
 import type { MeterStatus } from './hooks/useBillingStatus';
@@ -411,6 +412,17 @@ function AppHeaderPreview() {
   );
 }
 
+function WorkspaceChromePreview() {
+  return (
+    <WorkspaceChrome
+      leftSlot={<strong>Space / Crystal Gate</strong>}
+      centerSlot={<span>Assets</span>}
+      statusSlot={<span style={{ color: 'var(--color-success)', fontSize: 'var(--font-size-small)' }}>Synced</span>}
+      rightSlot={<Button variant="secondary" size="sm">Profile</Button>}
+    />
+  );
+}
+
 function AssetDetailsStripPreview(props: Record<string, unknown>) {
   return (
     <div style={{ maxWidth: '520px' }}>
@@ -779,6 +791,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   VariantCanvas: VariantCanvas as unknown as ComponentType<Record<string, unknown>>,
   VariantDetailsPanel: VariantDetailsPanel as unknown as ComponentType<Record<string, unknown>>,
   VoicePicker: VoicePicker as unknown as ComponentType<Record<string, unknown>>,
+  WorkspaceChromePreview,
 };
 
 function revive(value: unknown): unknown {
