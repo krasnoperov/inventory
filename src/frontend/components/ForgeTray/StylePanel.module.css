@@ -146,8 +146,9 @@
 .defaultBadge {
   align-self: start;
   padding: 0.125rem 0.4rem;
+  border: 1px solid var(--color-primary);
   border-radius: 999px;
-  background: var(--surface-glass);
+  background: var(--color-surface-elevated);
   color: var(--color-primary);
   font-size: 0.6875rem;
   font-weight: 700;
