@@ -190,12 +190,22 @@
 
 .starIndicator {
   position: absolute;
-  top: 6px;
-  left: 6px;
-  font-size: 0.875rem;
+  top: 0;
+  right: -24px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: calc(1px / var(--rf-zoom, 1)) solid var(--color-star-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
   color: var(--color-star);
-  transform: scale(calc(1 / var(--rf-zoom, 1)));
-  transform-origin: top left;
+  pointer-events: none;
+}
+
+.starIndicatorIcon {
+  display: block;
+  fill: currentColor;
 }
 
 /* Label - positioned below node, counter-scaled */
@@ -222,11 +232,6 @@
   font-weight: 500;
   color: var(--color-text-muted);
   font-family: monospace;
-}
-
-.starBadge {
-  font-size: 10px;
-  color: var(--color-star);
 }
 
 /* Ghost node - cross-asset parent variant */

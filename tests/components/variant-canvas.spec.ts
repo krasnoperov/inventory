@@ -240,8 +240,29 @@ test('variant canvas starred chrome stays flat', async ({ page }) => {
     onVariantClick: '__record__:variant-click',
   });
 
-  await expect(page.getByText('★')).toBeVisible();
+  await expect(page.getByText('★')).toHaveCount(0);
+  await expect(page.getByTitle('Starred variant')).toBeVisible();
   const preview = page.locator('[class*="thumbnail"]').first();
+  await expect(preview.locator('[class*="starIndicator"]')).toHaveCount(0);
+  await page.locator('[class*="canvas"]').first().evaluate((element) => {
+    (element as HTMLElement).style.setProperty('--rf-zoom', '0.3');
+  });
+  const starredChrome = page.getByTitle('Starred variant');
+  const boxes = await page.evaluate(() => {
+    const previewElement = document.querySelector('[class*="thumbnail"]');
+    const chromeElement = document.querySelector('[class*="starIndicator"]');
+    const previewBox = previewElement?.getBoundingClientRect();
+    const chromeBox = chromeElement?.getBoundingClientRect();
+    return previewBox && chromeBox
+      ? { previewRight: previewBox.right, chromeLeft: chromeBox.left }
+      : null;
+  });
+  expect(boxes).not.toBeNull();
+  expect(boxes!.chromeLeft).toBeGreaterThanOrEqual(boxes!.previewRight);
+  await expect(starredChrome).toHaveCSS('transform', 'none');
+  await page.locator('[class*="canvas"]').first().evaluate((element) => {
+    (element as HTMLElement).style.setProperty('--rf-zoom', '1');
+  });
   await expect(preview).toHaveCSS(
     'box-shadow',
     await resolvedShadow(page, '-3px 0 0 var(--color-success), 0 0 0 2px var(--color-star-border)'),

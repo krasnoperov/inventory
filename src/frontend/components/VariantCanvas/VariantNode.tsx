@@ -45,6 +45,14 @@ export interface VariantNodeData extends Record<string, unknown> {
 
 export type VariantNodeType = Node<VariantNodeData, 'variant'>;
 
+function StarStatusIcon() {
+  return (
+    <svg className={styles.starIndicatorIcon} viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+      <path d="M12 3.2l2.55 5.17 5.7.83-4.13 4.02.98 5.68L12 16.22 6.9 18.9l.98-5.68L3.75 9.2l5.7-.83L12 3.2z" />
+    </svg>
+  );
+}
+
 function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
   const {
     variant,
@@ -149,12 +157,6 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
       }}
     >
       {renderThumbnail()}
-
-      {/* Indicators - only for completed variants */}
-      {isVariantReady(variant) && variant.starred ? (
-        <span className={styles.starIndicator}>★</span>
-      ) : null}
-
     </div>
   );
 
@@ -190,6 +192,12 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
       ) : (
         thumbnail
       )}
+
+      {isVariantReady(variant) && variant.starred ? (
+        <span className={styles.starIndicator} title="Starred variant" aria-label="Starred variant">
+          <StarStatusIcon />
+        </span>
+      ) : null}
 
       {/* Label - only for ghost nodes (shows source/target asset name) */}
       {isGhost && (
