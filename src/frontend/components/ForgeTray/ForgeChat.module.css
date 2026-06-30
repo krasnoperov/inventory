@@ -166,8 +166,8 @@
 .suggestedPrompt {
   margin-top: 0.5rem;
   padding: 0.75rem;
-  background: oklch(55% 0.18 276 / 0.08);
-  border: 1px solid oklch(55% 0.18 276 / 0.2);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-primary);
   border-radius: var(--radius-md);
 }
 
@@ -345,7 +345,7 @@
 }
 
 .descriptionsSummary:hover {
-  background: oklch(0% 0 0 / 0.03);
+  background: var(--color-surface-elevated);
 }
 
 .descriptionsSummary::marker,
