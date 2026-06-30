@@ -657,9 +657,14 @@ test('forge chat actions send messages and apply suggested prompts', async ({ pa
     await resolvedColor(page, 'var(--button-primary-text)'),
   );
   await expect(page.locator('[class*="suggestedPrompt"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  const descriptionsSummary = page.locator('[class*="descriptionsSummary"]');
+  await expect(descriptionsSummary).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await page.getByText('Image analysis (1)').hover();
-  await expect(page.locator('[class*="descriptionsSummary"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(descriptionsSummary).toHaveCSS('background-color', await resolvedColor(page, 'var(--button-ghost-bg-hover)'));
   await screenshot(page, 'forge-tray-chat-token-surfaces', { fullPage: true });
+  await descriptionsSummary.click();
+  await expect(page.getByText('A blue crystal gate with a clean silhouette.')).toBeVisible();
+  await screenshot(page, 'forge-tray-chat-analysis-expanded', { fullPage: true });
 
   await page.getByPlaceholder('Type a message...').fill('Make it moodier');
   await page.getByRole('button', { name: 'Send message' }).click();
