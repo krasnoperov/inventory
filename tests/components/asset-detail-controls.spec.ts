@@ -122,6 +122,7 @@ test('asset detail title rename uses shared inline field', async ({ page }) => {
 
   await expect(page.getByRole('button', { name: 'Rename Hero Character' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Hero Character' })).toBeVisible();
+  await screenshot(page, 'asset-title-rename-trigger', { fullPage: true });
 
   await mountComponent(page, 'AssetTitleInlineEditor', {
     assetName: 'Hero Character',

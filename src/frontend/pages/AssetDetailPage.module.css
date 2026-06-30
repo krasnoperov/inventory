@@ -144,24 +144,23 @@
   margin: 0;
 }
 
-.title {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font-family: inherit;
-  font-size: 0.875rem;
+.title.title {
+  --ui-button-height: auto;
+  --ui-button-pad-x: 0;
+  --ui-button-font-size: 0.875rem;
+  --ctl-hover: transparent;
+
   font-weight: 600;
   color: var(--color-text);
+  justify-content: flex-start;
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  cursor: pointer;
-  transition: color 0.15s ease;
   text-align: left;
 }
 
-.title:hover {
+.title.title:hover:not(:disabled) {
   color: var(--color-primary);
 }
 

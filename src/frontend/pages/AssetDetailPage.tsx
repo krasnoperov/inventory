@@ -195,15 +195,16 @@ export function AssetTitleInlineEditor({
 
   return (
     <h1 className={styles.titleHeading}>
-      <button
-        type="button"
+      <Button
         className={styles.title}
         onClick={onStartEditName}
         title="Click to rename"
         aria-label={`Rename ${assetName}`}
+        variant="ghost"
+        size="sm"
       >
         {assetName}
-      </button>
+      </Button>
     </h1>
   );
 }
