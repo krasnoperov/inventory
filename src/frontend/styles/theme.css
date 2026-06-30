@@ -195,6 +195,7 @@
   /* ---- Scale: focus and selection rings ---- */
   --focus-ring: 0 0 0 3px light-dark(oklch(55% 0.18 276 / 0.25), oklch(65% 0.16 276 / 0.3));
   --selection-ring: inset 0 0 0 2px var(--color-surface), inset 0 0 0 4px var(--color-primary);
+  --relation-ring: inset 0 0 0 2px var(--color-surface), inset 0 0 0 4px var(--color-primary);
 
   /* ---- Component: landing / marketing surfaces ---- */
   /* Page background: ambient brand + amber glows over the app base. */

@@ -18,11 +18,22 @@
 }
 
 .audioCard {
+  position: relative;
   width: 256px;
   overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
+}
+
+.thumbnail::after,
+.audioCard::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: none;
+  transition: box-shadow 0.12s ease;
 }
 
 .node:hover .thumbnail,
@@ -222,12 +233,12 @@
 
 /* Ghost node - cross-asset parent variant */
 .node.ghost {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  outline: none;
 }
 
-.node.ghost:hover {
-  outline-color: var(--color-primary);
+.node.ghost .thumbnail::after,
+.node.ghost .audioCard::after {
+  box-shadow: var(--relation-ring);
 }
 
 .ghostLabel {
