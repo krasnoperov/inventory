@@ -6,10 +6,11 @@ Visual design language and component patterns for the Make Effects application.
 
 ## Design Philosophy
 
-**Modern glass morphism aesthetic** with blue-purple brand gradient, supporting light and dark themes.
+**Minimal production workspace aesthetic** with solid app surfaces, restrained
+depth, and blue-purple brand accents, supporting light and dark themes.
 
 **Key Characteristics:**
-- Glass morphism effects on elevated surfaces (blur, transparency)
+- Solid surfaces for work areas, dialogs, cards, and tray chrome
 - Blue-purple brand gradient (hue 276-308)
 - Rounded corners with consistent radius scale
 - Subtle shadows and depth
@@ -27,7 +28,7 @@ All colors use **OKLCH** color space for perceptually uniform transitions. Autom
 | **Surface** | Page background, cards, elevated surfaces |
 | **Text** | Primary, muted, on-brand variants |
 | **Semantic** | Error (red), success (green), warning (yellow) |
-| **Glass** | Transparent overlays with varying opacity |
+| **Accent** | Primary actions, focus states, subtle status emphasis |
 
 ---
 
@@ -52,7 +53,7 @@ All colors use **OKLCH** color space for perceptually uniform transitions. Autom
 |----------|--------|
 | **Layout** | Header height, panel padding, section gaps |
 | **Thumbnails** | lg (150px), sm (75px), xs (48px) |
-| **Border Radius** | 6px (small), 8px (buttons), 12px (cards), 20px (glass) |
+| **Border Radius** | 6px (small), 8px (buttons), 12px (cards) |
 
 ---
 
@@ -63,9 +64,9 @@ All colors use **OKLCH** color space for perceptually uniform transitions. Autom
 | **Primary Button** | Gradient background, shadow, hover lift |
 | **Ghost Button** | Transparent with subtle border |
 | **Cards** | Surface background, border, hover elevation |
-| **Glass Containers** | Backdrop blur, transparent background |
+| **Panels** | Solid surface, clear border, restrained shadow |
 | **Inputs** | Border focus ring, primary color highlight |
-| **Modals** | Blurred overlay, centered content |
+| **Modals** | Solid panel, transparent backdrop, centered content |
 | **Badges** | Pill shape, semantic colors |
 
 ---
@@ -88,12 +89,13 @@ All colors use **OKLCH** color space for perceptually uniform transitions. Autom
 - Use CSS variables for all colors, spacing, shadows
 - Use `light-dark()` for automatic theme support
 - Use CSS Modules for component styles
-- Apply glass morphism selectively on branded surfaces
+- Use solid app surfaces for new UI
 
 **Don't:**
 - Hardcode hex colors
 - Mix arbitrary border radius values
 - Skip transitions on interactive elements
+- Put blur, dimming, or translucent washes over generated media
 
 ---
 

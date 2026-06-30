@@ -48,11 +48,7 @@
   --text-on-brand-muted: light-dark(oklch(92.5% 0.008 264 / 0.85), oklch(78% 0.008 264 / 0.85));
   --text-on-brand-subtle: light-dark(oklch(100% 0 0 / 0.75), oklch(72% 0 0 / 0.75));
 
-  /* ---- Semantic: glass surfaces & borders ---- */
-  --surface-glass: light-dark(oklch(100% 0 0 / 0.12), oklch(100% 0 0 / 0.08));
-  --surface-glass-strong: light-dark(oklch(100% 0 0 / 0.18), oklch(100% 0 0 / 0.12));
-  --surface-glass-intense: light-dark(oklch(100% 0 0 / 0.24), oklch(100% 0 0 / 0.18));
-  --surface-glass-background: light-dark(oklch(100% 0 0 / 0.12), oklch(100% 0 0 / 0.08));
+  /* ---- Semantic: code surfaces & translucent borders ---- */
   --surface-code-bg: light-dark(oklch(9.5% 0.022 264 / 0.32), oklch(20% 0.015 264 / 0.7));
   --border-glass: light-dark(oklch(100% 0 0 / 0.2), oklch(100% 0 0 / 0.15));
   --border-glass-strong: light-dark(oklch(100% 0 0 / 0.35), oklch(100% 0 0 / 0.25));
@@ -134,8 +130,7 @@
   --color-status-failed: var(--color-error);
   --color-status-failed-bg: light-dark(oklch(55% 0.2 25 / 0.1), oklch(70% 0.18 25 / 0.1));
 
-  /* ---- Component: forge tray (glossy glass) ---- */
-  --forge-bar-bg: linear-gradient(180deg, light-dark(oklch(100% 0 0 / 0.25), oklch(100% 0 0 / 0.12)) 0%, light-dark(oklch(100% 0 0 / 0.15), oklch(100% 0 0 / 0.06)) 100%);
+  /* ---- Component: forge tray ---- */
   --forge-bar-border: light-dark(oklch(100% 0 0 / 0.4), oklch(100% 0 0 / 0.2));
   --forge-bar-border-inner: light-dark(oklch(100% 0 0 / 0.15), oklch(100% 0 0 / 0.08));
   --forge-bar-shadow: 0 -8px 32px light-dark(oklch(0% 0 0 / 0.12), oklch(0% 0 0 / 0.35)), 0 -2px 8px light-dark(oklch(0% 0 0 / 0.06), oklch(0% 0 0 / 0.2)), inset 0 1px 0 light-dark(oklch(100% 0 0 / 0.5), oklch(100% 0 0 / 0.15));
