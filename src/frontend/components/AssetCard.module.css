@@ -215,9 +215,9 @@
 
 .audioMetaLabel {
   color: var(--color-text-muted);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-weight: 650;
+  text-transform: none;
+  letter-spacing: 0;
   flex-shrink: 0;
 }
 
