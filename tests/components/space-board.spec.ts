@@ -413,7 +413,7 @@ test('collection menus use shared form controls', async ({ page }) => {
   await page.getByRole('button', { name: 'Create' }).click();
   await page.getByText('New collection').click();
 
-  await page.getByText('Manage').first().click();
+  await page.locator('[class*="collectionMenu"] summary').first().click();
   await page.getByRole('textbox', { name: 'Collection name' }).first().fill('Cast updated');
   await selectDropdown(page, 'Collection kind', 'Scenes');
   await page
@@ -424,7 +424,7 @@ test('collection menus use shared form controls', async ({ page }) => {
   await selectDropdown(page, 'Asset to add to Cast', 'Forest background');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await screenshot(page, 'space-board-collection-manage-menu', { fullPage: true });
-  await page.getByText('Manage').first().click();
+  await page.locator('[class*="collectionMenu"] summary').first().click();
 
   await page.getByTitle('Actions for Hero sprite').click();
   await page.getByLabel('Role for Hero sprite').fill('lead');
