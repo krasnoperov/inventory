@@ -16,6 +16,7 @@ import {
   type NodeProps,
 } from '@xyflow/react';
 import { Thumbnail } from '../Thumbnail';
+import { Button } from '../../ui';
 import type {
   Asset,
   CollectionItem,
@@ -123,10 +124,12 @@ function FrameNodeView({ data }: NodeProps<FrameNode>) {
                 data-asset-id={card.asset.id}
                 style={{ '--card-aspect': card.aspect } as CSSProperties}
               >
-                <button
+                <Button
                   className={boardStyles.thumbnailButton}
                   onClick={() => data.onAssetClick(card.asset)}
                   title={card.asset.name}
+                  variant="ghost"
+                  size="sm"
                 >
                   <Thumbnail
                     variant={card.variant}
@@ -134,11 +137,11 @@ function FrameNodeView({ data }: NodeProps<FrameNode>) {
                     spaceId={data.spaceId}
                     className={boardStyles.thumbnail}
                   />
-                </button>
+                </Button>
                 <div className={boardStyles.caption}>
-                  <button className={boardStyles.assetName} onClick={() => data.onAssetClick(card.asset)}>
+                  <Button className={boardStyles.assetName} onClick={() => data.onAssetClick(card.asset)} variant="ghost" size="sm">
                     {card.asset.name}
-                  </button>
+                  </Button>
                   <div className={boardStyles.assetMeta}>
                     <span>{card.asset.type}</span>
                   </div>

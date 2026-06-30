@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { mountComponent } from './harness';
+import { mountComponent, screenshot } from './harness';
 
 const t = 1_700_000_000_000;
 
@@ -146,6 +146,38 @@ test('space canvas renders collection frames without overlap', async ({ page }) 
   for (let i = 0; i < 6; i++) await zoomOut.click();
   await expect(page.locator('[data-asset-id="a0"] svg').first()).toBeVisible();
   await expect(page.getByTestId('greek-card')).toHaveCount(0);
+});
+
+test('space canvas frame card triggers open assets without changing media chrome', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await mountComponent(page, 'SpaceCanvas', {
+    spaceId: 'space-1',
+    assets, variants, collections, collectionItems,
+    lineage: [],
+    isInitialSyncPending: false,
+    onAssetClick: '__record__:assetClick',
+  });
+
+  const thumbnailTrigger = page.locator('button[class*="thumbnailButton"][title="Hero"]').first();
+  const nameTrigger = page.locator('button[class*="assetName"]').filter({ hasText: 'Hero' }).first();
+
+  await expect(thumbnailTrigger).toBeVisible();
+  await expect(thumbnailTrigger).toHaveCSS('padding', '0px');
+  await expect(thumbnailTrigger).toHaveCSS('border-top-width', '0px');
+
+  await thumbnailTrigger.hover();
+  await expect(nameTrigger).toBeVisible();
+  await expect(nameTrigger).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await screenshot(page, 'space-canvas-frame-card-triggers', { fullPage: true });
+
+  await thumbnailTrigger.click();
+  await thumbnailTrigger.hover();
+  await nameTrigger.click();
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls.map((call) => call.eventName)).toEqual(['assetClick', 'assetClick']);
+  expect((calls[0].args[0] as { id: string }).id).toBe('a0');
+  expect((calls[1].args[0] as { id: string }).id).toBe('a0');
 });
 
 test('re-measures edge endpoints when cards reorder within a frame', async ({ page }) => {
