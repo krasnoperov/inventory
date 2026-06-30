@@ -462,7 +462,7 @@ function SpaceCanvasInner({
           pannable
           zoomable
           nodeColor={(node) => (node.data as FrameData).color}
-          maskColor="rgba(0, 0, 0, 0.5)"
+          maskColor="var(--canvas-minimap-mask)"
         />
       </ReactFlow>
     </div>

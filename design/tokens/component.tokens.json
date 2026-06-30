@@ -1541,6 +1541,27 @@
     }
   },
   "canvas": {
+    "minimapMask": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.2,
+          0.015,
+          264
+        ],
+        "alpha": 0.12
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--canvas-minimap-mask",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.lightDark": [
+          "oklch(20% 0.015 264 / 0.12)",
+          "oklch(0% 0 0 / 0.35)"
+        ],
+        "com.inventory.cssValue": "light-dark(oklch(20% 0.015 264 / 0.12), oklch(0% 0 0 / 0.35))"
+      }
+    },
     "threadLineage": {
       "$value": {
         "colorSpace": "oklch",

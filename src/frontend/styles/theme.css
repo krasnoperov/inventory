@@ -262,6 +262,7 @@
   --landing-seam-bg: light-dark(oklch(96% 0.004 264), oklch(13% 0.012 264));
 
   /* ---- Component: relations canvas (asset graph) ---- */
+  --canvas-minimap-mask: light-dark(oklch(20% 0.015 264 / 0.12), oklch(0% 0 0 / 0.35));
   /* Edge "threads" carry meaning by hue: lineage = brand provenance purple
      (matches the landing lineage metaphor), authored relations = warm "human
      note" amber, compositions = green assembly. */
