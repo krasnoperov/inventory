@@ -18,7 +18,7 @@
   background: var(--color-surface);
   color: var(--color-text);
   border-bottom: 1px solid var(--color-border);
-  box-shadow: var(--shadow-header);
+  box-shadow: none;
 }
 
 .side {
