@@ -401,6 +401,16 @@ function CanvasToolbarControlsPreview(props: Record<string, unknown>) {
   );
 }
 
+function AppHeaderPreview() {
+  return (
+    <AppHeader
+      leftSlot={<strong>MakeFX</strong>}
+      centerSlot={<span>Crystal Gate</span>}
+      rightSlot={<Button variant="secondary" size="sm">Profile</Button>}
+    />
+  );
+}
+
 function AssetDetailsStripPreview(props: Record<string, unknown>) {
   return (
     <div style={{ maxWidth: '520px' }}>
@@ -716,6 +726,7 @@ function DocsPagePreview(props: Record<string, unknown>) {
 
 const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AppHeader: AppHeader as ComponentType<Record<string, unknown>>,
+  AppHeaderPreview,
   AdminSpendView: AdminSpendView as unknown as ComponentType<Record<string, unknown>>,
   AudioPlayer: AudioPlayer as unknown as ComponentType<Record<string, unknown>>,
   AssetCanvas: AssetCanvas as unknown as ComponentType<Record<string, unknown>>,
