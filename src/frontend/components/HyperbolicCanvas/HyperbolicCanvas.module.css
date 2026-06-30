@@ -67,7 +67,8 @@
 }
 
 .markerGenerating {
-  animation: pulse 1.4s ease-in-out infinite;
+  height: 5px;
+  opacity: 0.9;
 }
 
 .thumb {
@@ -83,12 +84,6 @@
 
 .thumb.generating {
   border-color: var(--color-accent);
-  animation: pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 0 var(--color-status-processing-bg); }
-  50% { box-shadow: 0 0 0 6px transparent; }
 }
 
 .media {

@@ -811,6 +811,12 @@ function revive(value: unknown): unknown {
     };
   }
 
+  if (value instanceof Map) {
+    return new Map(
+      [...value.entries()].map(([key, entry]) => [key, revive(entry)]),
+    );
+  }
+
   if (Array.isArray(value)) {
     return value.map(revive);
   }

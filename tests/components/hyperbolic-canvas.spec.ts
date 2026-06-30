@@ -100,3 +100,38 @@ test('hyperbolic canvas uses tokenized node surfaces', async ({ page }) => {
 
   await screenshot(page, 'hyperbolic-canvas-token-surfaces', { fullPage: true });
 });
+
+test('hyperbolic canvas generating chrome stays static', async ({ page }) => {
+  await mockMedia(page);
+  const assets = [
+    asset('hero', 'Hero Character'),
+    asset('atlas', 'Atlas Sheet', 'sprite-sheet'),
+    asset('map', 'Map Source', 'reference'),
+    asset('scene', 'Scene Bar', 'scene'),
+  ];
+
+  const props = {
+    spaceId: 'space-1',
+    assets,
+    variants: assets.map((entry) => variant(entry.id)),
+    onAssetClick: '__record__:asset-click',
+  };
+  await mountComponent(page, 'HyperbolicCanvas', props);
+  await sizeHarness(page);
+  await page.evaluate((p) => {
+    (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps({
+      ...p,
+      jobs: new Map([['job-hero', { assetId: 'hero', status: 'processing' }]]),
+    });
+  }, props);
+
+  const generatingThumb = page.locator('[class*="thumb"][class*="generating"]').first();
+  await expect(generatingThumb).toBeVisible();
+  await expect(generatingThumb).toHaveCSS('animation-name', 'none');
+  await expect(generatingThumb).toHaveCSS(
+    'box-shadow',
+    await resolvedBoxShadow(page, 'var(--shadow-header)'),
+  );
+
+  await screenshot(page, 'hyperbolic-canvas-flat-generating-chrome', { fullPage: true });
+});
