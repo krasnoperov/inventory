@@ -161,7 +161,7 @@
   padding: 0.9rem 1.1rem 1.15rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: var(--surface-glass);
+  background: var(--color-surface);
 }
 
 .collection:has(.cardMenu[open]),
@@ -169,25 +169,8 @@
   z-index: 3;
 }
 
-/* Soft collection-colored wash so each group reads as one unit without a
-   heavy filled container painting over the cards. */
-.collection::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  background: linear-gradient(180deg, var(--collection-color) 0%, transparent 60%);
-  opacity: 0.09;
-  pointer-events: none;
-}
-
 .unfiled {
   --collection-color: var(--color-text-muted);
-}
-
-.unfiled::before {
-  opacity: 0.04;
 }
 
 .collectionHeader {
@@ -344,7 +327,7 @@
 .thumbnailButton.thumbnailButton {
   --ui-button-height: auto;
   --ui-button-pad-x: 0;
-  --ctl-hover: var(--surface-glass);
+  --ctl-hover: var(--color-surface-elevated);
 
   display: block;
   width: 100%;
@@ -353,7 +336,7 @@
   border: 0;
   border-radius: var(--radius-sm);
   overflow: hidden;
-  background: var(--surface-glass);
+  background: var(--color-surface);
   cursor: pointer;
   transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
@@ -364,7 +347,7 @@
 }
 
 .thumbnailButton:hover:not(:disabled) {
-  background: var(--surface-glass);
+  background: var(--color-surface-elevated);
   box-shadow: var(--shadow-elevated);
   transform: translateY(-1px);
 }

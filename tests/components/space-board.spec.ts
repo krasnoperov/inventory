@@ -229,6 +229,11 @@ test('media triggers open image assets without changing thumbnail chrome', async
 
   const imageThumbnailTrigger = page.locator('button[class*="thumbnailButton"][title="Hero sprite"]');
   await expect(imageThumbnailTrigger).toBeVisible();
+  await expect(page.locator('section[class*="collection"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect.poll(() => page.locator('section[class*="collection"]').first().evaluate(
+    (element) => getComputedStyle(element, '::before').backgroundImage,
+  )).toBe('none');
+  await expect(imageThumbnailTrigger).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(imageThumbnailTrigger).toHaveCSS('padding', '0px');
   await expect(imageThumbnailTrigger).toHaveCSS('border-top-width', '0px');
 
@@ -301,6 +306,7 @@ test('audio collection cards surface playback and compact metadata', async ({ pa
   });
 
   await expect(page.getByRole('button', { name: 'Play' })).toHaveCount(2);
+  await expect(page.locator('section[class*="collection"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(page.getByRole('button', { name: 'Merchant greeting' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Legacy ambience' })).toBeVisible();
   await expect(page.locator('[title="Rachel"]')).toBeVisible();
