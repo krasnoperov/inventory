@@ -224,6 +224,7 @@ test('asset collection membership is compact until management is requested', asy
   await expect(page.getByText('Style refs')).toBeVisible();
   await expect(page.getByText('Selected variant')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Manage collections' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Manage collections' })).not.toContainText('Manage');
   await expect(page.getByLabel('Role in Cast')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(0);
   await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
