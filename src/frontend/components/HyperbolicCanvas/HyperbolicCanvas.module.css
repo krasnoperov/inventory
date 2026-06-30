@@ -57,7 +57,7 @@
   cursor: pointer;
   transform-origin: center center;
   will-change: transform, left, top;
-  box-shadow: 0 0 5px rgba(110, 168, 254, 0.5);
+  box-shadow: 0 0 0 2px var(--color-status-processing-bg);
   transition: opacity 0.12s ease, height 0.12s ease;
 }
 
@@ -78,7 +78,7 @@
   overflow: hidden;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-header);
 }
 
 .thumb.generating {
@@ -87,8 +87,8 @@
 }
 
 @keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(110, 168, 254, 0.4); }
-  50% { box-shadow: 0 0 0 6px rgba(110, 168, 254, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 var(--color-status-processing-bg); }
+  50% { box-shadow: 0 0 0 6px transparent; }
 }
 
 .media {
@@ -126,7 +126,7 @@
   transform: translateX(-50%);
   font-size: 12px;
   color: var(--color-text-muted);
-  background: var(--color-surface, rgba(22, 26, 34, 0.8));
+  background: var(--color-surface);
   padding: 4px 12px;
   border-radius: 999px;
   border: 1px solid var(--color-border);

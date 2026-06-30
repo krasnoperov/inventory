@@ -47,13 +47,6 @@
       "white",
       "white"
     ],
-    "src/frontend/components/HyperbolicCanvas/HyperbolicCanvas.module.css": [
-      "rgba(0,0,0,0.4)",
-      "rgba(110,168,254,0)",
-      "rgba(110,168,254,0.4)",
-      "rgba(110,168,254,0.5)",
-      "rgba(22,26,34,0.8)"
-    ],
     "src/frontend/components/LineageTree.module.css": [
       "white",
       "white",
