@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react';
 import { Link } from '../components/Link';
 import styles from './Button.module.css';
@@ -36,7 +37,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children?: ReactNode;
 }
 
-export function Button({
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({
   variant = 'secondary',
   size = 'md',
   iconOnly = false,
@@ -44,17 +45,18 @@ export function Button({
   type = 'button',
   children,
   ...props
-}: ButtonProps) {
+}: ButtonProps, ref) {
   return (
     <button
       {...props}
+      ref={ref}
       type={type}
       className={buttonClassName({ variant, size, iconOnly, className })}
     >
       {children}
     </button>
   );
-}
+});
 
 export interface IconButtonProps extends Omit<ButtonProps, 'iconOnly'> {
   'aria-label': string;

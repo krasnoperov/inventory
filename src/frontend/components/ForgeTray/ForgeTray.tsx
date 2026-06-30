@@ -1170,11 +1170,12 @@ export function ForgeTray({
                   aria-label="Destination"
                   onKeyDown={handleDestinationKeyDown}
                 >
-                  <button
+                  <Button
                     ref={currentDestinationRef}
-                    type="button"
                     role="radio"
                     aria-checked={destinationType === 'existing_asset'}
+                    variant={destinationType === 'existing_asset' ? 'primary' : 'ghost'}
+                    size="sm"
                     className={`${styles.miniSegText} ${destinationType === 'existing_asset' ? styles.active : ''}`}
                     onClick={() => setDestinationType('existing_asset')}
                     disabled={isSubmitting || !canUseExistingDestination}
@@ -1182,12 +1183,13 @@ export function ForgeTray({
                     title={!canUseExistingDestination ? `${mediaModeConfig.label} mode creates ${selectedMediaKind} assets` : 'Add to current asset'}
                   >
                     Current
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     ref={newDestinationRef}
-                    type="button"
                     role="radio"
                     aria-checked={destinationType === 'new_asset'}
+                    variant={destinationType === 'new_asset' ? 'primary' : 'ghost'}
+                    size="sm"
                     className={`${styles.miniSegText} ${destinationType === 'new_asset' ? styles.active : ''}`}
                     onClick={() => setDestinationType('new_asset')}
                     disabled={isSubmitting}
@@ -1195,7 +1197,7 @@ export function ForgeTray({
                     title="Create new asset"
                   >
                     New
-                  </button>
+                  </Button>
                 </div>
               </div>
               <div className={styles.hairline} />
