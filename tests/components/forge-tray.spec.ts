@@ -678,7 +678,7 @@ test('forge chat actions send messages and apply suggested prompts', async ({ pa
         variantId: 'variant-1',
         assetName: 'Crystal gate',
         description: 'A blue crystal gate with a clean silhouette.',
-        cached: false,
+        cached: true,
       }],
       suggestedPrompt,
     }],
@@ -696,6 +696,8 @@ test('forge chat actions send messages and apply suggested prompts', async ({ pa
     await resolvedColor(page, 'var(--button-primary-text)'),
   );
   await expect(page.locator('[class*="suggestedPrompt"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(page.getByText('Suggested Prompt', { exact: true })).toHaveCSS('text-transform', 'none');
+  await expect(page.getByText('Suggested Prompt', { exact: true })).toHaveCSS('letter-spacing', 'normal');
   const descriptionsPanel = page.locator('[class*="descriptionsDetails"]');
   const descriptionsSummary = page.getByRole('button', { name: 'Image analysis (1)' });
   await expect(descriptionsPanel.locator('summary')).toHaveCount(0);
@@ -706,6 +708,11 @@ test('forge chat actions send messages and apply suggested prompts', async ({ pa
   await screenshot(page, 'forge-tray-chat-token-surfaces', { fullPage: true });
   await descriptionsSummary.click();
   await expect(descriptionsSummary).toHaveAttribute('aria-expanded', 'true');
+  const descriptionName = page.locator('[class*="descriptionName"]').filter({ hasText: 'Crystal gate' });
+  await expect(descriptionName).toHaveCSS('text-transform', 'none');
+  await expect(descriptionName).toHaveCSS('letter-spacing', 'normal');
+  await expect(page.getByText('cached', { exact: true })).toHaveCSS('text-transform', 'none');
+  await expect(page.getByText('cached', { exact: true })).toHaveCSS('letter-spacing', 'normal');
   await expect(page.getByText('A blue crystal gate with a clean silhouette.')).toBeVisible();
   await screenshot(page, 'forge-tray-chat-analysis-expanded', { fullPage: true });
 
