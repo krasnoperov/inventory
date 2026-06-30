@@ -30,7 +30,7 @@
 /* Emphasis lives on the frame, never on the media (media invariant). */
 .specimen.focused {
   border-color: var(--spine);
-  box-shadow: 0 0 0 1px var(--spine), 0 0 24px -2px var(--spine), var(--shadow-elevated);
+  box-shadow: 0 0 0 1px var(--spine);
 }
 
 /* De-emphasis mutes only the card chrome + ledger; the plate stays untouched. */
@@ -181,7 +181,10 @@
   background: var(--color-surface);
   box-shadow: var(--shadow-header);
 }
-.assembler.focused { box-shadow: 0 0 0 1px var(--canvas-thread-composition), 0 0 24px -4px var(--canvas-thread-composition); }
+.assembler.focused {
+  border-style: solid;
+  box-shadow: 0 0 0 1px var(--canvas-thread-composition);
+}
 .assembler.dimmed { opacity: 0.45; }
 
 .assemblerGlyph { font-size: 1.05rem; color: var(--canvas-thread-composition); }

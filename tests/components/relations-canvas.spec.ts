@@ -12,6 +12,10 @@ async function mockImages(page: Page) {
   }));
 }
 
+async function boxShadow(page: Page, selector: string) {
+  return page.locator(selector).first().evaluate((node) => getComputedStyle(node).boxShadow);
+}
+
 test('relations canvas dock uses shared controls for graph options', async ({ page }) => {
   await mockImages(page);
   await page.setViewportSize({ width: 980, height: 760 });
@@ -45,4 +49,20 @@ test('relations canvas dock uses shared controls for graph options', async ({ pa
   await expect(page.getByRole('button', { name: 'Flow' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Type' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Relation/ })).toBeVisible();
+});
+
+test('relations canvas focused chrome stays flat', async ({ page }) => {
+  await mockImages(page);
+  await page.setViewportSize({ width: 980, height: 760 });
+  await mountComponent(page, 'RelationsCanvas', {
+    onAssetClick: '__record__:assetClick',
+  });
+
+  const specimen = page.locator('[class*="specimen"]').first();
+  await expect(specimen).toBeVisible();
+  await specimen.click({ position: { x: 12, y: 12 } });
+  await expect(page.getByText('Lineage of')).toBeVisible();
+
+  await expect.poll(() => boxShadow(page, '[class*="specimen"][class*="focused"]')).not.toContain('24px');
+  await screenshot(page, 'relations-canvas-flat-focused-chrome', { fullPage: true });
 });
