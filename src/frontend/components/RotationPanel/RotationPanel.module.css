@@ -216,8 +216,8 @@
 }
 
 .directionCell.completed {
-  border-color: oklch(60% 0.16 145);
-  background: oklch(60% 0.16 145 / 0.08);
+  border-color: var(--color-status-completed);
+  background: var(--color-status-completed-bg);
 }
 
 .selectableDirection {
@@ -316,7 +316,7 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: oklch(from var(--color-error) l c h / 0.12);
+  background: var(--color-status-failed-bg);
   color: var(--color-error);
   display: flex;
   align-items: center;
