@@ -2,9 +2,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(circle at 12% 6%, oklch(0.78 0.12 230 / 0.16), transparent 22rem),
-    linear-gradient(180deg, var(--color-bg) 0%, oklch(97% 0.01 255) 100%);
+  background: var(--color-bg);
 }
 
 .brand {
@@ -38,12 +36,12 @@
 .main {
   width: min(1180px, calc(100% - 2rem));
   margin: 0 auto;
-  padding: 3rem 0 5rem;
+  padding: 2rem 0 4rem;
 }
 
 .hero {
   max-width: 760px;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .eyebrow {
@@ -58,10 +56,10 @@
 .title {
   margin: 0 0 0.75rem;
   color: var(--color-text);
-  font-size: clamp(2.25rem, 5vw, 4.4rem);
-  line-height: 0.95;
-  font-weight: 900;
-  letter-spacing: -0.06em;
+  font-size: var(--font-size-display);
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .subtitle {
@@ -84,7 +82,7 @@
   padding: 1rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: oklch(100% 0 0 / 0.78);
+  background: var(--color-surface);
 }
 
 .sidebarTitle {
@@ -120,10 +118,7 @@
 
 .article {
   padding: clamp(1.25rem, 3vw, 2.25rem);
-  border: 1px solid var(--color-border);
-  border-radius: 1.4rem;
-  background: oklch(100% 0 0 / 0.84);
-  box-shadow: 0 20px 60px oklch(30% 0.05 260 / 0.08);
+  background: transparent;
 }
 
 .docDescription {
@@ -196,8 +191,8 @@
   padding: 1rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: oklch(18% 0.035 260);
-  color: oklch(94% 0.02 245);
+  background: var(--color-surface);
+  color: var(--color-text);
   overflow-x: auto;
 }
 
@@ -239,7 +234,6 @@
   }
 
   .article {
-    border-radius: 1rem;
+    padding-inline: 0;
   }
 }
-
