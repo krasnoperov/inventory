@@ -58,11 +58,11 @@
 }
 
 .option.selected {
-  background: oklch(55% 0.18 276 / 0.1);
+  background: var(--color-status-processing-bg);
 }
 
 .option.selected:hover {
-  background: oklch(55% 0.18 276 / 0.15);
+  background: var(--color-status-processing-bg);
 }
 
 .thumbnail {

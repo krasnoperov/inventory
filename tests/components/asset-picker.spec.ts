@@ -63,6 +63,17 @@ async function mockMedia(page: import('@playwright/test').Page) {
   );
 }
 
+async function resolvedBackground(page: import('@playwright/test').Page, value: string) {
+  return page.evaluate((backgroundValue) => {
+    const probe = document.createElement('div');
+    probe.style.background = backgroundValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
 test('asset picker uses shared search field and filters selectable assets', async ({ page }) => {
   await page.setViewportSize({ width: 420, height: 360 });
   await mockMedia(page);
@@ -78,7 +89,19 @@ test('asset picker uses shared search field and filters selectable assets', asyn
   });
 
   await expect(page.getByLabel('Search assets')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Forest Gate/ })).toBeVisible();
+  const selectedOption = page.getByRole('button', { name: /Forest Gate/ });
+  await expect(selectedOption).toBeVisible();
+  await expect(selectedOption).toHaveCSS(
+    'background-color',
+    await resolvedBackground(page, 'var(--color-status-processing-bg)'),
+  );
+  await selectedOption.hover();
+  await expect(selectedOption).toHaveCSS(
+    'background-color',
+    await resolvedBackground(page, 'var(--color-status-processing-bg)'),
+  );
+  await screenshot(page, 'asset-picker-selected-token-surface', { fullPage: true });
+
   await page.getByLabel('Search assets').fill('char');
   await expect(page.getByRole('button', { name: /Hero Character/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Forest Gate/ })).toHaveCount(0);
