@@ -25,7 +25,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  box-shadow: 0 8px 32px oklch(0% 0 0 / 0.2), 0 2px 8px oklch(0% 0 0 / 0.1);
+  box-shadow: var(--shadow-modal);
   overflow: hidden;
   animation: slideUp 0.2s ease-out;
 }
