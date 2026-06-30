@@ -545,12 +545,6 @@ function AssetDetailOverlayChromePreview() {
           </span>
         </div>
       </section>
-      <section className={assetDetailStyles.chatPanel} role="region" aria-label="Legacy chat panel">
-        <div style={{ padding: '1rem', borderBottom: '1px solid var(--color-border)' }}>
-          <strong>Chat</strong>
-        </div>
-        <div style={{ padding: '1rem', color: 'var(--color-text-muted)' }}>Legacy floating panel chrome</div>
-      </section>
     </div>
   );
 }
@@ -898,14 +892,6 @@ function SpacePageOverlayChromePreview() {
   return (
     <div className={spacePageStyles.page}>
       <div className={spacePageStyles.canvasContainer}>
-        <aside className={spacePageStyles.chatPanel} aria-label="Chat panel preview">
-          <div style={{ padding: '1rem', borderBottom: '1px solid var(--color-border)' }}>
-            <strong>Prompt notes</strong>
-          </div>
-          <div style={{ padding: '1rem', color: 'var(--color-text-muted)' }}>
-            Keep this chat surface aligned with the flat Space chrome.
-          </div>
-        </aside>
         <div className={spacePageStyles.jobsOverlay}>
           <div className={`${spacePageStyles.jobCard} ${spacePageStyles.processing}`}>
             <div className={spacePageStyles.jobStatus}>↻</div>
