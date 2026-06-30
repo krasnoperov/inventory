@@ -35,9 +35,10 @@ test('asset context menu actions use shared button styling', async ({ page }) =>
   });
 
   await expect(page.locator('[class*="menu"]').first()).toHaveCSS('box-shadow', 'none');
-  await expect(page.getByRole('button', { name: 'Rename' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Create Relation' })).toBeVisible();
-  const deleteAction = page.getByRole('button', { name: 'Delete Asset' });
+  await expect(page.getByRole('menu', { name: 'Crystal Gate actions' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Rename' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Create relation' })).toBeVisible();
+  const deleteAction = page.getByRole('menuitem', { name: 'Delete asset' });
   await expect(deleteAction).toBeVisible();
   await deleteAction.hover();
   await expect(deleteAction).toHaveCSS('transform', 'none');
@@ -47,7 +48,7 @@ test('asset context menu actions use shared button styling', async ({ page }) =>
   );
   await screenshot(page, 'asset-menu-shared-buttons', { fullPage: true });
 
-  await page.getByRole('button', { name: 'Rename' }).click();
+  await page.getByRole('menuitem', { name: 'Rename' }).click();
   await expect
     .poll(() => page.evaluate(() => window.__componentHarnessCalls ?? []))
     .toEqual(['rename', 'close']);
