@@ -382,6 +382,8 @@ test('forge tray image model selection enforces reference budget', async ({ page
 
   const addAnotherReference = page.getByTitle('Add another reference');
   await addAnotherReference.hover();
+  await expect(addAnotherReference).toHaveCSS('transform', 'none');
+  await expect(addAnotherReference).toHaveCSS('transition-property', 'background-color, border-color, color, opacity');
   await expect(addAnotherReference).toHaveCSS(
     'background-color',
     await resolvedBackground(page, 'var(--color-status-processing-bg)'),
@@ -515,11 +517,10 @@ test('forge tray video picker enforces the three-reference budget', async ({ pag
   await expect(page.getByTitle('Add reference')).toHaveCount(0);
   await expect(page.locator('[class*="slotItem"] [class*="slotBadge"]')).toHaveText(['Ref', 'Ref', 'Ref']);
   await expect(page.locator('[class*="slotThumb"] [class*="slotBadge"]')).toHaveCount(0);
-  await expect(page.locator('[class*="slotThumb"]').first()).toHaveCSS(
-    'transition-property',
-    'transform',
-  );
-  await page.locator('[class*="slotThumb"]').first().hover();
+  const firstSlotThumb = page.locator('[class*="slotThumb"]').first();
+  await expect(firstSlotThumb).toHaveCSS('transform', 'none');
+  await firstSlotThumb.hover();
+  await expect(firstSlotThumb).toHaveCSS('transform', 'none');
   await expect(page.getByRole('button', { name: /Remove Image Ref One/i })).toHaveCSS('box-shadow', 'none');
   await screenshot(page, 'forge-tray-video-references', { fullPage: true });
 });
@@ -881,13 +882,19 @@ test('forge tray with references renders the reference strip', async ({ page }) 
   await expect(page.getByRole('button', { name: 'Add reference' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add another reference' })).toBeVisible();
   await expect(page.locator('img[draggable="false"]')).toHaveCount(0);
-  await expect(page.locator('[class*="slotItem"][title="Hero Image"]')).toBeVisible();
-  await page.getByRole('button', { name: 'Remove Hero Image' }).hover();
+  const slotItem = page.locator('[class*="slotItem"][title="Hero Image"]');
+  await expect(slotItem).toBeVisible();
+  const slotThumb = slotItem.locator('[class*="slotThumb"]');
+  const removeButton = page.getByRole('button', { name: 'Remove Hero Image' });
+  await removeButton.hover();
+  await expect(slotThumb).toHaveCSS('transform', 'none');
+  await expect(removeButton).toHaveCSS('transform', 'none');
+  await expect(removeButton).toHaveCSS('transition-property', 'background-color, border-color, color, opacity');
   await expect(page.locator('[class*="slotTooltip"]')).toHaveCount(0);
   await screenshot(page, 'forge-tray-references', { fullPage: true });
 
-  await page.getByRole('button', { name: 'Remove Hero Image' }).click();
-  await expect(page.getByRole('button', { name: 'Remove Hero Image' })).toHaveCount(0);
+  await removeButton.click();
+  await expect(removeButton).toHaveCount(0);
 });
 
 test('forge tray on asset detail shows compact Current/New destination control', async ({ page }) => {
