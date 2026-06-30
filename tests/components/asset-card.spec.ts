@@ -162,6 +162,7 @@ test('asset card add action uses shared icon button outside media', async ({ pag
 
   const addToTray = page.getByRole('button', { name: 'Add to Forge Tray' });
   await expect(addToTray).toBeVisible();
+  await expect(addToTray).toHaveCSS('box-shadow', 'none');
   const thumbnailButton = page.getByRole('button', {
     name: 'Open Crystal Gate With An Extremely Long Decorative Production Name',
   });
