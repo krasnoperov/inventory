@@ -2,6 +2,36 @@ import { useLimitedUsage, formatMeterName } from '../../hooks/useLimitedUsage';
 import { Link } from '../Link';
 import styles from './UsageIndicator.module.css';
 
+export type UsageIndicatorStatus = 'ok' | 'warning' | 'exceeded';
+
+export interface UsageIndicatorViewProps {
+  status: UsageIndicatorStatus;
+  percentage: number;
+  meterLabel: string;
+  shortLabel: string;
+}
+
+export function UsageIndicatorView({
+  status,
+  percentage,
+  meterLabel,
+  shortLabel,
+}: UsageIndicatorViewProps) {
+  return (
+    <Link to="/profile" className={`${styles.indicator} ${styles[status]}`} title={`${percentage}% of ${meterLabel} used this month`}>
+      <div className={styles.bar}>
+        <div
+          className={styles.fill}
+          style={{ width: `${Math.min(100, percentage)}%` }}
+        />
+      </div>
+      <span className={styles.label}>
+        {percentage}% {shortLabel}
+      </span>
+    </Link>
+  );
+}
+
 /**
  * Compact usage indicator for the header.
  * Shows the most constrained resource (highest % used).
@@ -38,16 +68,11 @@ export function UsageIndicator() {
     .replace('Image Generations', 'Images');
 
   return (
-    <Link to="/profile" className={`${styles.indicator} ${styles[status]}`} title={`${percentage}% of ${meterLabel} used this month`}>
-      <div className={styles.bar}>
-        <div
-          className={styles.fill}
-          style={{ width: `${Math.min(100, percentage)}%` }}
-        />
-      </div>
-      <span className={styles.label}>
-        {percentage}% {shortLabel}
-      </span>
-    </Link>
+    <UsageIndicatorView
+      status={status}
+      percentage={percentage}
+      meterLabel={meterLabel}
+      shortLabel={shortLabel}
+    />
   );
 }

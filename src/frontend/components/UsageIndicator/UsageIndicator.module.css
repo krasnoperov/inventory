@@ -56,49 +56,31 @@
 
 /* State: Warning (90-99%) - amber highlight */
 .warning {
-  background: light-dark(
-    oklch(95% 0.05 85),
-    oklch(25% 0.04 85)
-  );
-  color: light-dark(
-    oklch(45% 0.12 70),
-    oklch(80% 0.12 85)
-  );
+  background: var(--status-warning-bg);
+  color: var(--landing-live-text);
 }
 
 .warning:hover {
-  background: light-dark(
-    oklch(92% 0.06 85),
-    oklch(28% 0.05 85)
-  );
+  background: var(--status-warning-bg);
 }
 
 .warning .fill {
-  background: light-dark(
-    oklch(75% 0.15 85),
-    oklch(70% 0.14 85)
-  );
+  background: var(--color-star);
 }
 
 /* State: Exceeded (100%+) - red with subtle pulse */
 .exceeded {
-  background: light-dark(
-    oklch(95% 0.04 25),
-    oklch(25% 0.04 25)
-  );
-  color: var(--color-error);
+  background: var(--color-status-failed-bg);
+  color: var(--color-status-failed);
   animation: pulse 2s ease-in-out infinite;
 }
 
 .exceeded:hover {
-  background: light-dark(
-    oklch(92% 0.05 25),
-    oklch(28% 0.05 25)
-  );
+  background: var(--color-status-failed-bg);
 }
 
 .exceeded .fill {
-  background: var(--color-error);
+  background: var(--color-status-failed);
 }
 
 /* Subtle pulse animation for exceeded state */
