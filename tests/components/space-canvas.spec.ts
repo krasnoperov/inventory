@@ -165,6 +165,7 @@ test('space canvas frame card triggers open assets without changing media chrome
   await expect(thumbnailTrigger).toBeVisible();
   await expect(thumbnailTrigger).toHaveCSS('padding', '0px');
   await expect(thumbnailTrigger).toHaveCSS('border-top-width', '0px');
+  await expect(page.locator('[class*="frame"]').first()).toHaveCSS('box-shadow', 'none');
   await expect(page.locator('[class*="colorDot"]').first()).toHaveCSS('box-shadow', 'none');
 
   await thumbnailTrigger.hover();
