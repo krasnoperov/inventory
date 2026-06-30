@@ -12,6 +12,8 @@ test('dashboard create-space dialog uses shared name field', async ({ page }) =>
   });
 
   await expect(page.getByRole('heading', { name: 'Create New Space' })).toBeVisible();
+  await expect(page.locator('[class*="modalOverlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('[class*="modalOverlay"]')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.getByLabel('Space Name *')).toBeFocused();
   await page.getByLabel('Space Name *').fill('Gameplay board');
   await screenshot(page, 'dashboard-create-space-shared-field', { fullPage: true });
