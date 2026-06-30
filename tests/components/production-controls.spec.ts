@@ -78,6 +78,7 @@ test('production controls use shared select and buttons', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'Edit Placement' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Media Handoff' })).toBeVisible();
+  await expect(page.locator('[class*="panel"]').first()).toHaveCSS('box-shadow', 'none');
   await expect(page.getByRole('button', { name: 'New' })).toBeVisible();
   await selectDropdown(page, 'Variant', 'Signal bell (Audio)');
   await page.getByRole('button', { name: 'Update Placement' }).click();
