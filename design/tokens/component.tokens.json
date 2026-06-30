@@ -460,6 +460,24 @@
       }
     }
   },
+  "thumbVideo": {
+    "backdrop": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0,
+          0,
+          0
+        ]
+      },
+      "$type": "color",
+      "$extensions": {
+        "com.inventory.cssVar": "--thumb-video-backdrop",
+        "com.inventory.sourceFile": "theme.css",
+        "com.inventory.cssValue": "oklch(0% 0 0)"
+      }
+    }
+  },
   "landing": {
     "glowBrand": {
       "$value": {

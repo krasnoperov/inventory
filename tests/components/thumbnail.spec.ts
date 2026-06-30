@@ -70,7 +70,7 @@ test('thumbnail failed retry action uses shared button styling', async ({ page }
     .toContain('retry');
 });
 
-test('thumbnail video preview uses semantic contrast text', async ({ page }) => {
+test('thumbnail video preview uses tokenized backdrop and semantic contrast text', async ({ page }) => {
   await page.setViewportSize({ width: 240, height: 220 });
   await mountComponent(page, 'Thumbnail', {
     size: 'md',
@@ -111,6 +111,10 @@ test('thumbnail video preview uses semantic contrast text', async ({ page }) => 
 
   const label = page.getByText('Video');
   await expect(label).toBeVisible();
+  await expect(label.locator('xpath=ancestor::div[contains(@class, "videoPreview")]')).toHaveCSS(
+    'background-color',
+    await resolvedColor(page, 'var(--thumb-video-backdrop)'),
+  );
   await expect(label).toHaveCSS(
     'color',
     await resolvedColor(page, 'var(--button-primary-text)'),
