@@ -10,6 +10,10 @@ test('space page overlay chrome stays flat', async ({ page }) => {
   await expect(firstJobCard).toHaveCSS('box-shadow', 'none');
   await expect(firstJobCard).toHaveCSS('transform', 'none');
   await expect(firstJobCard).not.toHaveCSS('animation-name', /slideIn/);
+  await expect(page.getByLabel('Generating job')).toBeVisible();
+  await expect(page.getByLabel('Done job')).toBeVisible();
+  await expect(firstJobCard).not.toContainText('↻');
+  await expect(page.locator('[class*="jobCard"]').nth(1)).not.toContainText('✓');
 
   await screenshot(page, 'space-page-flat-overlay-chrome', { fullPage: true });
 });

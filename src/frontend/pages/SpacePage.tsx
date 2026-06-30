@@ -57,6 +57,13 @@ import styles from './SpacePage.module.css';
 
 const sharingActionKey = (prefix: string, id: string) => `${prefix}:${id}`;
 
+const JOB_STATUS_LABELS = {
+  pending: 'Queued',
+  processing: 'Generating',
+  completed: 'Done',
+  failed: 'Failed',
+} as const;
+
 export default function SpacePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -782,12 +789,7 @@ export default function SpacePage() {
             {Array.from(jobs.values()).map((job) => {
               return (
                 <div key={job.jobId} className={`${styles.jobCard} ${styles[job.status]}`}>
-                  <div className={styles.jobStatus}>
-                    {job.status === 'pending' && '⏳'}
-                    {job.status === 'processing' && '🔄'}
-                    {job.status === 'completed' && '✓'}
-                    {job.status === 'failed' && '✗'}
-                  </div>
+                  <span className={styles.jobStatus} aria-label={`${JOB_STATUS_LABELS[job.status]} job`} />
                   <div className={styles.jobInfo}>
                     {job.assetName && (
                       <span className={styles.jobAssetName}>{job.assetName}</span>
