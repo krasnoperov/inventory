@@ -408,6 +408,7 @@ test('collection menus use shared form controls', async ({ page }) => {
   await page.getByText('New collection').click();
   await expect(page.locator('[class*="createControls"] summary')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="createControls"] summary')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(page.locator('[class*="createPanel"]')).toHaveCSS('box-shadow', 'none');
   await page.getByPlaceholder('Collection name').fill('Props');
   await selectDropdown(page, 'New collection kind', 'Style References');
   await page.getByLabel('New collection color').fill('#123456');
@@ -415,6 +416,7 @@ test('collection menus use shared form controls', async ({ page }) => {
   await page.getByText('New collection').click();
 
   await page.locator('[class*="collectionMenu"] summary').first().click();
+  await expect(page.locator('[class*="collectionMenuPanel"]').first()).toHaveCSS('box-shadow', 'none');
   await page.getByRole('textbox', { name: 'Collection name' }).first().fill('Cast updated');
   await selectDropdown(page, 'Collection kind', 'Scenes');
   await page
@@ -428,6 +430,7 @@ test('collection menus use shared form controls', async ({ page }) => {
   await page.locator('[class*="collectionMenu"] summary').first().click();
 
   await page.getByTitle('Actions for Hero sprite').click();
+  await expect(page.locator('[class*="cardMenuPanel"]').first()).toHaveCSS('box-shadow', 'none');
   await page.getByLabel('Role for Hero sprite').fill('lead');
   await selectDropdown(page, 'Collection target for Hero sprite', 'Backgrounds');
   await selectDropdown(page, 'Pinned variant for Hero sprite', 'Variant 2 star');
