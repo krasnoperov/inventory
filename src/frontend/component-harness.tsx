@@ -39,6 +39,7 @@ import type { MeterStatus } from './hooks/useBillingStatus';
 import { AdminSpendView } from './pages/AdminSpendPage';
 import { AuthorizationDecisionActions } from './pages/AuthorizationApprovalPage';
 import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsStrip, AssetGenerationDock, AssetTitleInlineEditor, AssetTypeSelect } from './pages/AssetDetailPage';
+import assetDetailStyles from './pages/AssetDetailPage.module.css';
 import { CreateSpaceDialog } from './pages/DashboardPage';
 import DocsPage from './pages/DocsPage';
 import { LandingCreateSpaceDialog } from './pages/LandingPage';
@@ -520,6 +521,34 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
   );
 }
 
+function AssetDetailOverlayChromePreview() {
+  return (
+    <div style={{ position: 'relative', width: '720px', height: '420px', padding: '1rem', background: 'var(--color-bg)' }}>
+      <section className={assetDetailStyles.tileGridOverlay} role="region" aria-label="Tile grid overlay">
+        <div style={{ padding: '0.75rem', display: 'grid', gap: '0.35rem' }}>
+          <strong>Tile grid</strong>
+          <span>4x4 production preview</span>
+        </div>
+      </section>
+      <section className={assetDetailStyles.jobsOverlay} role="region" aria-label="Generation jobs">
+        <div className={`${assetDetailStyles.jobCard} ${assetDetailStyles.processing}`}>
+          <span className={assetDetailStyles.jobStatus}>...</span>
+          <span className={assetDetailStyles.jobInfo}>
+            <span className={assetDetailStyles.jobTitle}>Creating variant...</span>
+            <span className={assetDetailStyles.jobPrompt}>"clean asset detail chrome"</span>
+          </span>
+        </div>
+      </section>
+      <section className={assetDetailStyles.chatPanel} role="region" aria-label="Legacy chat panel">
+        <div style={{ padding: '1rem', borderBottom: '1px solid var(--color-border)' }}>
+          <strong>Chat</strong>
+        </div>
+        <div style={{ padding: '1rem', color: 'var(--color-text-muted)' }}>Legacy floating panel chrome</div>
+      </section>
+    </div>
+  );
+}
+
 function RelationsCanvasPreview(props: Record<string, unknown>) {
   return (
     <div style={{ position: 'relative', width: '900px', height: '640px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
@@ -764,6 +793,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AssetDetailControls: AssetDetailControlsHarness,
   AssetTitleInlineEditor: AssetTitleInlineEditorPreview,
   AssetGenerationDock: AssetGenerationDockPreview,
+  AssetDetailOverlayChrome: AssetDetailOverlayChromePreview,
   AssetDetailsContext: AssetDetailsContextPreview,
   AssetDetailsStrip: AssetDetailsStripPreview,
   CollectionPlacementPicker: CollectionPlacementPicker as unknown as ComponentType<Record<string, unknown>>,
