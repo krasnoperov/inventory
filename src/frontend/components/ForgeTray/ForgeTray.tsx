@@ -1384,26 +1384,28 @@ export function ForgeTray({
                 }
 
                 return (
-                  <div key={slot.id} className={styles.slotThumb} title={slot.asset.name}>
-                    <Thumbnail
-                      variant={slot.variant}
-                      size="fill"
-                      spaceId={spaceId}
-                      className={styles.slotPreview}
-                    />
+                  <div key={slot.id} className={styles.slotItem} title={slot.asset.name}>
+                    <div className={styles.slotThumb}>
+                      <Thumbnail
+                        variant={slot.variant}
+                        size="fill"
+                        spaceId={spaceId}
+                        className={styles.slotPreview}
+                      />
+                      <IconButton
+                        className={styles.removeButton}
+                        onClick={(e) => handleRemoveSlot(e, slot.id)}
+                        title={`Remove ${slot.asset.name}`}
+                        aria-label={`Remove ${slot.asset.name}`}
+                        variant="ghost"
+                        size="sm"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="8" height="8">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </IconButton>
+                    </div>
                     {slotBadge && <span className={styles.slotBadge}>{slotBadge}</span>}
-                    <IconButton
-                      className={styles.removeButton}
-                      onClick={(e) => handleRemoveSlot(e, slot.id)}
-                      title={`Remove ${slot.asset.name}`}
-                      aria-label={`Remove ${slot.asset.name}`}
-                      variant="ghost"
-                      size="sm"
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="8" height="8">
-                        <path d="M18 6L6 18M6 6l12 12" />
-                      </svg>
-                    </IconButton>
                   </div>
                 );
               })}
