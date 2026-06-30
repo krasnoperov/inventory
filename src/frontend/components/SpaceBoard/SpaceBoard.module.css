@@ -293,6 +293,19 @@
   display: none;
 }
 
+.previewTile.previewTile {
+  --ui-button-height: auto;
+  --ui-button-pad-x: 0;
+  --ctl-hover: transparent;
+
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: transparent;
+}
+
 /* Justified rows: cards flex-grow in proportion to their aspect ratio, so a
    row shares one height and fills the full width with each asset at its true
    proportions (no square crop). --row-h is the target row height. */
@@ -330,7 +343,11 @@
   pointer-events: none;
 }
 
-.thumbnailButton {
+.thumbnailButton.thumbnailButton {
+  --ui-button-height: auto;
+  --ui-button-pad-x: 0;
+  --ctl-hover: var(--surface-glass);
+
   display: block;
   width: 100%;
   aspect-ratio: var(--card-aspect, 1);
@@ -348,7 +365,8 @@
   cursor: default;
 }
 
-.thumbnailButton:hover {
+.thumbnailButton:hover:not(:disabled) {
+  background: var(--surface-glass);
   box-shadow: var(--shadow-elevated);
   transform: translateY(-1px);
 }

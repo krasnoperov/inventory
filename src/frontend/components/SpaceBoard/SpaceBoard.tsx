@@ -268,9 +268,9 @@ export function SpaceBoard({
             {thumbnail}
           </div>
         ) : (
-          <button className={styles.thumbnailButton} onClick={() => onAssetClick(asset)} title={asset.name}>
+          <Button className={styles.thumbnailButton} onClick={() => onAssetClick(asset)} title={asset.name} variant="ghost" size="sm">
             {thumbnail}
-          </button>
+          </Button>
         )}
         {!isAudioCard && (
           <div className={styles.caption}>
@@ -537,14 +537,14 @@ export function SpaceBoard({
               const asset = getItemAsset(item, assets, variants);
               if (!asset) return null;
               return (
-                <button key={item.id} className={styles.previewTile} onClick={() => onAssetClick(asset)} title={asset.name}>
+                <Button key={item.id} className={styles.previewTile} onClick={() => onAssetClick(asset)} title={asset.name} variant="ghost" size="sm">
                   <Thumbnail
                     variant={getDisplayVariant(item, asset, variants)}
                     size="fill"
                     spaceId={spaceId}
                     className={styles.thumbnail}
                   />
-                </button>
+                </Button>
               );
             })}
           </div>
