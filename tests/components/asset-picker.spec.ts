@@ -96,6 +96,10 @@ test('asset picker uses shared search field and filters selectable assets', asyn
     await resolvedBackground(page, 'var(--color-status-processing-bg)'),
   );
   await selectedOption.hover();
+  await expect(selectedOption).toHaveCSS('transform', 'none');
+  const selectedThumbnail = selectedOption.locator('img').locator('xpath=..');
+  await expect(selectedThumbnail).toHaveCSS('transform', 'none');
+  await expect(selectedThumbnail).toHaveCSS('transition-property', 'border-color');
   await expect(selectedOption).toHaveCSS(
     'background-color',
     await resolvedBackground(page, 'var(--color-status-processing-bg)'),
