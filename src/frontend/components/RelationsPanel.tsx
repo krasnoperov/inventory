@@ -327,12 +327,14 @@ export function RelationEditorDialog({
   onUpdate,
 }: RelationEditorDialogProps) {
   const existingContext = parseRelationContext(relation?.context ?? null);
+  const hasExistingContext = Boolean(existingContext.label || existingContext.context || existingContext.notes);
   const [relationType, setRelationType] = useState<SpaceRelationType>(relation?.relation_type ?? 'reference_for');
   const [targetSubject, setTargetSubject] = useState<SpaceSubject | null>(relation ? relationObject(relation) : null);
   const [query, setQuery] = useState('');
   const [label, setLabel] = useState(existingContext.label ?? '');
   const [context, setContext] = useState(existingContext.context ?? '');
   const [notes, setNotes] = useState(existingContext.notes ?? '');
+  const [detailsOpen, setDetailsOpen] = useState(mode === 'edit' || hasExistingContext);
 
   const sourceLabel = getSubjectLabel(sourceSubject, assets, variants);
   const canSubmit = mode === 'edit' || targetSubject !== null;
@@ -472,34 +474,51 @@ export function RelationEditorDialog({
           </div>
         )}
 
-        <label className={styles.field}>
-          <span>Label</span>
-          <TextInput
-            value={label}
-            onChange={(event) => setLabel(event.target.value)}
-            placeholder="UI thumbnail"
-            fullWidth
-          />
-        </label>
-        <label className={styles.field}>
-          <span>Context</span>
-          <TextInput
-            value={context}
-            onChange={(event) => setContext(event.target.value)}
-            placeholder="inventory grid"
-            fullWidth
-          />
-        </label>
-        <label className={styles.field}>
-          <span>Notes</span>
-          <TextArea
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            rows={3}
-            compact
-            fullWidth
-          />
-        </label>
+        {mode === 'create' && (
+          <Button
+            className={styles.detailsToggle}
+            variant="ghost"
+            size="sm"
+            aria-expanded={detailsOpen}
+            aria-controls="relation-metadata-fields"
+            onClick={() => setDetailsOpen((current) => !current)}
+          >
+            <span>Details</span>
+          </Button>
+        )}
+
+        {detailsOpen && (
+          <div id="relation-metadata-fields" className={styles.detailsFields}>
+            <label className={styles.field}>
+              <span>Label</span>
+              <TextInput
+                value={label}
+                onChange={(event) => setLabel(event.target.value)}
+                placeholder="UI thumbnail"
+                fullWidth
+              />
+            </label>
+            <label className={styles.field}>
+              <span>Context</span>
+              <TextInput
+                value={context}
+                onChange={(event) => setContext(event.target.value)}
+                placeholder="inventory grid"
+                fullWidth
+              />
+            </label>
+            <label className={styles.field}>
+              <span>Notes</span>
+              <TextArea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                rows={3}
+                compact
+                fullWidth
+              />
+            </label>
+          </div>
+        )}
 
         <div className={styles.dialogActions}>
           <Button className={styles.dialogActionButton} onClick={onCancel} variant="secondary">Cancel</Button>

@@ -94,10 +94,17 @@ test('relation dialog creates a manual relation with searchable variant target',
   await expect(page.locator('[class*="dialogOverlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.locator('[class*="_dialog_"]').first()).toHaveCSS('box-shadow', 'none');
   await expect(page.locator('[class*="_dialog_"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(page.getByLabel('Label')).toHaveCount(0);
+  await expect(page.getByLabel('Context')).toHaveCount(0);
+  await expect(page.getByLabel('Notes')).toHaveCount(0);
   await selectDropdown(page, 'Type', 'Thumbnail for');
   await page.getByPlaceholder('Search assets and variants').fill('atlas-searchable');
   await expect(page.getByText('Atlas Sheet variant')).toBeVisible();
   await page.getByText('Atlas Sheet variant').click();
+  await expect(page.getByRole('button', { name: 'Mark as thumbnail for Atlas Sheet variant atlas-se' })).toBeVisible();
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'relation-dialog-create-compact', { fullPage: true });
+  await page.getByRole('button', { name: 'Details' }).click();
   await page.getByLabel('Label').fill('Inventory tile');
   await page.getByLabel('Context').fill('catalog grid');
   await page.getByLabel('Notes').fill('Use the trimmed 64px sprite.');
@@ -176,6 +183,9 @@ test('relation dialog edits type label context and notes without changing endpoi
     onUpdate: '__record__:update-relation',
   });
 
+  await expect(page.getByLabel('Label')).toBeVisible();
+  await expect(page.getByLabel('Context')).toBeVisible();
+  await expect(page.getByLabel('Notes')).toBeVisible();
   await selectDropdown(page, 'Type', 'Alternate of');
   await page.getByLabel('Label').fill('Palette swap');
   await page.getByLabel('Context').fill('shop preview');
