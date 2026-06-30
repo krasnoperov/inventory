@@ -88,9 +88,17 @@
 
 .star {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.12rem;
   font-size: var(--font-size-micro-sm);
   font-weight: 700;
   color: var(--color-star);
+}
+
+.starIcon {
+  display: block;
+  fill: currentColor;
 }
 
 .name.name {

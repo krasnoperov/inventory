@@ -40,6 +40,11 @@ test('relations canvas dock uses shared controls for graph options', async ({ pa
   const heroName = page.getByRole('button', { name: 'Hero Character' }).first();
   await expect(heroName).toBeVisible();
   await expect(heroName).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  const starredLedger = page.getByTitle('1 starred').first();
+  await expect(starredLedger).toBeVisible();
+  await expect(starredLedger).toHaveText('');
+  await expect(starredLedger.locator('svg')).toHaveCount(1);
+  await expect(page.getByText('★')).toHaveCount(0);
   await heroName.click();
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
   expect(calls).toHaveLength(1);

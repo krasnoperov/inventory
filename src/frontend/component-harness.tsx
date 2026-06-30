@@ -149,7 +149,7 @@ const stackAssets: Asset[] = [
 ];
 
 const stackVariants: Variant[] = [
-  stackVariant('hero', 'hero-variant'),
+  { ...stackVariant('hero', 'hero-variant'), starred: true },
   stackVariant('atlas', 'atlas-variant'),
   stackVariant('map', 'map-variant'),
   stackVariant('scene', 'scene-variant'),
