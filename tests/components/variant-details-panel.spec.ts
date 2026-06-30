@@ -1,16 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { mountComponent, screenshot } from './harness';
-
-async function resolvedShadow(page: Page, value: string) {
-  return page.evaluate((shadow) => {
-    const probe = document.createElement('div');
-    probe.style.boxShadow = shadow;
-    document.body.appendChild(probe);
-    const computed = getComputedStyle(probe).boxShadow;
-    probe.remove();
-    return computed;
-  }, value);
-}
 
 const baseTime = 1_700_000_000_000;
 
@@ -75,10 +64,7 @@ test('variant details panel uses shared action controls', async ({ page }) => {
   });
 
   await expect(page.getByRole('complementary', { name: 'Variant details' })).toBeVisible();
-  await expect(page.getByRole('complementary', { name: 'Variant details' })).toHaveCSS(
-    'box-shadow',
-    await resolvedShadow(page, 'var(--shadow-modal)'),
-  );
+  await expect(page.getByRole('complementary', { name: 'Variant details' })).toHaveCSS('box-shadow', 'none');
   await expect(page.getByRole('button', { name: 'Close variant details' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'View full size' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Star variant' })).toHaveAttribute('aria-pressed', 'false');

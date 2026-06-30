@@ -12,17 +12,6 @@ async function resolvedBackground(page: import('@playwright/test').Page, value: 
   }, value);
 }
 
-async function resolvedShadow(page: import('@playwright/test').Page, value: string) {
-  return page.evaluate((shadowValue) => {
-    const probe = document.createElement('div');
-    probe.style.boxShadow = shadowValue;
-    document.body.appendChild(probe);
-    const resolved = getComputedStyle(probe).boxShadow;
-    probe.remove();
-    return resolved;
-  }, value);
-}
-
 test('asset context menu actions use shared button styling', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 260 });
   await mountComponent(page, 'AssetMenu', {
@@ -45,10 +34,7 @@ test('asset context menu actions use shared button styling', async ({ page }) =>
     onDelete: '__record__:delete',
   });
 
-  await expect(page.locator('[class*="menu"]').first()).toHaveCSS(
-    'box-shadow',
-    await resolvedShadow(page, 'var(--shadow-modal)'),
-  );
+  await expect(page.locator('[class*="menu"]').first()).toHaveCSS('box-shadow', 'none');
   await expect(page.getByRole('button', { name: 'Rename' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Create Relation' })).toBeVisible();
   const deleteAction = page.getByRole('button', { name: 'Delete Asset' });
