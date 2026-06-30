@@ -302,7 +302,7 @@ test('asset details strip makes video facts and details disclosure visible', asy
   await expect(page.getByText('Video · Completed')).toBeVisible();
   await expect(page.getByText('1920x1080')).toBeVisible();
   await expect(page.getByText('8.0s')).toBeVisible();
-  await expect(page.getByText('Video details')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Show video details' })).toContainText('Details');
 
   await page.getByRole('button', { name: 'Show video details' }).click();
   await screenshot(page, 'asset-details-strip-video', { fullPage: true });
@@ -344,8 +344,8 @@ test('asset details strip also exposes image facts without a hidden click target
   await expect(page.getByText('Image · Completed')).toBeVisible();
   await expect(page.getByText('1024x1024')).toBeVisible();
   await expect(page.getByText('Duration')).toHaveCount(0);
-  await expect(page.getByText('Image details')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Hide image details' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Hide image details' })).toContainText('Details');
 });
 
 test('asset details strip names audio details explicitly', async ({ page }) => {
@@ -375,8 +375,8 @@ test('asset details strip names audio details explicitly', async ({ page }) => {
   await expect(page.getByText('Audio', { exact: true })).toBeVisible();
   await expect(page.getByText('Audio · Completed')).toBeVisible();
   await expect(page.getByText('42s')).toBeVisible();
-  await expect(page.getByText('Audio details')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Hide audio details' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Hide audio details' })).toContainText('Details');
 });
 
 test('asset details dock renders the real expanded stack above ForgeTray', async ({ page }) => {

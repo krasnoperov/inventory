@@ -509,7 +509,7 @@ export function AssetDetailsStrip({
   const duration = formatDuration(selectedVariant?.media_duration_ms);
   const collectionCount = assetCollectionCount + selectedVariantCollectionCount;
   const mediaKindLabel = formatMediaKind(asset.media_kind);
-  const detailsActionText = `${mediaKindLabel} details`;
+  const detailsActionText = 'Details';
   const detailsActionLabel = `${fullDetailsOpen ? 'Hide' : 'Show'} ${mediaKindLabel.toLowerCase()} details`;
 
   return (
