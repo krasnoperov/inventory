@@ -114,6 +114,7 @@ test('audio asset card surfaces playback, model, voice, and prompt', async ({ pa
   await expect(titleButton).toBeVisible();
   await expect(titleButton).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(titleButton.locator('[class*="audioDetails"]')).toHaveCount(0);
+  await expect(page.locator('button[class*="thumbnailButton"]')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
   await expect(page.getByText('Name')).toBeVisible();
   await expect(page.locator('[title="Rachel"]')).toBeVisible();
@@ -148,14 +149,21 @@ test('asset card add action uses shared icon button outside media', async ({ pag
   });
 
   await expect(page.getByRole('button', { name: 'Add to Forge Tray' })).toBeVisible();
+  const thumbnailButton = page.getByRole('button', {
+    name: 'Open Crystal Gate With An Extremely Long Decorative Production Name',
+  });
+  await expect(thumbnailButton).toBeVisible();
+  await expect(thumbnailButton).toHaveClass(/thumbnailButton/);
   const titleButton = page.locator('button[class*="titleButton"]');
   await expect(titleButton).toBeVisible();
   const nameLabel = titleButton.locator('[class*="name"]');
   await expect.poll(() => nameLabel.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true);
   await titleButton.click();
+  await thumbnailButton.click();
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
-  expect(calls.map((call) => call.eventName)).toEqual(['open']);
+  expect(calls.map((call) => call.eventName)).toEqual(['open', 'open']);
   expect((calls[0].args[0] as { id: string }).id).toBe('image-asset');
+  expect((calls[1].args[0] as { id: string }).id).toBe('image-asset');
 
   await page.locator('[class*="thumbnailArea"]').hover();
   await expect(page.getByRole('button', { name: 'View' })).toHaveCount(0);
