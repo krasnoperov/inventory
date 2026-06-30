@@ -26,6 +26,7 @@ import type {
   Variant,
 } from '../../space/protocol';
 import type { CompositionLike } from './relationsModel';
+import { Button } from '../../ui';
 import {
   buildRelationsGraph,
   isCompositionNodeId,
@@ -526,13 +527,31 @@ function RelationsCanvasInner({
               <span className={styles.threadCount}>{(traceSet?.size ?? 1)} asset{(traceSet?.size ?? 1) === 1 ? '' : 's'}</span>
             </div>
             <span className={styles.dockDivider} />
-            <button className={styles.clearFocus} onClick={() => setTraceId(null)}>Clear trace ✕</button>
+            <Button className={styles.dockButton} variant="secondary" size="sm" onClick={() => setTraceId(null)}>
+              Clear trace
+            </Button>
           </>
         ) : (
         <>
         <div className={styles.segment}>
-          <button className={storyMode ? styles.segOn : styles.segOff} onClick={() => setStoryMode(true)} title="Source → final pipeline, noise hidden">Story</button>
-          <button className={!storyMode ? styles.segOn : styles.segOff} onClick={() => setStoryMode(false)} title="Raw graph: every asset and layout control">Graph</button>
+          <Button
+            className={`${styles.dockButton} ${storyMode ? styles.dockButtonActive : ''}`}
+            variant={storyMode ? 'primary' : 'ghost'}
+            size="sm"
+            onClick={() => setStoryMode(true)}
+            title="Source → final pipeline, noise hidden"
+          >
+            Story
+          </Button>
+          <Button
+            className={`${styles.dockButton} ${!storyMode ? styles.dockButtonActive : ''}`}
+            variant={!storyMode ? 'primary' : 'ghost'}
+            size="sm"
+            onClick={() => setStoryMode(false)}
+            title="Raw graph: every asset and layout control"
+          >
+            Graph
+          </Button>
         </div>
         <span className={styles.dockDivider} />
 
@@ -551,8 +570,10 @@ function RelationsCanvasInner({
             {(graph.storyCounts.attempts > 0 || graph.storyCounts.orphans > 0) && (
               <>
                 <span className={styles.dockDivider} />
-                <button
-                  className={showAttempts ? styles.segOn : styles.segOff}
+                <Button
+                  className={`${styles.dockButton} ${showAttempts ? styles.dockButtonActive : ''}`}
+                  variant={showAttempts ? 'primary' : 'ghost'}
+                  size="sm"
                   onClick={() => setShowAttempts((v) => !v)}
                   title="Reveal dead-end attempts and unlinked assets"
                 >
@@ -561,7 +582,7 @@ function RelationsCanvasInner({
                     +{graph.storyCounts.attempts}
                     {graph.storyCounts.orphans > 0 ? ` · ${graph.storyCounts.orphans} unlinked` : ''}
                   </span>
-                </button>
+                </Button>
               </>
             )}
           </>
@@ -569,14 +590,38 @@ function RelationsCanvasInner({
           <>
             <div className={styles.segment}>
               <span className={styles.segLabel}>Layout</span>
-              <button className={layoutMode === 'force' ? styles.segOn : styles.segOff} onClick={() => setLayoutMode('force')} title="Organic clusters">Clusters</button>
-              <button className={layoutMode === 'layered' ? styles.segOn : styles.segOff} onClick={() => setLayoutMode('layered')} title="Top-down provenance flow">Flow</button>
+              <Button
+                className={`${styles.dockButton} ${layoutMode === 'force' ? styles.dockButtonActive : ''}`}
+                variant={layoutMode === 'force' ? 'primary' : 'ghost'}
+                size="sm"
+                onClick={() => setLayoutMode('force')}
+                title="Organic clusters"
+              >
+                Clusters
+              </Button>
+              <Button
+                className={`${styles.dockButton} ${layoutMode === 'layered' ? styles.dockButtonActive : ''}`}
+                variant={layoutMode === 'layered' ? 'primary' : 'ghost'}
+                size="sm"
+                onClick={() => setLayoutMode('layered')}
+                title="Top-down provenance flow"
+              >
+                Flow
+              </Button>
             </div>
             <span className={styles.dockDivider} />
             <div className={styles.segment}>
               <span className={styles.segLabel}>Group</span>
               {GROUPINGS.map((g) => (
-                <button key={g.id} className={grouping === g.id ? styles.segOn : styles.segOff} onClick={() => setGrouping(g.id)}>{g.label}</button>
+                <Button
+                  key={g.id}
+                  className={`${styles.dockButton} ${grouping === g.id ? styles.dockButtonActive : ''}`}
+                  variant={grouping === g.id ? 'primary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setGrouping(g.id)}
+                >
+                  {g.label}
+                </Button>
               ))}
             </div>
             <span className={styles.dockDivider} />
@@ -586,9 +631,11 @@ function RelationsCanvasInner({
                 const count = familyCounts[f];
                 const empty = count === 0;
                 return (
-                  <button
+                  <Button
                     key={f}
-                    className={`${styles.thread} ${families.has(f) && !empty ? styles.threadOn : styles.threadOff}`}
+                    className={`${styles.dockButton} ${styles.threadButton} ${families.has(f) && !empty ? '' : styles.threadOff}`}
+                    variant={families.has(f) && !empty ? 'secondary' : 'ghost'}
+                    size="sm"
                     onClick={() => !empty && toggleFamily(f)}
                     disabled={empty}
                     aria-disabled={empty}
@@ -597,7 +644,7 @@ function RelationsCanvasInner({
                     <span className={styles.threadSwatch} style={{ background: familyColors[f] }} />
                     {RELATION_FAMILY_LABELS[f]}
                     <span className={styles.threadCount}>{count}</span>
-                  </button>
+                  </Button>
                 );
               })}
             </div>
