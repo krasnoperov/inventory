@@ -311,7 +311,7 @@
   letter-spacing: 0.03em;
 }
 
-/* Collapsible Descriptions in Message */
+/* Analysis details in message */
 .descriptionsDetails {
   margin-top: 0.5rem;
   display: grid;
@@ -319,42 +319,19 @@
   gap: 0.375rem;
 }
 
-.descriptionsSummary {
-  min-height: 28px;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0 0.625rem;
-  border: 1px solid var(--ctl-line, var(--color-border));
-  border-radius: var(--radius-md);
-  background: var(--ctl-surface, var(--color-surface));
-  font-size: var(--font-size-micro);
-  font-weight: 600;
+.descriptionsSummary.descriptionsSummary {
+  --ui-button-height: 28px;
+  --ui-button-pad-x: 0.625rem;
+  --ui-button-font-size: var(--font-size-micro);
+
   color: var(--color-text-muted);
-  cursor: pointer;
-  user-select: none;
-  transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
 }
 
-.descriptionsSummary:hover {
-  background: var(--ctl-hover, var(--button-ghost-bg-hover));
+.descriptionsSummary:hover:not(:disabled) {
   color: var(--color-text);
 }
 
-.descriptionsSummary:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
-.descriptionsSummary::marker,
-.descriptionsSummary::-webkit-details-marker {
-  display: none;
-}
-
-.descriptionsDetails[open] .descriptionsSummary {
+.descriptionsOpen .descriptionsSummary {
   color: var(--color-text);
   border-color: var(--color-border);
 }
