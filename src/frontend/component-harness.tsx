@@ -29,9 +29,10 @@ import { TopLoadingBar } from './components/TopLoadingBar';
 import { UsageIndicatorView } from './components/UsageIndicator/UsageIndicator';
 import { VariantCanvas } from './components/VariantCanvas';
 import { VariantDetailsPanel } from './components/VariantCanvas/VariantDetailsPanel';
-import { BillingPlanActions } from './components/BillingSection';
+import { BillingPlanActions, UsageBar } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
 import { AuthContext, type AuthContextType } from './contexts/AuthContextProvider';
+import type { MeterStatus } from './hooks/useBillingStatus';
 import { AdminSpendView } from './pages/AdminSpendPage';
 import { AuthorizationDecisionActions } from './pages/AuthorizationApprovalPage';
 import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsStrip, AssetGenerationDock, AssetTitleInlineEditor, AssetTypeSelect } from './pages/AssetDetailPage';
@@ -583,6 +584,63 @@ function ProfileBillingActionsHarness(props: Record<string, unknown>) {
   );
 }
 
+const billingPreviewMeters: MeterStatus[] = [
+  {
+    name: 'gemini_images',
+    consumed: 320,
+    credited: 1000,
+    remaining: 680,
+    percentUsed: 32,
+    hasLimit: true,
+    status: 'ok',
+  },
+  {
+    name: 'gemini_videos',
+    consumed: 760,
+    credited: 1000,
+    remaining: 240,
+    percentUsed: 76,
+    hasLimit: true,
+    status: 'warning',
+  },
+  {
+    name: 'gemini_audio',
+    consumed: 930,
+    credited: 1000,
+    remaining: 70,
+    percentUsed: 93,
+    hasLimit: true,
+    status: 'critical',
+  },
+  {
+    name: 'elevenlabs_audio',
+    consumed: 1200,
+    credited: 1000,
+    remaining: -200,
+    percentUsed: 120,
+    hasLimit: true,
+    status: 'exceeded',
+  },
+];
+
+function BillingUsageMetersPreview() {
+  return (
+    <div
+      style={{
+        width: 'min(720px, calc(100vw - 32px))',
+        padding: '1.25rem',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius-xl)',
+        background: 'var(--color-surface)',
+      }}
+    >
+      {billingPreviewMeters.map((meter) => (
+        <UsageBar key={meter.status} meter={meter} />
+      ))}
+    </div>
+  );
+}
+
 function DocsPagePreview(props: Record<string, unknown>) {
   return (
     <AuthContext.Provider value={docsAuthValue}>
@@ -599,6 +657,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AssetCard: AssetCard as unknown as ComponentType<Record<string, unknown>>,
   AssetMenu: AssetMenu as unknown as ComponentType<Record<string, unknown>>,
   AssetPicker: AssetPicker as unknown as ComponentType<Record<string, unknown>>,
+  BillingUsageMeters: BillingUsageMetersPreview,
   CanvasToolbarControls: CanvasToolbarControlsPreview,
   AuthorizationDecisionActions: AuthorizationDecisionActions as unknown as ComponentType<Record<string, unknown>>,
   AssetDetailControls: AssetDetailControlsHarness,

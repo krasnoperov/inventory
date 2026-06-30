@@ -20,7 +20,7 @@ interface BillingPlanActionsProps {
   planDisplayName: string;
 }
 
-function UsageBar({ meter }: UsageBarProps) {
+export function UsageBar({ meter }: UsageBarProps) {
   const displayName = formatMeterName(meter.name);
   const percentage = Math.min(100, meter.percentUsed);
 
