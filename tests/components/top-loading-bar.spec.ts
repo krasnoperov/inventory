@@ -13,7 +13,7 @@ test('top loading bar uses tokenized progress chrome', async ({ page }) => {
     .toContain('linear-gradient');
   await expect
     .poll(() => bar.evaluate((node) => getComputedStyle(node).boxShadow))
-    .not.toBe('none');
+    .toBe('none');
 
   await screenshot(page, 'top-loading-bar-tokenized-progress', { fullPage: true });
 });

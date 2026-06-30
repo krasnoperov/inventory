@@ -24,7 +24,6 @@
   background-size: 200% 100%;
   animation: shimmer 2.5s linear infinite;
   transform-origin: left;
-  box-shadow: 0 0 8px var(--color-status-processing-bg);
 }
 
 .bar.complete {
