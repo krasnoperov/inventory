@@ -8,12 +8,12 @@
   font-size: 0.75rem;
   font-weight: 500;
   text-decoration: none;
-  transition: background 0.2s ease, transform 0.15s ease;
+  transition: background-color 0.2s ease;
   cursor: pointer;
 }
 
 .indicator:hover {
-  transform: translateY(-1px);
+  transform: none;
 }
 
 /* Progress bar track */
