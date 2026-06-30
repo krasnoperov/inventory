@@ -770,7 +770,9 @@ test('forge tray with references renders the reference strip', async ({ page }) 
   await expect(page.getByRole('button', { name: 'Add reference' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add another reference' })).toBeVisible();
   await expect(page.locator('img[draggable="false"]')).toHaveCount(0);
+  await expect(page.locator('[class*="slotThumb"][title="Hero Image"]')).toBeVisible();
   await page.getByRole('button', { name: 'Remove Hero Image' }).hover();
+  await expect(page.locator('[class*="slotTooltip"]')).toHaveCount(0);
   await screenshot(page, 'forge-tray-references', { fullPage: true });
 
   await page.getByRole('button', { name: 'Remove Hero Image' }).click();

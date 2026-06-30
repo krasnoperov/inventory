@@ -1384,7 +1384,7 @@ export function ForgeTray({
                 }
 
                 return (
-                  <div key={slot.id} className={styles.slotThumb}>
+                  <div key={slot.id} className={styles.slotThumb} title={slot.asset.name}>
                     <Thumbnail
                       variant={slot.variant}
                       size="fill"
@@ -1404,7 +1404,6 @@ export function ForgeTray({
                         <path d="M18 6L6 18M6 6l12 12" />
                       </svg>
                     </IconButton>
-                    <span className={styles.slotTooltip}>{slot.asset.name}</span>
                   </div>
                 );
               })}

@@ -216,30 +216,6 @@
   transform: scale(1.1);
 }
 
-.slotTooltip {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-bottom: 6px;
-  padding: 4px 8px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xs);
-  font-size: 0.6875rem;
-  color: var(--color-text);
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.15);
-  z-index: 10;
-}
-
-.slotThumb:hover .slotTooltip {
-  opacity: 1;
-}
-
 /* Add Thumbnail Button */
 .addThumbButton {
   --ui-button-height: var(--forge-slot-size);
