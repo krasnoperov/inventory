@@ -33,7 +33,6 @@
   color: var(--color-text-muted);
   font-size: 0.6875rem;
   font-weight: 650;
-  text-transform: uppercase;
 }
 
 .body {
@@ -65,7 +64,6 @@
   color: var(--color-text-muted);
   font-size: 0.75rem;
   font-weight: 650;
-  text-transform: uppercase;
 }
 
 .compositionList {
@@ -465,7 +463,6 @@
   font-size: var(--font-size-micro);
   font-weight: 650;
   text-overflow: ellipsis;
-  text-transform: uppercase;
   white-space: nowrap;
 }
 
