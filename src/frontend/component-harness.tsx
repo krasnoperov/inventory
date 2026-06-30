@@ -44,6 +44,7 @@ import { CreateSpaceDialog } from './pages/DashboardPage';
 import dashboardStyles from './pages/DashboardPage.module.css';
 import DocsPage from './pages/DocsPage';
 import { LandingCreateSpaceDialog } from './pages/LandingPage';
+import landingStyles from './pages/LandingPage.module.css';
 import { GoogleLoginButton } from './pages/LoginPage';
 import { HyperbolicCanvas } from './components/HyperbolicCanvas/HyperbolicCanvas';
 import PricingPage from './pages/PricingPage';
@@ -812,6 +813,38 @@ function PricingPagePreview() {
   );
 }
 
+function LandingCardHoverChromePreview() {
+  return (
+    <div className={landingStyles.page} style={{ colorScheme: 'dark' }}>
+      <main style={{ width: 'min(960px, calc(100% - 2rem))', margin: '0 auto', padding: '3rem 0' }}>
+        <section className={landingStyles.features}>
+          <article className={landingStyles.featureItem}>
+            <span className={landingStyles.featureIcon}>A</span>
+            <h3 className={landingStyles.featureText}>Assets stay connected</h3>
+            <p className={landingStyles.featureDescription}>Variants, prompts, and production notes remain readable without extra chrome.</p>
+          </article>
+          <article className={landingStyles.featureItem}>
+            <span className={landingStyles.featureIcon}>B</span>
+            <h3 className={landingStyles.featureText}>Review without clutter</h3>
+            <p className={landingStyles.featureDescription}>Teams can scan media state and move into details intentionally.</p>
+          </article>
+        </section>
+        <section className={landingStyles.spacesList} style={{ marginTop: '1.5rem' }}>
+          <a className={landingStyles.spaceCard} href="/spaces/preview">
+            <div className={landingStyles.spaceCardHeader}>
+              <h3 className={landingStyles.spaceName}>Market scene board</h3>
+              <span className={`${landingStyles.roleBadge} ${landingStyles.roleBadgeOwner}`}>owner</span>
+            </div>
+            <div className={landingStyles.spaceCardFooter}>
+              <span className={landingStyles.spaceDate}>Updated Jun 30, 2026</span>
+            </div>
+          </a>
+        </section>
+      </main>
+    </div>
+  );
+}
+
 function ProfileSignInButtonPreview() {
   return (
     <div className={profileStyles.page}>
@@ -855,6 +888,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   GoogleLoginButton: GoogleLoginButton as unknown as ComponentType<Record<string, unknown>>,
   HyperbolicCanvas: HyperbolicCanvas as unknown as ComponentType<Record<string, unknown>>,
   LandingCreateSpaceDialog: LandingCreateSpaceDialog as unknown as ComponentType<Record<string, unknown>>,
+  LandingCardHoverChrome: LandingCardHoverChromePreview,
   FormContainerPreview,
   ForgeTray: ForgeTray as unknown as ComponentType<Record<string, unknown>>,
   ImageLightbox: ImageLightbox as unknown as ComponentType<Record<string, unknown>>,
