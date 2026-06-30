@@ -296,6 +296,7 @@ test('asset details strip makes video facts and details disclosure visible', asy
 
   await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
   await expect(page.getByText('Hero reveal video')).toBeVisible();
+  await expect(page.getByText('Asset details', { exact: true })).toHaveCSS('text-transform', 'none');
   await expect(page.getByText('Video', { exact: true })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Asset type' })).toBeVisible();
   await selectDropdown(page, 'Asset type', 'Environment');
@@ -303,6 +304,7 @@ test('asset details strip makes video facts and details disclosure visible', asy
   await expect(page.getByText('1920x1080')).toBeVisible();
   await expect(page.getByText('8.0s')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Show video details' })).toContainText('Details');
+  await expect(page.getByRole('button', { name: 'Show video details' })).toHaveCSS('text-transform', 'none');
 
   await page.getByRole('button', { name: 'Show video details' }).click();
   await screenshot(page, 'asset-details-strip-video', { fullPage: true });
