@@ -171,6 +171,27 @@ async function resolvedColor(page: import('@playwright/test').Page, value: strin
   }, value);
 }
 
+async function resolvedShadow(page: import('@playwright/test').Page, value: string) {
+  return page.evaluate((shadowValue) => {
+    const probe = document.createElement('div');
+    probe.style.boxShadow = shadowValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).boxShadow;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
+async function expectLocatorAfterShadow(
+  page: import('@playwright/test').Page,
+  locator: import('@playwright/test').Locator,
+  shadow: string,
+) {
+  await expect.poll(
+    async () => locator.evaluate((node) => getComputedStyle(node, '::after').boxShadow),
+  ).toBe(await resolvedShadow(page, shadow));
+}
+
 async function selectMediaGroup(page: import('@playwright/test').Page, group: 'Image' | 'Video' | 'Audio') {
   await revealOptions(page);
   await selectDropdown(page, 'Media type', group);
@@ -1027,6 +1048,13 @@ test('forge tray picker disables references incompatible with the selected media
   const heroImageChoice = page.getByRole('button', { name: /Hero Image, character \/ image/ }).first();
   await heroImageChoice.click();
   await expect(heroImageChoice).toHaveAttribute('aria-pressed', 'true');
+  await expectLocatorAfterShadow(
+    page,
+    heroImageChoice.locator('[class*="thumbnailWrapper"]').first(),
+    'var(--selection-ring)',
+  );
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'forge-tray-asset-picker-selected-reference', { fullPage: true });
   await heroImageChoice.click();
   await expect(heroImageChoice).toHaveAttribute('aria-pressed', 'false');
   await page.getByRole('button', { name: /Close/i }).click();
