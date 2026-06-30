@@ -538,9 +538,9 @@ function AssetDetailOverlayChromePreview() {
       </section>
       <section className={assetDetailStyles.jobsOverlay} role="region" aria-label="Generation jobs">
         <div className={`${assetDetailStyles.jobCard} ${assetDetailStyles.processing}`}>
-          <span className={assetDetailStyles.jobStatus}>...</span>
+          <span className={assetDetailStyles.jobStatus} aria-label="Generating job" />
           <span className={assetDetailStyles.jobInfo}>
-            <span className={assetDetailStyles.jobTitle}>Creating variant...</span>
+            <span className={assetDetailStyles.jobTitle}>Generating</span>
             <span className={assetDetailStyles.jobPrompt}>"clean asset detail chrome"</span>
           </span>
         </div>
