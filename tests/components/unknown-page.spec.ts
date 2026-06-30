@@ -22,9 +22,9 @@ test('unknown page uses tokenized chrome surfaces', async ({ page }) => {
     'color',
     await resolvedColor(page, 'var(--button-primary-text)'),
   );
-  await expect
-    .poll(() => page.locator('[class*="card"]').evaluate((node) => getComputedStyle(node).boxShadow))
-    .not.toBe('none');
+  const card = page.locator('[class*="card"]');
+  await expect(card).toHaveCSS('box-shadow', 'none');
+  await expect(card).toHaveCSS('border-top-width', '1px');
 
-  await screenshot(page, 'unknown-page-tokenized-chrome', { fullPage: true });
+  await screenshot(page, 'unknown-page-flat-card-chrome', { fullPage: true });
 });

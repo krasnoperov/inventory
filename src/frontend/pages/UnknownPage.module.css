@@ -22,12 +22,13 @@
 
 .card {
   background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 3rem 2.5rem;
   text-align: center;
   max-width: 420px;
   width: 100%;
-  box-shadow: var(--shadow-header);
+  box-shadow: none;
 }
 
 .code {
