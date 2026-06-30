@@ -145,13 +145,13 @@ export function TileGrid({
               : qualityRating === 'rejected'
                 ? styles.cellRejected
                 : '';
+            const cellClassName = `${styles.cell} ${isSelected ? styles.selected : ''} ${isGenerating ? styles.generating : ''} ${isFailed ? styles.failed : ''} ${ratingClass}`;
+            const cellLabel = variant
+              ? `Tile ${x},${y}${isSelected ? ', selected' : ''}`
+              : `Tile ${x},${y}, empty`;
 
-            return (
-              <div
-                key={`${x}-${y}`}
-                className={`${styles.cell} ${isSelected ? styles.selected : ''} ${isGenerating ? styles.generating : ''} ${isFailed ? styles.failed : ''} ${ratingClass}`}
-                onClick={() => handleCellClick(variant?.id)}
-              >
+            const cellContent = (
+              <>
                 {imageUrl && isCompleted ? (
                   <img
                     src={imageUrl}
@@ -188,6 +188,27 @@ export function TileGrid({
                     )}
                   </div>
                 )}
+              </>
+            );
+
+            return imageUrl && isCompleted ? (
+              <button
+                key={`${x}-${y}`}
+                type="button"
+                className={`${cellClassName} ${styles.interactive}`}
+                onClick={() => handleCellClick(variant.id)}
+                aria-label={cellLabel}
+                aria-pressed={isSelected}
+              >
+                {cellContent}
+              </button>
+            ) : (
+              <div
+                key={`${x}-${y}`}
+                className={cellClassName}
+                onClick={() => handleCellClick(variant?.id)}
+              >
+                {cellContent}
               </div>
             );
           })

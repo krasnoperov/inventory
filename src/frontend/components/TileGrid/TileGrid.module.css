@@ -36,23 +36,47 @@
 .cell {
   box-sizing: border-box;
   aspect-ratio: 1;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  appearance: none;
+  font: inherit;
   background: var(--color-bg);
   position: relative;
   cursor: pointer;
-  transition: outline 0.1s ease;
-  outline: 0px solid transparent;
 }
 
-.cell:hover {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -2px;
+.cell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: none;
+  transition: box-shadow 0.12s ease;
+}
+
+.interactive:hover::after {
+  box-shadow: var(--selection-ring);
   z-index: 1;
 }
 
-.cell.selected {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -2px;
+.cell.selected::after {
+  box-shadow: var(--selection-ring);
   z-index: 2;
+}
+
+.interactive:focus-visible {
+  outline: none;
+  z-index: 3;
+}
+
+.interactive:focus-visible::after {
+  box-shadow: var(--focus-ring);
+}
+
+.interactive.selected:focus-visible::after {
+  box-shadow: var(--focus-ring), var(--selection-ring);
 }
 
 .cellApproved {

@@ -3,6 +3,13 @@
   "generatedBy": "scripts/snapshot-design-tokens.mjs",
   "tokens": [
     {
+      "cssVar": "--selection-ring",
+      "sourceFile": "theme.css",
+      "inferredType": "shadow",
+      "rawValue": "inset 0 0 0 2px var(--color-surface), inset 0 0 0 4px var(--color-primary)",
+      "reason": "CSS construct has no DTCG-conformant shape (color-mix, clamp/calc, shorthand, gradient/border/shadow over light-dark() colours, multi-layer with `none`)."
+    },
+    {
       "cssVar": "--forge-bar-shadow",
       "sourceFile": "theme.css",
       "inferredType": "shadow",
