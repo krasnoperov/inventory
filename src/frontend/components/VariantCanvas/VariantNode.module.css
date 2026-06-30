@@ -38,7 +38,7 @@
 
 .node:hover .thumbnail,
 .node:hover .audioCard {
-  box-shadow: var(--shadow-floating);
+  box-shadow: none;
 }
 
 .node.selected .thumbnail,
