@@ -125,7 +125,12 @@ test('tile set panel uses shared fields without changing submit payload', async 
 
   await expect(page.getByRole('heading', { name: 'Create Tile Set' })).toBeVisible();
   await expectTransparentBackdrop(page);
-  await expect(page.locator('[class*="modal"]').first()).toHaveCSS('box-shadow', 'none');
+  const tileSetModal = page.locator('[class*="modal"]').first();
+  await expect(tileSetModal).toHaveCSS('box-shadow', 'none');
+  await expect(tileSetModal).toHaveCSS('transform', 'none');
+  await expect.poll(
+    () => tileSetModal.evaluate((node) => getComputedStyle(node).animationName),
+  ).not.toContain('slideUp');
   await selectOption(page, 'Tile Type', 'Building');
   await selectOption(page, 'Grid Size', '4x4');
   await selectOption(page, 'Generation Mode', 'Single-Shot');
@@ -167,7 +172,12 @@ test('rotation panel uses shared fields without changing submit payload', async 
 
   await expect(page.getByRole('heading', { name: 'Generate Rotation Set' })).toBeVisible();
   await expectTransparentBackdrop(page);
-  await expect(page.locator('[class*="modal"]').first()).toHaveCSS('box-shadow', 'none');
+  const rotationModal = page.locator('[class*="modal"]').first();
+  await expect(rotationModal).toHaveCSS('box-shadow', 'none');
+  await expect(rotationModal).toHaveCSS('transform', 'none');
+  await expect.poll(
+    () => rotationModal.evaluate((node) => getComputedStyle(node).animationName),
+  ).not.toContain('slideUp');
   await selectOption(page, 'Configuration', /Turnaround/);
   await selectOption(page, 'Generation Mode', 'Single-Shot');
   await page.getByPlaceholder('e.g. a pixel art warrior character').fill('pixel art warrior');
