@@ -2,10 +2,9 @@
   display: grid;
   gap: 0.5rem;
   max-width: min(760px, 100%);
-  padding: 0.625rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
+  padding: 0;
+  border: 0;
+  background: transparent;
   font-size: var(--font-size-small-sm);
 }
 
