@@ -1,23 +1,13 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { mountComponent, screenshot } from './harness';
 
-async function resolvedShadow(page: Page, value: string) {
-  return page.evaluate((shadow) => {
-    const probe = document.createElement('div');
-    probe.style.boxShadow = shadow;
-    document.body.appendChild(probe);
-    const computed = getComputedStyle(probe).boxShadow;
-    probe.remove();
-    return computed;
-  }, value);
-}
-
-test('workspace chrome uses the shared header elevation token', async ({ page }) => {
+test('workspace chrome uses flat shared header chrome', async ({ page }) => {
   await page.setViewportSize({ width: 860, height: 180 });
   await mountComponent(page, 'WorkspaceChromePreview', {});
 
   const chrome = page.locator('header').first();
   await expect(page.getByRole('navigation', { name: 'Workspace navigation' })).toBeVisible();
-  await expect(chrome).toHaveCSS('box-shadow', await resolvedShadow(page, 'var(--shadow-header)'));
-  await screenshot(page, 'workspace-chrome-shadow-token', { fullPage: true });
+  await expect(chrome).toHaveCSS('box-shadow', 'none');
+  await expect(chrome).toHaveCSS('border-bottom-width', '1px');
+  await screenshot(page, 'workspace-chrome-flat-header', { fullPage: true });
 });
