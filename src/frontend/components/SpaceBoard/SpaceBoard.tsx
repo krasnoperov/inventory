@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { Thumbnail } from '../Thumbnail';
 import { CompositionPlacementControl } from '../CompositionPlacementControl';
 import { getAudioCardMetadata } from '../assetCardMetadata';
@@ -124,6 +124,7 @@ export function SpaceBoard({
   const [openCardMenuKey, setOpenCardMenuKey] = useState<string | null>(null);
   const [addTargets, setAddTargets] = useState<Record<string, string>>({});
   const [cardTargets, setCardTargets] = useState<Record<string, string>>({});
+  const [cardPanelOffset, setCardPanelOffset] = useState(0);
 
   const toggleCreatePanel = () => {
     const nextOpen = !isCreatePanelOpen;
@@ -150,6 +151,56 @@ export function SpaceBoard({
       setIsCreatePanelOpen(false);
       setOpenCollectionMenuId(null);
     }
+  };
+
+  const closePanels = useCallback(() => {
+    setIsCreatePanelOpen(false);
+    setOpenCollectionMenuId(null);
+    setOpenCardMenuKey(null);
+  }, []);
+
+  const hasOpenPanel = isCreatePanelOpen || openCollectionMenuId !== null || openCardMenuKey !== null;
+
+  useEffect(() => {
+    if (!hasOpenPanel) return undefined;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closePanels();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [closePanels, hasOpenPanel]);
+
+  useEffect(() => {
+    if (!openCardMenuKey) {
+      setCardPanelOffset(0);
+      return undefined;
+    }
+    setCardPanelOffset(0);
+    const frame = window.requestAnimationFrame(() => {
+      const panel = document.querySelector<HTMLElement>('[data-space-board-card-panel="open"]');
+      if (!panel) return;
+      const rect = panel.getBoundingClientRect();
+      const minX = 8;
+      const maxX = window.innerWidth - 8;
+      let offset = 0;
+      if (rect.left < minX) {
+        offset = minX - rect.left;
+      } else if (rect.right > maxX) {
+        offset = maxX - rect.right;
+      }
+      setCardPanelOffset(offset);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [openCardMenuKey]);
+
+  const handleBoardPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!hasOpenPanel) return;
+    const target = event.target as Element | null;
+    if (target?.closest('[data-space-board-panel-root]')) return;
+    if (target?.closest('[role="listbox"], [role="option"], [data-highlighted], [data-selected]')) return;
+    closePanels();
   };
 
   const orderedCollections = useMemo(() => sortCollections(collections), [collections]);
@@ -363,11 +414,12 @@ export function SpaceBoard({
           </div>
         )}
         {(canEdit || onAddToTray || onCreateRelation || onPlaceInComposition) && (
-          <div className={`${styles.cardMenu} ${isCardMenuOpen ? styles.cardMenuOpen : ''}`}>
+          <div className={`${styles.cardMenu} ${isCardMenuOpen ? styles.cardMenuOpen : ''}`} data-space-board-panel-root>
             <IconButton
               className={styles.cardMenuTrigger}
               aria-label={`Actions for ${asset.name}`}
               title={`Actions for ${asset.name}`}
+              aria-haspopup="dialog"
               aria-expanded={isCardMenuOpen}
               variant="ghost"
               size="sm"
@@ -376,7 +428,11 @@ export function SpaceBoard({
               <MoreMenuIcon />
             </IconButton>
             {isCardMenuOpen && (
-              <div className={styles.cardMenuPanel}>
+              <div
+                className={styles.cardMenuPanel}
+                data-space-board-card-panel="open"
+                style={{ '--card-menu-panel-offset': `${cardPanelOffset}px` } as CSSProperties}
+              >
                 {onAddToTray && displayVariant && isVariantForgeTrayReady(displayVariant) && (
                   <Button className={styles.menuButton} onClick={() => onAddToTray(displayVariant, asset)}>
                     Add to Forge Tray
@@ -513,11 +569,12 @@ export function SpaceBoard({
             <p>{items.length} {items.length === 1 ? 'asset' : 'assets'}</p>
           </div>
           {canEdit && (
-            <div className={`${styles.collectionMenu} ${isCollectionMenuOpen ? styles.collectionMenuOpen : ''}`}>
+            <div className={`${styles.collectionMenu} ${isCollectionMenuOpen ? styles.collectionMenuOpen : ''}`} data-space-board-panel-root>
               <IconButton
                 className={styles.collectionMenuTrigger}
                 aria-label={`Manage collection ${collection.name}`}
                 title={`Manage ${collection.name}`}
+                aria-haspopup="dialog"
                 aria-expanded={isCollectionMenuOpen}
                 variant="ghost"
                 size="sm"
@@ -639,17 +696,18 @@ export function SpaceBoard({
   };
 
   return (
-    <main className={styles.board} aria-busy={isInitialSyncPending}>
+    <main className={styles.board} aria-busy={isInitialSyncPending} onPointerDownCapture={handleBoardPointerDown}>
       <div className={styles.boardHeader}>
         <div>
           <h2>Collections</h2>
           <p>{collections.length} collections · {assets.length} assets{unfiledAssets.length > 0 ? ` · ${unfiledAssets.length} unfiled` : ''}</p>
         </div>
         {canEdit && (
-          <div className={styles.createControls}>
+          <div className={styles.createControls} data-space-board-panel-root>
             <Button
               className={styles.createTrigger}
               onClick={toggleCreatePanel}
+              aria-haspopup="dialog"
               aria-expanded={isCreatePanelOpen}
             >
               <span aria-hidden="true">+</span>

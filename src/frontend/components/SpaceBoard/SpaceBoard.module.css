@@ -555,13 +555,11 @@
 }
 
 .cardMenuPanel {
-  top: calc(100% + 0.35rem);
-  width: min(248px, calc(100vw - 2rem));
-}
-
-.assetCard:first-child .cardMenuPanel {
+  top: calc(var(--row-h) + 0.55rem);
   left: 0;
   right: auto;
+  width: min(248px, calc(100vw - 2rem));
+  transform: translateX(var(--card-menu-panel-offset, 0px));
 }
 
 .emptyCollection {

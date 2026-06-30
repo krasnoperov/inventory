@@ -187,6 +187,36 @@ async function resolvedBackground(page: import('@playwright/test').Page, value: 
   }, value);
 }
 
+async function expectNoOverlap(
+  first: import('@playwright/test').Locator,
+  second: import('@playwright/test').Locator,
+) {
+  await expect.poll(async () => {
+    const firstBox = await first.boundingBox();
+    const secondBox = await second.boundingBox();
+    if (!firstBox || !secondBox) return false;
+    return !(
+      firstBox.x + firstBox.width <= secondBox.x ||
+      secondBox.x + secondBox.width <= firstBox.x ||
+      firstBox.y + firstBox.height <= secondBox.y ||
+      secondBox.y + secondBox.height <= firstBox.y
+    );
+  }).toBe(false);
+}
+
+async function expectWithinViewport(
+  page: import('@playwright/test').Page,
+  locator: import('@playwright/test').Locator,
+) {
+  await expect.poll(async () => {
+    const box = await locator.boundingBox();
+    if (!box) return false;
+    const viewport = page.viewportSize();
+    if (!viewport) return false;
+    return box.x >= 8 && box.x + box.width <= viewport.width - 8;
+  }).toBe(true);
+}
+
 // Composition placement points a composition at a finished render. A pending /
 // failed variant has no usable media, so the post-generation control must not
 // offer to place it. Guard that only the ready card exposes the action.
@@ -428,9 +458,13 @@ test('collection menus use shared form controls', async ({ page }) => {
   await expect(page.locator('[class*="createControls"] summary')).toHaveCount(0);
   await createTrigger.click();
   await expect(createTrigger).toHaveAttribute('aria-expanded', 'true');
+  await expect(createTrigger).toHaveAttribute('aria-haspopup', 'dialog');
   await expect(createTrigger).toHaveCSS('backdrop-filter', 'none');
   await expect(createTrigger).toHaveCSS('background-color', await resolvedBackground(page, 'var(--button-ghost-bg-hover)'));
   await expect(page.locator('[class*="createPanel"]')).toHaveCSS('box-shadow', 'none');
+  await page.keyboard.press('Escape');
+  await expect(createTrigger).toHaveAttribute('aria-expanded', 'false');
+  await createTrigger.click();
   await page.getByPlaceholder('Collection name').fill('Props');
   await selectDropdown(page, 'New collection kind', 'Style References');
   await page.getByLabel('New collection color').fill('#123456');
@@ -445,6 +479,7 @@ test('collection menus use shared form controls', async ({ page }) => {
   await expect(collectionMenuTrigger.locator('svg')).toHaveCount(1);
   await collectionMenuTrigger.click();
   await expect(collectionMenuTrigger).toHaveAttribute('aria-expanded', 'true');
+  await expect(collectionMenuTrigger).toHaveAttribute('aria-haspopup', 'dialog');
   await expect(createTrigger).toHaveAttribute('aria-expanded', 'false');
   await expect(page.locator('[class*="createPanel"]')).toHaveCount(0);
   await expect(page.locator('[class*="collectionMenuPanel"]').first()).toHaveCSS('box-shadow', 'none');
@@ -458,7 +493,7 @@ test('collection menus use shared form controls', async ({ page }) => {
   await selectDropdown(page, 'Asset to add to Cast', 'Forest background');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await screenshot(page, 'space-board-collection-manage-menu', { fullPage: true });
-  await collectionMenuTrigger.click();
+  await page.keyboard.press('Escape');
   await expect(collectionMenuTrigger).toHaveAttribute('aria-expanded', 'false');
 
   const cardMenu = page.locator('[class*="cardMenu"]').first();
@@ -468,11 +503,18 @@ test('collection menus use shared form controls', async ({ page }) => {
   await expect(cardMenuTrigger.locator('svg')).toHaveCount(1);
   await cardMenuTrigger.click();
   await expect(cardMenuTrigger).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.locator('[class*="cardMenuPanel"]').first()).toHaveCSS('box-shadow', 'none');
+  await expect(cardMenuTrigger).toHaveAttribute('aria-haspopup', 'dialog');
+  const cardMenuPanel = page.locator('[class*="cardMenuPanel"]').first();
+  await expect(cardMenuPanel).toHaveCSS('box-shadow', 'none');
+  const cardPreview = cardMenuTrigger.locator('xpath=ancestor::article[1]').locator('[class*="thumbnailButton"]').first();
+  await expectNoOverlap(cardMenuPanel, cardPreview);
+  await expectWithinViewport(page, cardMenuPanel);
   await page.getByLabel('Role for Hero sprite').fill('lead');
   await selectDropdown(page, 'Collection target for Hero sprite', 'Backgrounds');
   await selectDropdown(page, 'Pinned variant for Hero sprite', 'Variant 2 star');
   await screenshot(page, 'space-board-collection-menus', { fullPage: true });
+  await page.getByRole('heading', { name: 'Collections' }).click();
+  await expect(cardMenuTrigger).toHaveAttribute('aria-expanded', 'false');
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
   expect(calls.some((call) => call.eventName === 'createCollection')).toBe(true);
