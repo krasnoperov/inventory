@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { getR2ImageUrl } from '../media-cdn';
+import { Button, IconButton } from '../ui';
 import styles from './LineageTree.module.css';
 
 // Helper to get thumbnail URL with fallback to image_key
@@ -80,6 +81,18 @@ const getRelationTooltip = (type: string, direction: 'parent' | 'child'): string
     }
   }
 };
+
+function SeverLineageIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="6" cy="6" r="3" />
+      <circle cx="6" cy="18" r="3" />
+      <path d="M20 4 8.12 15.88" />
+      <path d="M14.47 14.48 20 20" />
+      <path d="M8.12 8.12 12 12" />
+    </svg>
+  );
+}
 
 export function LineageTree({
   currentVariant,
@@ -212,9 +225,9 @@ export function LineageTree({
       <div className={styles.container}>
         <div className={styles.header}>
           <h3 className={styles.title}>Full Lineage Graph</h3>
-          <button className={styles.toggleButton} onClick={toggleGraphMode}>
+          <Button className={styles.toggleButton} variant="secondary" size="sm" onClick={toggleGraphMode}>
             Show Direct Only
-          </button>
+          </Button>
         </div>
 
         <div className={styles.graphContainer}>
@@ -266,13 +279,15 @@ export function LineageTree({
       <div className={styles.header}>
         <h3 className={styles.title}>Lineage</h3>
         {spaceId && (
-          <button
+          <Button
             className={styles.toggleButton}
+            variant="secondary"
+            size="sm"
             onClick={toggleGraphMode}
             disabled={isLoadingGraph}
           >
             {isLoadingGraph ? 'Loading...' : 'Show Full Graph'}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -301,16 +316,19 @@ export function LineageTree({
                     <span className={styles.severedBadge} title="Link severed">✂</span>
                   )}
                   {node.lineage_id && !node.severed && onSeverLineage && (
-                    <button
+                    <IconButton
                       className={styles.severButton}
                       onClick={(e) => {
                         e.stopPropagation();
                         onSeverLineage(node.lineage_id!);
                       }}
                       title="Sever this lineage link"
+                      aria-label="Sever this lineage link"
+                      variant="danger"
+                      size="sm"
                     >
-                      ✂
-                    </button>
+                      <SeverLineageIcon />
+                    </IconButton>
                   )}
                 </div>
               ))}
@@ -362,16 +380,19 @@ export function LineageTree({
                     <span className={styles.severedBadge} title="Link severed">✂</span>
                   )}
                   {node.lineage_id && !node.severed && onSeverLineage && (
-                    <button
+                    <IconButton
                       className={styles.severButton}
                       onClick={(e) => {
                         e.stopPropagation();
                         onSeverLineage(node.lineage_id!);
                       }}
                       title="Sever this lineage link"
+                      aria-label="Sever this lineage link"
+                      variant="danger"
+                      size="sm"
                     >
-                      ✂
-                    </button>
+                      <SeverLineageIcon />
+                    </IconButton>
                   )}
                 </div>
               ))}
