@@ -38,6 +38,7 @@ const TIER_PREFIXES = {
     '--shadow-',
     '--focus-ring',
     '--selection-ring',
+    '--relation-ring',
     '--header-height',
     '--layout-gap',
     '--panel-spacing',
@@ -213,6 +214,8 @@ const GROUPS = [
   { match: /^--focus-ring$/, group: '', leaf: () => 'focusRing', type: 'shadow' },
   // --selection-ring is an inset box-shadow for selected tiles/cards.
   { match: /^--selection-ring$/, group: '', leaf: () => 'selectionRing', type: 'shadow' },
+  // --relation-ring is an inset box-shadow for relation/lineage preview chrome.
+  { match: /^--relation-ring$/, group: '', leaf: () => 'relationRing', type: 'shadow' },
   // theme.css core shadows. Single- and multi-layer box-shadows; the parser's
   // conformance check excludes any whose colour is a light-dark() pair.
   { match: /^--shadow-(.+)$/, group: 'shadow', leaf: ($1) => kebabToCamel($1), type: 'shadow' },
