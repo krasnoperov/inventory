@@ -80,6 +80,17 @@ async function resolvedBackground(page: Page, value: string) {
   }, value);
 }
 
+async function resolvedColor(page: Page, value: string) {
+  return page.evaluate((colorValue) => {
+    const probe = document.createElement('div');
+    probe.style.color = colorValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).color;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
 test('lineage tree uses shared controls for graph toggle and sever actions', async ({ page }) => {
   await mockImages(page);
   await mockLineageGraph(page);
@@ -88,6 +99,11 @@ test('lineage tree uses shared controls for graph toggle and sever actions', asy
 
   await expect(page.getByRole('heading', { name: 'Lineage' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Show Full Graph' })).toBeVisible();
+  const contrastText = await resolvedColor(page, 'var(--button-primary-text)');
+  await expect(page.getByText('Derived')).toHaveCSS('color', contrastText);
+  await expect(page.getByText('Refined')).toHaveCSS('color', contrastText);
+  await expect(page.getByText('Forked')).toHaveCSS('color', contrastText);
+  await expect(page.getByText('✂')).toHaveCSS('color', contrastText);
 
   const severAction = page.getByRole('button', { name: 'Sever this lineage link' }).first();
   await expect(severAction).toBeVisible();
