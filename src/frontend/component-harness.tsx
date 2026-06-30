@@ -32,6 +32,7 @@ import { VariantDetailsPanel } from './components/VariantCanvas/VariantDetailsPa
 import { BillingPlanActions, UsageBar } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
 import { AuthContext, type AuthContextType } from './contexts/AuthContextProvider';
+import { UiSelect, type SelectOption } from './ui';
 import type { MeterStatus } from './hooks/useBillingStatus';
 import { AdminSpendView } from './pages/AdminSpendPage';
 import { AuthorizationDecisionActions } from './pages/AuthorizationApprovalPage';
@@ -641,6 +642,26 @@ function BillingUsageMetersPreview() {
   );
 }
 
+const selectPreviewOptions: Array<SelectOption<string>> = [
+  { value: 'image', label: 'Image' },
+  { value: 'video', label: 'Video' },
+  { value: 'audio', label: 'Audio' },
+];
+
+function UiSelectPreview() {
+  return (
+    <div style={{ width: '260px', padding: '2rem' }}>
+      <UiSelect
+        value="video"
+        options={selectPreviewOptions}
+        onValueChange={() => undefined}
+        label="Preview media type"
+        fullWidth
+      />
+    </div>
+  );
+}
+
 function DocsPagePreview(props: Record<string, unknown>) {
   return (
     <AuthContext.Provider value={docsAuthValue}>
@@ -695,6 +716,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   TileSetPanel: TileSetPanel as unknown as ComponentType<Record<string, unknown>>,
   TopLoadingBar: TopLoadingBar as unknown as ComponentType<Record<string, unknown>>,
   UnknownPage: UnknownPage as unknown as ComponentType<Record<string, unknown>>,
+  UiSelect: UiSelectPreview,
   UsageIndicatorView: UsageIndicatorView as unknown as ComponentType<Record<string, unknown>>,
   VariantCanvas: VariantCanvas as unknown as ComponentType<Record<string, unknown>>,
   VariantDetailsPanel: VariantDetailsPanel as unknown as ComponentType<Record<string, unknown>>,
