@@ -48,7 +48,7 @@
 
 .node.highlighted .thumbnail,
 .node.highlighted .audioCard {
-  box-shadow: var(--shadow-header);
+  box-shadow: var(--selection-ring);
 }
 
 .node.active .thumbnail,
