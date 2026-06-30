@@ -32,7 +32,7 @@ import { VariantDetailsPanel } from './components/VariantCanvas/VariantDetailsPa
 import { BillingPlanActions, UsageBar } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
 import { AuthContext, type AuthContextType } from './contexts/AuthContextProvider';
-import { Button, IconButton, UiSelect, type SelectOption } from './ui';
+import { Button, Checkbox, IconButton, UiSelect, type SelectOption } from './ui';
 import type { MeterStatus } from './hooks/useBillingStatus';
 import { AdminSpendView } from './pages/AdminSpendPage';
 import { AuthorizationDecisionActions } from './pages/AuthorizationApprovalPage';
@@ -677,6 +677,25 @@ function UiButtonPreview() {
   );
 }
 
+function UiCheckboxPreview() {
+  return (
+    <div style={{ display: 'grid', gap: '0.75rem', padding: '2rem' }}>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+        <Checkbox defaultChecked aria-label="Checked preview" />
+        <span>Checked</span>
+      </label>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+        <Checkbox aria-label="Unchecked preview" />
+        <span>Unchecked</span>
+      </label>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', opacity: 0.72 }}>
+        <Checkbox checked disabled readOnly aria-label="Disabled preview" />
+        <span>Disabled</span>
+      </label>
+    </div>
+  );
+}
+
 function DocsPagePreview(props: Record<string, unknown>) {
   return (
     <AuthContext.Provider value={docsAuthValue}>
@@ -732,6 +751,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   TopLoadingBar: TopLoadingBar as unknown as ComponentType<Record<string, unknown>>,
   UnknownPage: UnknownPage as unknown as ComponentType<Record<string, unknown>>,
   UiButton: UiButtonPreview,
+  UiCheckbox: UiCheckboxPreview,
   UiSelect: UiSelectPreview,
   UsageIndicatorView: UsageIndicatorView as unknown as ComponentType<Record<string, unknown>>,
   VariantCanvas: VariantCanvas as unknown as ComponentType<Record<string, unknown>>,
