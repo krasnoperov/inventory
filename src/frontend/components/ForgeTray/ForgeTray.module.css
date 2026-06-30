@@ -10,7 +10,6 @@
   --ctl-hover: light-dark(oklch(20% 0.015 264 / 0.07), oklch(100% 0 0 / 0.09));
   --ctl-active-bg: light-dark(oklch(100% 0 0), oklch(100% 0 0 / 0.1));
   --ctl-active-shadow: 0 1px 2px light-dark(oklch(0% 0 0 / 0.12), oklch(0% 0 0 / 0.35));
-  --ctl-accent-bg: oklch(62% 0.18 276 / 0.16);
   /* Defined surfaces for the mode trigger / name chip */
   --ctl-surface: light-dark(oklch(98% 0.003 264), oklch(25.5% 0.008 264));
   --ctl-line: light-dark(oklch(89% 0.004 264), oklch(33% 0.008 264));
@@ -31,13 +30,11 @@
 /* Drag-over state for file drop */
 .tray.dragOver {
   border-color: var(--color-primary);
-  box-shadow:
-    0 0 0 2px var(--color-primary),
-    0 4px 24px oklch(55% 0.18 276 / 0.3);
+  box-shadow: var(--focus-ring), var(--shadow-floating);
 }
 
 .tray.dragOver .inputArea {
-  background: oklch(55% 0.18 276 / 0.08);
+  background: var(--color-status-processing-bg);
   border-color: var(--color-primary);
 }
 
@@ -227,7 +224,7 @@
 .addThumbButton:hover:not(:disabled) {
   border-color: var(--color-primary);
   color: var(--color-primary);
-  background: oklch(55% 0.18 276 / 0.08);
+  background: var(--color-status-processing-bg);
   transform: scale(1.05);
 }
 
@@ -543,12 +540,6 @@
   color: var(--color-text);
   background: var(--ctl-surface);
   box-shadow: inset 0 0 0 1px var(--ctl-line);
-}
-
-.controlIconAction.open {
-  color: var(--color-primary);
-  background: var(--ctl-accent-bg);
-  box-shadow: none;
 }
 
 /* Name chip */
