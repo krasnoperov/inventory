@@ -159,10 +159,6 @@
   border-color: var(--color-border-hover, var(--color-border));
 }
 
-.assetItem.inTray .thumbnailWrapper {
-  box-shadow: 0 0 0 2px var(--color-primary);
-}
-
 .assetItem.disabled {
   cursor: not-allowed;
 }
@@ -186,6 +182,19 @@
   border-radius: var(--thumb-radius);
   overflow: hidden;
   transition: all 0.2s ease;
+}
+
+.thumbnailWrapper::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: none;
+  transition: box-shadow 0.12s ease;
+}
+
+.assetItem.inTray .thumbnailWrapper::after {
+  box-shadow: var(--selection-ring);
 }
 
 .assetThumbnail {
