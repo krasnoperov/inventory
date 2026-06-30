@@ -132,9 +132,9 @@ function AssetNodeView({ data }: NodeProps<AssetFlowNode>) {
               {model.role === 'final' ? 'FINAL' : 'SOURCE'}
             </span>
           )}
-          <button className={styles.name} onClick={(e) => { e.stopPropagation(); onOpen(asset); }} title={`Open ${asset.name}`}>
+          <Button className={styles.name} onClick={(e) => { e.stopPropagation(); onOpen(asset); }} title={`Open ${asset.name}`} variant="ghost" size="sm">
             {asset.name}
-          </button>
+          </Button>
           {stats.starred > 0 && <span className={styles.star} title={`${stats.starred} starred`}>★{stats.starred > 1 ? stats.starred : ''}</span>}
         </div>
         <div className={styles.coords}>

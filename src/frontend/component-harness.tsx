@@ -495,7 +495,7 @@ function RelationsCanvasPreview(props: Record<string, unknown>) {
         collectionItems={stackCollectionItems}
         compositions={stackCompositions}
         compositionItems={stackCompositionItems}
-        onAssetClick={() => undefined}
+        onAssetClick={(props.onAssetClick as ((asset: Asset) => void) | undefined) ?? (() => undefined)}
       />
     </div>
   );

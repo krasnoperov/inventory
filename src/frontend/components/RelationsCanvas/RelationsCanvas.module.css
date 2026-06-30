@@ -93,22 +93,23 @@
   color: var(--color-star);
 }
 
-.name {
+.name.name {
+  --ui-button-height: auto;
+  --ui-button-pad-x: 0;
+  --ui-button-font-size: var(--font-size-small-sm);
+  --ctl-hover: transparent;
+
   flex: 1 1 auto;
   min-width: 0;
+  justify-content: flex-start;
   text-align: left;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
   color: var(--color-text);
-  font-size: var(--font-size-small-sm);
   font-weight: 650;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.name:hover { color: var(--color-primary); }
+.name.name:hover:not(:disabled) { color: var(--color-primary); }
 .name:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-xs); }
 
 .kind {
