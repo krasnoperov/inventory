@@ -238,15 +238,17 @@ export function CompositionDetail({
             {compositions.length === 0 ? (
               <p className={styles.emptyText}>No compositions yet.</p>
             ) : compositions.map((composition) => (
-              <button
+              <Button
                 key={composition.id}
-                type="button"
+                variant={composition.id === selectedCompositionId ? 'secondary' : 'ghost'}
+                size="sm"
                 className={`${styles.compositionButton} ${composition.id === selectedCompositionId ? styles.selected : ''}`}
+                aria-pressed={composition.id === selectedCompositionId}
                 onClick={() => onSelectComposition(composition.id)}
               >
                 <span>{composition.name}</span>
                 <small>{composition.status}</small>
-              </button>
+              </Button>
             ))}
           </div>
         </section>
@@ -399,10 +401,11 @@ export function CompositionDetail({
             />
             <div className={styles.variantList}>
               {filteredVariants.map(({ variant, asset }) => (
-                <button
+                <Button
                   key={variant.id}
                   className={styles.variantChoice}
-                  type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => applyVariant(variant)}
                 >
                   <Thumbnail variant={variant} size="xs" spaceId={spaceId} />
@@ -410,7 +413,7 @@ export function CompositionDetail({
                     <strong>{asset?.name ?? 'Missing asset'}</strong>
                     <small>{variant.id}{asset?.active_variant_id === variant.id ? ' / active' : ''}</small>
                   </span>
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -552,17 +555,18 @@ export function CompositionUsageList({
         </h2>
       </div>
       {usages.map(({ composition, exactItems, outputMatches }) => (
-        <button
+        <Button
           key={composition.id}
-          type="button"
           className={styles.usageButton}
+          variant="ghost"
+          size="sm"
           onClick={() => onOpenComposition(composition.id)}
         >
           <strong>{composition.name}</strong>
           <span className={styles.usageRole}>
             {outputMatches ? 'output' : exactItems.map((item) => roleLabel(item.role)).join(', ')}
           </span>
-        </button>
+        </Button>
       ))}
     </section>
   );
