@@ -111,6 +111,7 @@ export function SpaceBoard({
   const [newColor, setNewColor] = useState(COLLECTION_KIND_COLORS.custom);
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [openCollectionMenuId, setOpenCollectionMenuId] = useState<string | null>(null);
+  const [openCardMenuKey, setOpenCardMenuKey] = useState<string | null>(null);
   const [addTargets, setAddTargets] = useState<Record<string, string>>({});
   const [cardTargets, setCardTargets] = useState<Record<string, string>>({});
 
@@ -236,6 +237,7 @@ export function SpaceBoard({
         : '';
     const cardKey = `${collectionId ?? 'unfiled'}:${item?.id ?? asset.id}`;
     const targetCollectionId = cardTargets[cardKey] ?? orderedCollections[0]?.id ?? '';
+    const isCardMenuOpen = openCardMenuKey === cardKey;
     const aspectRatio = aspectRatioForVariant(displayVariant);
     const isAudioCard = displayVariant ? isVariantAudioReady(displayVariant) : false;
     const audioMetadata = getAudioCardMetadata(displayVariant);
@@ -263,7 +265,7 @@ export function SpaceBoard({
     return (
       <article
         key={cardKey}
-        className={`${styles.assetCard} ${isAudioCard ? styles.audioAssetCard : ''}`}
+        className={`${styles.assetCard} ${isAudioCard ? styles.audioAssetCard : ''} ${isCardMenuOpen ? styles.assetCardMenuHostOpen : ''}`}
         style={{ '--card-aspect': aspectRatio } as CSSProperties}
       >
         {isAudioCard ? (
@@ -324,113 +326,127 @@ export function SpaceBoard({
           </div>
         )}
         {(canEdit || onAddToTray || onCreateRelation || onPlaceInComposition) && (
-          <details className={styles.cardMenu}>
-            <summary title={`Actions for ${asset.name}`} aria-label={`Actions for ${asset.name}`}>
-              <span className={styles.visuallyHidden}>Actions for {asset.name}</span>
-            </summary>
-            <div className={styles.cardMenuPanel}>
-              {onAddToTray && displayVariant && isVariantForgeTrayReady(displayVariant) && (
-                <Button className={styles.menuButton} onClick={() => onAddToTray(displayVariant, asset)}>
-                  Add to Forge Tray
-                </Button>
-              )}
-              {onRegenerateVariant && displayVariant && isVariantAudioReady(displayVariant) && (
-                <Button className={styles.menuButton} onClick={() => onRegenerateVariant(displayVariant)}>
-                  Regenerate audio
-                </Button>
-              )}
-              {onCreateRelation && (
-                <Button className={styles.menuButton} onClick={() => onCreateRelation({ subjectType: 'asset', assetId: asset.id })}>
-                  Create relation
-                </Button>
-              )}
-              {canEdit && orderedCollections.length > 0 && (
-                <>
-                  <label>
-                    <span>Add to collection</span>
-                    <UiSelect
-                      className={styles.select}
-                      fullWidth
-                      label={`Collection target for ${asset.name}`}
-                      value={targetCollectionId}
-                      options={collectionOptions}
-                      onValueChange={(value) => setCardTargets((prev) => ({ ...prev, [cardKey]: value }))}
-                    />
-                  </label>
-                  <Button
-                    className={styles.menuButton}
-                    onClick={() => targetCollectionId && addAssetToCollection(targetCollectionId, asset.id, getCollectionRole(targetCollectionId, item?.role ?? 'custom'))}
-                  >
-                    Add asset
+          <div className={`${styles.cardMenu} ${isCardMenuOpen ? styles.cardMenuOpen : ''}`}>
+            <IconButton
+              className={styles.cardMenuTrigger}
+              aria-label={`Actions for ${asset.name}`}
+              title={`Actions for ${asset.name}`}
+              aria-expanded={isCardMenuOpen}
+              variant="ghost"
+              size="sm"
+              onClick={() => setOpenCardMenuKey((openKey) => (openKey === cardKey ? null : cardKey))}
+            >
+              <span aria-hidden="true">...</span>
+            </IconButton>
+            {isCardMenuOpen && (
+              <div className={styles.cardMenuPanel}>
+                {onAddToTray && displayVariant && isVariantForgeTrayReady(displayVariant) && (
+                  <Button className={styles.menuButton} onClick={() => onAddToTray(displayVariant, asset)}>
+                    Add to Forge Tray
                   </Button>
-                  <Button className={styles.menuButton} onClick={() => markAssetAsStyleReference(asset.id)}>
-                    Mark style ref
+                )}
+                {onRegenerateVariant && displayVariant && isVariantAudioReady(displayVariant) && (
+                  <Button className={styles.menuButton} onClick={() => onRegenerateVariant(displayVariant)}>
+                    Regenerate audio
                   </Button>
-                </>
-              )}
-              {canEdit && onPlaceInComposition && displayVariant && isVariantReady(displayVariant) && compositions.length > 0 && (
-                <CompositionPlacementControl
-                  compositions={compositions}
-                  compositionItems={compositionItems}
-                  variant={displayVariant}
-                  onPlace={onPlaceInComposition}
-                />
-              )}
-              {item && canEdit && (
-                <>
-                  <label>
-                    <span>Role</span>
-                    <TextInput
-                      value={item.role}
-                      aria-label={`Role for ${asset.name}`}
-                      onChange={(event) => updateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
-                      fullWidth
-                    />
-                  </label>
-                  {item.subject_type === 'asset' && assetVariants.length > 0 && (
+                )}
+                {onCreateRelation && (
+                  <Button className={styles.menuButton} onClick={() => onCreateRelation({ subjectType: 'asset', assetId: asset.id })}>
+                    Create relation
+                  </Button>
+                )}
+                {canEdit && orderedCollections.length > 0 && (
+                  <>
                     <label>
-                      <span>Pinned variant</span>
+                      <span>Add to collection</span>
                       <UiSelect
                         className={styles.select}
                         fullWidth
-                        value={itemPinnedVariantId}
-                        label={`Pinned variant for ${asset.name}`}
-                        options={pinnedVariantOptions}
-                        onValueChange={(value) => {
-                          const pinnedVariantId =
-                            value || getPinnedVariantIdForAssetCollection(itemCollection, asset);
-                          updateCollectionItem(item.collection_id, item.id, { pinnedVariantId });
-                        }}
+                        label={`Collection target for ${asset.name}`}
+                        value={targetCollectionId}
+                        options={collectionOptions}
+                        onValueChange={(value) => setCardTargets((prev) => ({ ...prev, [cardKey]: value }))}
                       />
                     </label>
-                  )}
-                </>
-              )}
-              {item && canEdit && collectionId && itemIndex !== undefined && collectionItemIds.length > 0 && (
-                <div className={styles.menuButtonRow}>
+                    <Button
+                      className={styles.menuButton}
+                      onClick={() => targetCollectionId && addAssetToCollection(targetCollectionId, asset.id, getCollectionRole(targetCollectionId, item?.role ?? 'custom'))}
+                    >
+                      Add asset
+                    </Button>
+                    <Button className={styles.menuButton} onClick={() => markAssetAsStyleReference(asset.id)}>
+                      Mark style ref
+                    </Button>
+                  </>
+                )}
+                {canEdit && onPlaceInComposition && displayVariant && isVariantReady(displayVariant) && compositions.length > 0 && (
+                  <CompositionPlacementControl
+                    compositions={compositions}
+                    compositionItems={compositionItems}
+                    variant={displayVariant}
+                    onPlace={onPlaceInComposition}
+                  />
+                )}
+                {item && canEdit && (
+                  <>
+                    <label>
+                      <span>Role</span>
+                      <TextInput
+                        value={item.role}
+                        aria-label={`Role for ${asset.name}`}
+                        onChange={(event) => updateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
+                        fullWidth
+                      />
+                    </label>
+                    {item.subject_type === 'asset' && assetVariants.length > 0 && (
+                      <label>
+                        <span>Pinned variant</span>
+                        <UiSelect
+                          className={styles.select}
+                          fullWidth
+                          value={itemPinnedVariantId}
+                          label={`Pinned variant for ${asset.name}`}
+                          options={pinnedVariantOptions}
+                          onValueChange={(value) => {
+                            const pinnedVariantId =
+                              value || getPinnedVariantIdForAssetCollection(itemCollection, asset);
+                            updateCollectionItem(item.collection_id, item.id, { pinnedVariantId });
+                          }}
+                        />
+                      </label>
+                    )}
+                  </>
+                )}
+                {item && canEdit && collectionId && itemIndex !== undefined && collectionItemIds.length > 0 && (
+                  <div className={styles.menuButtonRow}>
+                    <Button
+                      className={styles.menuButton}
+                      onClick={() => reorderCollectionItems(collectionId, moveId(collectionItemIds, item.id, -1))}
+                      disabled={itemIndex === 0}
+                    >
+                      Move up
+                    </Button>
+                    <Button
+                      className={styles.menuButton}
+                      onClick={() => reorderCollectionItems(collectionId, moveId(collectionItemIds, item.id, 1))}
+                      disabled={itemIndex === collectionItemIds.length - 1}
+                    >
+                      Move down
+                    </Button>
+                  </div>
+                )}
+                {item && canEdit && collectionId && (
                   <Button
                     className={styles.menuButton}
-                    onClick={() => reorderCollectionItems(collectionId, moveId(collectionItemIds, item.id, -1))}
-                    disabled={itemIndex === 0}
+                    variant="danger"
+                    onClick={() => deleteCollectionItem(collectionId, item.id)}
                   >
-                    Move up
+                    Remove from collection
                   </Button>
-                  <Button
-                    className={styles.menuButton}
-                    onClick={() => reorderCollectionItems(collectionId, moveId(collectionItemIds, item.id, 1))}
-                    disabled={itemIndex === collectionItemIds.length - 1}
-                  >
-                    Move down
-                  </Button>
-                </div>
-              )}
-              {item && canEdit && collectionId && (
-                <Button className={styles.menuButton} variant="danger" onClick={() => deleteCollectionItem(collectionId, item.id)}>
-                  Remove from collection
-                </Button>
-              )}
-            </div>
-          </details>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </article>
     );
