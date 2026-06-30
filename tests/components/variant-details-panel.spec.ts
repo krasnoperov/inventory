@@ -83,8 +83,12 @@ test('variant details panel uses shared action controls', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Use as main variant' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Delete variant' })).toBeVisible();
 
+  await expect(page.getByRole('heading', { name: 'Prompt' })).toHaveCSS('text-transform', 'none');
+  await expect(page.getByRole('heading', { name: 'Description' })).toHaveCSS('letter-spacing', 'normal');
   await page.getByRole('button', { name: 'Raw metadata' }).click();
+  await expect(page.getByRole('button', { name: 'Raw metadata' })).toHaveCSS('text-transform', 'none');
   await expect(page.getByText('Provider', { exact: true })).toBeVisible();
+  await expect(page.getByText('Provider', { exact: true })).toHaveCSS('text-transform', 'none');
   await screenshot(page, 'variant-details-panel-actions', { fullPage: true });
 
   await starButton.click();
