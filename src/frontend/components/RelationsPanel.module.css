@@ -282,6 +282,18 @@
   white-space: nowrap;
 }
 
+.detailsToggle {
+  --ui-button-height: 1.75rem;
+  --ui-button-pad-x: 0.5rem;
+  justify-self: start;
+  color: var(--color-text-muted);
+}
+
+.detailsFields {
+  display: grid;
+  gap: 0.625rem;
+}
+
 .targetOptions {
   max-height: 230px;
   overflow: auto;
