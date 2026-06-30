@@ -53,10 +53,6 @@
   text-align: left;
 }
 
-.option:hover:not(:disabled) {
-  transform: translateX(2px);
-}
-
 .option.selected {
   background: var(--color-status-processing-bg);
 }
@@ -72,12 +68,11 @@
   overflow: hidden;
   flex-shrink: 0;
   border: 1px solid var(--color-border);
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease;
 }
 
 .option:hover .thumbnail {
   border-color: var(--color-border-hover, var(--color-primary));
-  transform: scale(1.05);
 }
 
 .thumbnailImage {
