@@ -90,14 +90,10 @@ test('variant canvas shows derivatives as lineage nodes', async ({ page }) => {
     onVariantClick: '__noop__', onGhostNodeClick: '__noop__',
   });
   await page.waitForSelector('.react-flow__node');
-  await expect(page.locator('.react-flow__controls').first()).toHaveCSS(
-    'box-shadow',
-    await resolvedShadow(page, 'var(--shadow-header)'),
-  );
-  await expect(page.locator('.react-flow__minimap').first()).toHaveCSS(
-    'box-shadow',
-    await resolvedShadow(page, 'var(--shadow-header)'),
-  );
+  await expect(page.locator('.react-flow__controls').first()).toHaveCSS('box-shadow', 'none');
+  await expect(page.locator('.react-flow__controls').first()).toHaveCSS('border-top-width', '1px');
+  await expect(page.locator('.react-flow__minimap').first()).toHaveCSS('box-shadow', 'none');
+  await expect(page.locator('.react-flow__minimap').first()).toHaveCSS('border-top-width', '1px');
   for (const f of families) {
     await expect(page.getByText(`Sprite: ${f}_grow`)).toBeVisible();
   }
@@ -106,7 +102,7 @@ test('variant canvas shows derivatives as lineage nodes', async ({ page }) => {
   const ghostNode = ghostLabel.locator('xpath=ancestor::div[contains(@class, "node")][1]');
   const ghostPreview = ghostNode.locator('[class*="thumbnail"]').first();
   await expectLocatorAfterShadow(page, ghostPreview, 'var(--relation-ring)');
-  await screenshot(page, 'variant-canvas-lineage-labels', { fullPage: true });
+  await screenshot(page, 'variant-canvas-flat-flow-controls', { fullPage: true });
 });
 
 test('variant canvas retries failed audio variants and renders queued state', async ({ page }) => {
