@@ -131,6 +131,8 @@ test('composition detail creates compositions and sets an exact output variant',
   }));
 
   await expect(page.getByRole('button', { name: /Scene Bar composition draft/ }).first()).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('complementary', { name: 'Composition detail' })).toHaveCSS('box-shadow', 'none');
+  await expect(page.getByRole('complementary', { name: 'Composition detail' })).toHaveCSS('background-color', 'rgb(255, 255, 255)');
 
   await screenshot(page, 'composition-detail-controls', { fullPage: true });
 
