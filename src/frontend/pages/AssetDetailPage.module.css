@@ -332,6 +332,7 @@
 
 .assetExpandedDetailsPanel {
   display: grid;
+  grid-auto-rows: max-content;
   gap: 0.55rem;
   max-height: min(58vh, 520px);
   overflow: auto;
