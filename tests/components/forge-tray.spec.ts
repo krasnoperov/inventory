@@ -1085,6 +1085,52 @@ test('forge tray collapses after touching the destination toggle then leaving', 
   await expect.poll(revealHeight).toBeLessThan(2);
 });
 
+test('forge tray keeps mode and options on one compact row at narrow widths', async ({ page }) => {
+  await page.setViewportSize({ width: 430, height: 720 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    sendChatMessage: '__noop__',
+    spaceId: 'space-1',
+  });
+  await disableAnimations(page);
+  await revealOptions(page);
+
+  await selectDropdown(page, 'Batch count', 'x2');
+
+  const revealInner = page.getByTestId('forge-options-reveal').locator('> div');
+  const row = page.getByTestId('forge-options-row');
+  await expect(row).toBeVisible();
+  await expect(page.getByLabel('Media type')).toBeVisible();
+
+  const geometry = await row.evaluate((node) => {
+    const rowBox = node.getBoundingClientRect();
+    const controlTops = [...node.children]
+      .map((child) => {
+        const box = child.getBoundingClientRect();
+        return { top: box.top, height: box.height };
+      })
+      .filter((box) => box.height > 0 && box.top > 0)
+      .map((box) => Math.round(box.top));
+
+    return {
+      rowHeight: rowBox.height,
+      topSpread: Math.max(...controlTops) - Math.min(...controlTops),
+    };
+  });
+  expect(geometry.topSpread).toBeLessThanOrEqual(8);
+  expect(geometry.rowHeight).toBeLessThanOrEqual(40);
+  const rowWidth = await row.evaluate((node) => node.scrollWidth);
+  expect(rowWidth).toBeGreaterThan(360);
+  await expect.poll(() => revealInner.evaluate((node) => node.clientWidth)).toBeLessThan(rowWidth);
+
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'forge-tray-narrow-options-row', { fullPage: true });
+});
+
 test('forge tray dark theme polish', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.setViewportSize({ width: 980, height: 760 });

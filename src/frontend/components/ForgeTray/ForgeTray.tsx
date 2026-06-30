@@ -1209,7 +1209,7 @@ export function ForgeTray({
           >
             <div className={styles.optionsRevealInner}>
               {showOptionsRow && (
-                <div className={styles.optionsRow}>
+                <div className={styles.optionsRow} data-testid="forge-options-row">
                   <UiSelect
                     className={styles.selectMode}
                     value={currentMediaGroup}
