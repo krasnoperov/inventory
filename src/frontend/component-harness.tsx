@@ -894,13 +894,13 @@ function SpacePageOverlayChromePreview() {
       <div className={spacePageStyles.canvasContainer}>
         <div className={spacePageStyles.jobsOverlay}>
           <div className={`${spacePageStyles.jobCard} ${spacePageStyles.processing}`}>
-            <div className={spacePageStyles.jobStatus}>↻</div>
+            <span className={spacePageStyles.jobStatus} aria-label="Generating job" />
             <div className={spacePageStyles.jobInfo}>
               <span className={spacePageStyles.jobAssetName}>Crystal Gate</span>
             </div>
           </div>
           <div className={`${spacePageStyles.jobCard} ${spacePageStyles.completed}`}>
-            <div className={spacePageStyles.jobStatus}>✓</div>
+            <span className={spacePageStyles.jobStatus} aria-label="Done job" />
             <div className={spacePageStyles.jobInfo}>
               <span className={spacePageStyles.jobAssetName}>Scout Variant</span>
             </div>

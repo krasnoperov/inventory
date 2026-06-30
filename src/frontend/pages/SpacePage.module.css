@@ -135,9 +135,30 @@
 }
 
 .jobStatus {
-  font-size: 0.875rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
   flex-shrink: 0;
-  line-height: 1;
+  border: 1.5px solid currentColor;
+  background: var(--color-surface);
+}
+
+.jobCard.pending .jobStatus {
+  color: var(--color-text-muted);
+}
+
+.jobCard.processing .jobStatus {
+  color: var(--color-status-processing);
+}
+
+.jobCard.completed .jobStatus {
+  color: var(--color-status-completed);
+  background: currentColor;
+}
+
+.jobCard.failed .jobStatus {
+  color: var(--color-status-failed);
+  background: currentColor;
 }
 
 .jobInfo {
@@ -154,7 +175,7 @@
 }
 
 .jobAssetName {
-  color: var(--color-primary);
+  color: var(--color-text);
   max-width: 100px;
   white-space: nowrap;
   overflow: hidden;
