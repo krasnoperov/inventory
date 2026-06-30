@@ -266,6 +266,28 @@ test('forge tray exposes media type as the first options dropdown', async ({ pag
   await expect(page.getByLabel('Asset name')).toHaveValue('Video 1');
 });
 
+test('forge tray inline status rows fade without motion', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    onSubmit: '__record__:forge-submit',
+    forgeError: 'Generation needs billing access',
+    forgeErrorCode: 'PAID_GENERATION_REQUIRED',
+  });
+  await disableAnimations(page);
+
+  const errorRow = page.getByText('Generation needs billing access').locator('..');
+  await expect(errorRow).toBeVisible();
+  await expect(errorRow).toHaveCSS('transform', 'none');
+  await expect.poll(
+    () => errorRow.evaluate((node) => getComputedStyle(node).animationName),
+  ).toContain('forgeErrorFadeIn');
+  await expect(page.getByRole('link', { name: 'Upgrade' })).toBeVisible();
+  await screenshot(page, 'forge-tray-inline-status-flat-motion', { fullPage: true });
+});
+
 test('forge tray makes the prompt the hero above the controls', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 
