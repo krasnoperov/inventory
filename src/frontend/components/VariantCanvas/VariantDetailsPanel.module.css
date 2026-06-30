@@ -92,6 +92,16 @@
   background: var(--color-star-bg);
 }
 
+.starIcon {
+  display: block;
+  flex: none;
+  fill: currentColor;
+}
+
+.starIconCutout {
+  fill: var(--color-surface);
+}
+
 .actionButton.setActive:hover {
   border-color: var(--color-success);
   color: var(--color-success);

@@ -64,6 +64,26 @@ const RELATION_LABELS: Record<Lineage['relation_type'], string> = {
   forked: 'Forked from',
 };
 
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      className={styles.starIcon}
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      aria-hidden="true"
+    >
+      <path d="M12 3.2l2.55 5.17 5.7.83-4.13 4.02.98 5.68L12 16.22 6.9 18.9l.98-5.68L3.75 9.2l5.7-.83L12 3.2z" />
+      {!filled && (
+        <path
+          className={styles.starIconCutout}
+          d="M12 6.58l-1.51 3.06-3.38.49 2.45 2.39-.58 3.36L12 14.29l3.02 1.59-.58-3.36 2.45-2.39-3.38-.49L12 6.58z"
+        />
+      )}
+    </svg>
+  );
+}
+
 export function VariantDetailsPanel({
   variant,
   asset,
@@ -215,7 +235,7 @@ export function VariantDetailsPanel({
             aria-pressed={variant.starred}
             variant="ghost"
           >
-            {variant.starred ? '★' : '☆'}
+            <StarIcon filled={variant.starred} />
           </IconButton>
           <a
             className={styles.actionButton}
