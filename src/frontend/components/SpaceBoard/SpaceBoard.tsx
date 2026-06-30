@@ -2,7 +2,7 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import { Thumbnail } from '../Thumbnail';
 import { CompositionPlacementControl } from '../CompositionPlacementControl';
 import { getAudioCardMetadata } from '../assetCardMetadata';
-import { Button, ColorInput, TextInput, UiSelect, type SelectOption } from '../../ui';
+import { Button, ColorInput, IconButton, TextInput, UiSelect, type SelectOption } from '../../ui';
 import type {
   Asset,
   CollectionItem,
@@ -110,6 +110,7 @@ export function SpaceBoard({
   const [newKind, setNewKind] = useState<CollectionKind>('custom');
   const [newColor, setNewColor] = useState(COLLECTION_KIND_COLORS.custom);
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
+  const [openCollectionMenuId, setOpenCollectionMenuId] = useState<string | null>(null);
   const [addTargets, setAddTargets] = useState<Record<string, string>>({});
   const [cardTargets, setCardTargets] = useState<Record<string, string>>({});
 
@@ -441,9 +442,14 @@ export function SpaceBoard({
     const color = collection.color ?? COLLECTION_KIND_COLORS[collection.kind];
     const style = { '--collection-color': color } as CSSProperties;
     const previewItems = items.slice(0, 6);
+    const isCollectionMenuOpen = openCollectionMenuId === collection.id;
 
     return (
-      <section key={collection.id} className={styles.collection} style={style}>
+      <section
+        key={collection.id}
+        className={`${styles.collection} ${isCollectionMenuOpen ? styles.collectionMenuHostOpen : ''}`}
+        style={style}
+      >
         <header className={styles.collectionHeader}>
           <div className={styles.collectionTitleGroup}>
             <div className={styles.collectionEyebrow}>
@@ -454,87 +460,97 @@ export function SpaceBoard({
             <p>{items.length} {items.length === 1 ? 'asset' : 'assets'}</p>
           </div>
           {canEdit && (
-            <details className={styles.collectionMenu}>
-              <summary aria-label={`Manage collection ${collection.name}`} title={`Manage ${collection.name}`}>
-                <span className={styles.visuallyHidden}>Manage collection {collection.name}</span>
-              </summary>
-              <div className={styles.collectionMenuPanel}>
-                <label>
-                  <span>Name</span>
-                  <TextInput
-                    className={styles.collectionNameInput}
-                    value={collection.name}
-                    aria-label="Collection name"
-                    onChange={(event) => updateCollection(collection.id, { name: event.target.value })}
-                    fullWidth
-                  />
-                </label>
-                <label>
-                  <span>Kind</span>
-                  <UiSelect
-                    className={styles.select}
-                    fullWidth
-                    value={collection.kind}
-                    label="Collection kind"
-                    options={COLLECTION_KIND_OPTIONS}
-                    onValueChange={(kind) => updateCollection(collection.id, { kind })}
-                  />
-                </label>
-                <label className={styles.colorField}>
-                  <span>Color</span>
-                  <ColorInput
-                    value={color}
-                    aria-label="Collection color"
-                    onChange={(event) => updateCollection(collection.id, { color: event.target.value })}
-                  />
-                </label>
-                {assets.length > 0 && (
-                  <div className={styles.addRow}>
-                    <UiSelect
-                      className={styles.addSelect}
+            <div className={`${styles.collectionMenu} ${isCollectionMenuOpen ? styles.collectionMenuOpen : ''}`}>
+              <IconButton
+                className={styles.collectionMenuTrigger}
+                aria-label={`Manage collection ${collection.name}`}
+                title={`Manage ${collection.name}`}
+                aria-expanded={isCollectionMenuOpen}
+                variant="ghost"
+                size="sm"
+                onClick={() => setOpenCollectionMenuId((openId) => (openId === collection.id ? null : collection.id))}
+              >
+                <span aria-hidden="true">...</span>
+              </IconButton>
+              {isCollectionMenuOpen && (
+                <div className={styles.collectionMenuPanel}>
+                  <label>
+                    <span>Name</span>
+                    <TextInput
+                      className={styles.collectionNameInput}
+                      value={collection.name}
+                      aria-label="Collection name"
+                      onChange={(event) => updateCollection(collection.id, { name: event.target.value })}
                       fullWidth
-                      label={`Asset to add to ${collection.name}`}
-                      value={selectedAssetId}
-                      options={assetOptions}
-                      onValueChange={(value) => setAddTargets((prev) => ({ ...prev, [collection.id]: value }))}
                     />
+                  </label>
+                  <label>
+                    <span>Kind</span>
+                    <UiSelect
+                      className={styles.select}
+                      fullWidth
+                      value={collection.kind}
+                      label="Collection kind"
+                      options={COLLECTION_KIND_OPTIONS}
+                      onValueChange={(kind) => updateCollection(collection.id, { kind })}
+                    />
+                  </label>
+                  <label className={styles.colorField}>
+                    <span>Color</span>
+                    <ColorInput
+                      value={color}
+                      aria-label="Collection color"
+                      onChange={(event) => updateCollection(collection.id, { color: event.target.value })}
+                    />
+                  </label>
+                  {assets.length > 0 && (
+                    <div className={styles.addRow}>
+                      <UiSelect
+                        className={styles.addSelect}
+                        fullWidth
+                        label={`Asset to add to ${collection.name}`}
+                        value={selectedAssetId}
+                        options={assetOptions}
+                        onValueChange={(value) => setAddTargets((prev) => ({ ...prev, [collection.id]: value }))}
+                      />
+                      <Button
+                        className={styles.menuButton}
+                        onClick={() => selectedAssetId && addAssetToCollection(collection.id, selectedAssetId, getCollectionRole(collection.id))}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  )}
+                  <div className={styles.menuButtonRow}>
                     <Button
                       className={styles.menuButton}
-                      onClick={() => selectedAssetId && addAssetToCollection(collection.id, selectedAssetId, getCollectionRole(collection.id))}
+                      onClick={() => moveCollection(collection, -1)}
+                      disabled={index === 0}
                     >
-                      Add
+                      Move up
+                    </Button>
+                    <Button
+                      className={styles.menuButton}
+                      onClick={() => moveCollection(collection, 1)}
+                      disabled={index === orderedCollections.length - 1}
+                    >
+                      Move down
                     </Button>
                   </div>
-                )}
-                <div className={styles.menuButtonRow}>
                   <Button
                     className={styles.menuButton}
-                    onClick={() => moveCollection(collection, -1)}
-                    disabled={index === 0}
+                    variant="danger"
+                    onClick={() => {
+                      if (window.confirm(`Delete "${collection.name}"? Assets and variants will remain in the space.`)) {
+                        deleteCollection(collection.id);
+                      }
+                    }}
                   >
-                    Move up
-                  </Button>
-                  <Button
-                    className={styles.menuButton}
-                    onClick={() => moveCollection(collection, 1)}
-                    disabled={index === orderedCollections.length - 1}
-                  >
-                    Move down
+                    Delete collection
                   </Button>
                 </div>
-                <Button
-                  className={styles.menuButton}
-                  variant="danger"
-                  onClick={() => {
-                    if (window.confirm(`Delete "${collection.name}"? Assets and variants will remain in the space.`)) {
-                      deleteCollection(collection.id);
-                    }
-                  }}
-                >
-                  Delete collection
-                </Button>
-              </div>
-            </details>
+              )}
+            </div>
           )}
         </header>
         {previewItems.length > 0 && (

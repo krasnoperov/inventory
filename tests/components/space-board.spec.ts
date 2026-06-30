@@ -425,7 +425,11 @@ test('collection menus use shared form controls', async ({ page }) => {
   await expect(createTrigger).toHaveAttribute('aria-expanded', 'false');
   await createTrigger.click();
 
-  await page.locator('[class*="collectionMenu"] summary').first().click();
+  const collectionMenu = page.locator('[class*="collectionMenu"]').first();
+  const collectionMenuTrigger = page.getByRole('button', { name: 'Manage collection Cast' });
+  await expect(collectionMenu.locator('summary')).toHaveCount(0);
+  await collectionMenuTrigger.click();
+  await expect(collectionMenuTrigger).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('[class*="collectionMenuPanel"]').first()).toHaveCSS('box-shadow', 'none');
   await page.getByRole('textbox', { name: 'Collection name' }).first().fill('Cast updated');
   await selectDropdown(page, 'Collection kind', 'Scenes');
@@ -437,7 +441,8 @@ test('collection menus use shared form controls', async ({ page }) => {
   await selectDropdown(page, 'Asset to add to Cast', 'Forest background');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await screenshot(page, 'space-board-collection-manage-menu', { fullPage: true });
-  await page.locator('[class*="collectionMenu"] summary').first().click();
+  await collectionMenuTrigger.click();
+  await expect(collectionMenuTrigger).toHaveAttribute('aria-expanded', 'false');
 
   await page.getByTitle('Actions for Hero sprite').click();
   await expect(page.locator('[class*="cardMenuPanel"]').first()).toHaveCSS('box-shadow', 'none');
