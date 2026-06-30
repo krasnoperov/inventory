@@ -28,6 +28,12 @@ async function selectOption(page: Page, label: string, optionName: string | RegE
   await page.getByRole('option', { name: optionName }).click();
 }
 
+async function expectTransparentBackdrop(page: Page) {
+  const backdrop = page.locator('[class*="backdrop"]').first();
+  await expect(backdrop).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(backdrop).toHaveCSS('backdrop-filter', 'none');
+}
+
 const sourceAsset = {
   id: 'hero',
   name: 'Hero Character',
@@ -79,6 +85,7 @@ test('tile set panel uses shared fields without changing submit payload', async 
   });
 
   await expect(page.getByRole('heading', { name: 'Create Tile Set' })).toBeVisible();
+  await expectTransparentBackdrop(page);
   await selectOption(page, 'Tile Type', 'Building');
   await selectOption(page, 'Grid Size', '4x4');
   await selectOption(page, 'Generation Mode', 'Single-Shot');
@@ -119,6 +126,7 @@ test('rotation panel uses shared fields without changing submit payload', async 
   });
 
   await expect(page.getByRole('heading', { name: 'Generate Rotation Set' })).toBeVisible();
+  await expectTransparentBackdrop(page);
   await selectOption(page, 'Configuration', /Turnaround/);
   await selectOption(page, 'Generation Mode', 'Single-Shot');
   await page.getByPlaceholder('e.g. a pixel art warrior character').fill('pixel art warrior');
@@ -182,6 +190,7 @@ test('rotation panel keeps rating controls in footer chrome', async ({ page }) =
   });
 
   await expect(page.getByRole('heading', { name: 'Rotation Complete' })).toBeVisible();
+  await expectTransparentBackdrop(page);
   await expect(page.getByRole('button', { name: 'Approve' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: 'Reject' })).toHaveAttribute('aria-pressed', 'false');
 
