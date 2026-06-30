@@ -1035,6 +1035,10 @@ test('forge tray picker disables references incompatible with the selected media
   await expect(page.getByText('Image references')).toBeVisible();
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('[class*="modal"]').first()).toHaveCSS(
+    'box-shadow',
+    await resolvedShadow(page, 'var(--shadow-modal)'),
+  );
   await expect(page.getByRole('button', { name: /Hero Image/ })).toBeEnabled();
   const incompatibleVideo = page.getByRole('button', { name: /Hero Video, animation \/ video\. Image mode cannot use video references/ });
   await expect(incompatibleVideo).toBeDisabled();
