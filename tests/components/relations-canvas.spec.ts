@@ -32,6 +32,8 @@ test('relations canvas dock uses shared controls for graph options', async ({ pa
   await page.getByRole('button', { name: 'Flow' }).click();
   await page.getByRole('button', { name: 'Type' }).click();
   await page.getByRole('button', { name: /Relation/ }).click();
+  await expect(page.locator('[class*="specimen"]').first()).toHaveCSS('box-shadow', 'none');
+  await expect(page.locator('[class*="assembler"]').first()).toHaveCSS('box-shadow', 'none');
 
   const heroName = page.getByRole('button', { name: 'Hero Character' }).first();
   await expect(heroName).toBeVisible();
