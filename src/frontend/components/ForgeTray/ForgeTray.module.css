@@ -1,4 +1,4 @@
-/* ForgeTray - Glossy Glass Aesthetic */
+/* ForgeTray */
 .tray {
   position: fixed;
   bottom: 1rem;
@@ -17,7 +17,7 @@
   --ctl-h: 2.375rem;
   --mono: ui-monospace, "SF Mono", "Geist Mono", Menlo, monospace;
 
-  /* Solid background for non-brand pages */
+  /* Solid app surface */
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
@@ -26,15 +26,6 @@
   width: min(520px, calc(100vw - 2rem));
 
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Glossy glass effect when on brand gradient background */
-.tray.onBrandBackground {
-  background: var(--forge-bar-bg);
-  backdrop-filter: blur(20px) saturate(1.5);
-  -webkit-backdrop-filter: blur(20px) saturate(1.5);
-  border: 1px solid var(--forge-bar-border);
-  box-shadow: var(--forge-bar-shadow);
 }
 
 /* Drag-over state for file drop */

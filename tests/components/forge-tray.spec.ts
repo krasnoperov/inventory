@@ -196,13 +196,14 @@ test('forge tray exposes media type as the first options dropdown', async ({ pag
     allAssets: [],
     allVariants: [],
     onSubmit: '__record__:forge-submit',
-    onBrandBackground: false,
   });
   await disableAnimations(page);
 
   const mediaType = page.getByLabel('Media type');
   await expect(mediaType).toHaveCount(1);
   await expect(page.getByTitle('Video media')).toHaveCount(0);
+  await expect(page.locator('[class*="tray"]').first()).toHaveCSS('backdrop-filter', 'none');
+  await expect(page.locator('[class*="tray"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
 
   await revealOptions(page);
   await expect(mediaType).toBeVisible();
