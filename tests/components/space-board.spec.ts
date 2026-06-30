@@ -411,15 +411,19 @@ test('collection menus use shared form controls', async ({ page }) => {
     deleteCollectionItem: '__record__:deleteCollectionItem',
   });
 
-  await page.getByText('New collection').click();
-  await expect(page.locator('[class*="createControls"] summary')).toHaveCSS('backdrop-filter', 'none');
-  await expect(page.locator('[class*="createControls"] summary')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  const createTrigger = page.getByRole('button', { name: 'New collection' });
+  await expect(page.locator('[class*="createControls"] summary')).toHaveCount(0);
+  await createTrigger.click();
+  await expect(createTrigger).toHaveAttribute('aria-expanded', 'true');
+  await expect(createTrigger).toHaveCSS('backdrop-filter', 'none');
+  await expect(createTrigger).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(page.locator('[class*="createPanel"]')).toHaveCSS('box-shadow', 'none');
   await page.getByPlaceholder('Collection name').fill('Props');
   await selectDropdown(page, 'New collection kind', 'Style References');
   await page.getByLabel('New collection color').fill('#123456');
   await page.getByRole('button', { name: 'Create' }).click();
-  await page.getByText('New collection').click();
+  await expect(createTrigger).toHaveAttribute('aria-expanded', 'false');
+  await createTrigger.click();
 
   await page.locator('[class*="collectionMenu"] summary').first().click();
   await expect(page.locator('[class*="collectionMenuPanel"]').first()).toHaveCSS('box-shadow', 'none');

@@ -56,7 +56,6 @@
   position: relative;
 }
 
-.createControls summary,
 .collectionMenu summary,
 .cardMenu summary {
   list-style: none;
@@ -79,22 +78,22 @@
     opacity 0.15s ease;
 }
 
-.createControls summary:hover,
 .collectionMenu summary:hover,
 .cardMenu summary:hover {
   background: var(--ctl-hover, var(--button-ghost-bg-hover));
 }
 
-.createControls summary:focus-visible,
 .collectionMenu summary:focus-visible,
 .cardMenu summary:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
 }
 
-.createControls summary {
-  min-height: 30px;
-  padding: 0 0.625rem;
+.createTrigger {
+  --ui-button-height: 30px;
+  --ui-button-pad-x: 0.625rem;
+  --ui-button-font-size: var(--font-size-micro);
+
   font-size: var(--font-size-micro);
 }
 
@@ -127,7 +126,6 @@
   opacity: 1;
 }
 
-.createControls summary::-webkit-details-marker,
 .collectionMenu summary::-webkit-details-marker,
 .cardMenu summary::-webkit-details-marker {
   display: none;
