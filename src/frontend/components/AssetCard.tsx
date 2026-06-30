@@ -4,7 +4,7 @@ import { formatMediaKind } from '../mediaKind';
 import { AssetMenu } from './AssetMenu';
 import { getAudioCardMetadata } from './assetCardMetadata';
 import { Thumbnail } from './Thumbnail';
-import { IconButton } from '../ui';
+import { Button, IconButton } from '../ui';
 import styles from './AssetCard.module.css';
 
 export interface AssetCardProps {
@@ -109,11 +109,13 @@ export function AssetCard(props: AssetCardProps) {
 
       {/* Asset Info Row */}
       <div className={styles.infoRow}>
-        <div className={styles.nameRow} onClick={handleCardClick}>
-          <span className={styles.name}>{asset.name}</span>
-          <span className={styles.type}>
-            {asset.type} / {formatMediaKind(asset.media_kind)}
-          </span>
+        <div className={styles.nameRow}>
+          <Button className={styles.titleButton} onClick={handleCardClick} variant="ghost" size="sm">
+            <span className={styles.name}>{asset.name}</span>
+            <span className={styles.type}>
+              {asset.type} / {formatMediaKind(asset.media_kind)}
+            </span>
+          </Button>
           {hasAudioDetails && (
             <div className={styles.audioDetails}>
               {(audioMetadata.name || audioMetadata.model || audioMetadata.voice) && (

@@ -111,7 +111,27 @@
   gap: 2px;
   flex: 1;
   min-width: 0;
-  cursor: pointer;
+}
+
+.titleButton.titleButton {
+  --ui-button-height: auto;
+  --ui-button-pad-x: 0;
+  --ui-button-font-size: 13px;
+  --ctl-hover: transparent;
+
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  justify-content: flex-start;
+  color: var(--color-text);
+  text-align: left;
+}
+
+.titleButton.titleButton:hover:not(:disabled) .name {
+  color: var(--color-primary);
 }
 
 /* Parent path breadcrumb */
@@ -126,6 +146,8 @@
 }
 
 .name {
+  min-width: 0;
+  width: 100%;
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text);
@@ -136,6 +158,8 @@
 }
 
 .type {
+  min-width: 0;
+  width: 100%;
   font-size: 11px;
   color: var(--color-text-muted);
   text-transform: capitalize;
