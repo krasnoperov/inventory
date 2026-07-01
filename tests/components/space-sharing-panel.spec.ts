@@ -85,10 +85,18 @@ test('owner sharing panel exposes request, invite, member, and invitation contro
   const panel = page.getByRole('dialog', { name: 'Space sharing' });
   await expect(panel).toHaveCSS('box-shadow', 'none');
   await expect(panel).toHaveCSS('border-top-width', '1px');
+  const panelBox = await panel.boundingBox();
+  expect(panelBox?.width).toBeLessThanOrEqual(640);
+  await expect(page.getByText('Email')).toHaveCSS('text-transform', 'none');
+  await expect(page.getByText('Email')).toHaveCSS('letter-spacing', 'normal');
+  await expect(page.getByText('editor').first()).toHaveCSS('text-transform', 'none');
+  await expect(page.getByRole('button', { name: 'Close sharing panel' })).toHaveCSS('width', '24px');
   await expect(page.getByRole('heading', { name: 'Incoming requests' })).toBeVisible();
   await expect(page.getByText('requester@example.test')).toBeVisible();
+  await expect(page.getByText(/Requested Jun 27, 10:00 AM/)).toBeVisible();
   await expect(page.getByText('pending@example.test')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Approve viewer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Approve viewer' })).toHaveCSS('min-height', '30px');
   const rows = panel.locator('[class*="row"]');
   await expect(rows.first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(rows.first()).toHaveCSS('border-left-width', '0px');
