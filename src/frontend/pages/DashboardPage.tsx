@@ -5,98 +5,13 @@ import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
+import { CreateSpaceDialog } from '../components/CreateSpaceDialog';
 import { ErrorMessage } from '../components/forms';
 import { apiFetch } from '../../api/client';
 import type { Space } from '../../api/types';
 import { formatUtcDate } from '../lib/dates';
-import { Button, ButtonLink, IconButton, TextInput } from '../ui';
+import { Button, ButtonLink } from '../ui';
 import styles from './DashboardPage.module.css';
-
-interface CreateSpaceDialogProps {
-  isCreating: boolean;
-  newSpaceName: string;
-  onClose: () => void;
-  onNameChange: (value: string) => void;
-  onSubmit: () => void;
-}
-
-export function CreateSpaceDialog({
-  isCreating,
-  newSpaceName,
-  onClose,
-  onNameChange,
-  onSubmit,
-}: CreateSpaceDialogProps) {
-  return (
-    <div className={styles.modalOverlay} onClick={onClose}>
-      <div
-        className={styles.modal}
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-space-dialog-title"
-      >
-        <div className={styles.modalHeader}>
-          <h2 className={styles.modalTitle} id="create-space-dialog-title">Create New Space</h2>
-          <IconButton
-            className={styles.modalClose}
-            onClick={onClose}
-            aria-label="Close"
-            variant="ghost"
-            size="sm"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </IconButton>
-        </div>
-
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            onSubmit();
-          }}
-        >
-          <div className={styles.formGroup}>
-            <label htmlFor="spaceName" className={styles.label}>
-              Space Name *
-            </label>
-            <TextInput
-              id="spaceName"
-              value={newSpaceName}
-              onChange={(event) => onNameChange(event.target.value)}
-              className={styles.input}
-              placeholder="Enter space name"
-              disabled={isCreating}
-              autoFocus
-              fullWidth
-            />
-          </div>
-
-          <div className={styles.modalActions}>
-            <Button
-              type="button"
-              className={styles.modalActionButton}
-              onClick={onClose}
-              disabled={isCreating}
-              variant="secondary"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className={styles.modalActionButton}
-              disabled={isCreating}
-              variant="primary"
-            >
-              {isCreating ? 'Creating...' : 'Create Space'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
 
 export default function DashboardPage() {
   const navigate = useNavigate();

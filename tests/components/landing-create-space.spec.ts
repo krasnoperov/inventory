@@ -13,10 +13,10 @@ test('landing create-space dialog uses shared name field', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'Create New Space' })).toBeVisible();
   await expect(page.getByRole('dialog', { name: 'Create New Space' })).toBeVisible();
-  await expect(page.locator('[class*="modalOverlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(page.locator('[class*="modalOverlay"]')).toHaveCSS('backdrop-filter', 'none');
-  await expect(page.locator('[class*="_modal_"]').first()).toHaveCSS('box-shadow', 'none');
-  await expect(page.locator('[class*="_modal_"]').first()).toHaveCSS('border-radius', '8px');
+  await expect(page.locator('[class*="overlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('[class*="overlay"]')).toHaveCSS('backdrop-filter', 'none');
+  await expect(page.getByRole('dialog', { name: 'Create New Space' })).toHaveCSS('box-shadow', 'none');
+  await expect(page.getByRole('dialog', { name: 'Create New Space' })).toHaveCSS('border-radius', '8px');
   await expect(page.getByRole('button', { name: 'Close' })).toHaveCSS('width', '24px');
   await expect(page.getByRole('button', { name: 'Close' })).toHaveCSS('min-height', '24px');
   await expect(page.getByLabel('Space Name *')).toBeFocused();
