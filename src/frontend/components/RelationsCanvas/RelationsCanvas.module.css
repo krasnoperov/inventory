@@ -296,42 +296,63 @@
   transform: translateX(-50%);
   z-index: 10;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem;
+  justify-content: center;
+  gap: 0.45rem;
   max-width: calc(100% - 1.5rem);
-  padding: 0.35rem 0.55rem;
+  padding: 0.3rem 0.45rem;
+  box-sizing: border-box;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: none;
-  overflow-x: auto;
+  overflow: visible;
 }
 
-.segment { display: flex; align-items: center; gap: 0.3rem; }
+.segment {
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
 
 .segLabel {
   font-size: var(--font-size-micro-sm);
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--color-text-muted);
   margin-right: 0.1rem;
   white-space: nowrap;
 }
 
-.dockDivider { width: 1px; height: 18px; background: var(--color-border); flex: 0 0 auto; }
+.dockDivider { width: 1px; height: 16px; background: var(--color-border); flex: 0 0 auto; }
 
 .dockButton {
-  --ui-button-height: 26px;
-  --ui-button-pad-x: 0.55rem;
+  --ui-button-height: 24px;
+  --ui-button-pad-x: 0.5rem;
   --ui-button-font-size: var(--font-size-small-sm);
 
   white-space: nowrap;
 }
 
+.dockButtonActive {
+  color: var(--color-text);
+  background: var(--color-bg);
+  border-color: var(--color-primary);
+}
+
+.dockButtonActive:hover:not(:disabled) {
+  color: var(--color-text);
+  border-color: var(--color-primary);
+}
+
 .dockButtonActive .threadCount {
   color: currentColor;
-  opacity: 0.82;
+  opacity: 0.72;
 }
 
 .threadButton {
@@ -402,11 +423,25 @@
      (below the space toolbar) so it stays reachable. */
   .dock {
     left: 0.5rem;
-    right: 0.5rem;
+    right: auto;
+    width: calc(100vw - 1rem);
     bottom: auto;
     top: 3.4rem;
     transform: none;
-    max-width: none;
+    max-width: calc(100vw - 1rem);
     justify-content: flex-start;
+  }
+
+  .dockDivider {
+    display: none;
+  }
+
+  .segment {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .dockButton {
+    max-width: 100%;
   }
 }

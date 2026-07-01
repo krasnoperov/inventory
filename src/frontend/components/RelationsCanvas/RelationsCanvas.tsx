@@ -549,7 +549,7 @@ function RelationsCanvasInner({
         <div className={styles.segment}>
           <Button
             className={`${styles.dockButton} ${storyMode ? styles.dockButtonActive : ''}`}
-            variant={storyMode ? 'primary' : 'ghost'}
+            variant={storyMode ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => setStoryMode(true)}
             title="Source → final pipeline, noise hidden"
@@ -558,7 +558,7 @@ function RelationsCanvasInner({
           </Button>
           <Button
             className={`${styles.dockButton} ${!storyMode ? styles.dockButtonActive : ''}`}
-            variant={!storyMode ? 'primary' : 'ghost'}
+            variant={!storyMode ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => setStoryMode(false)}
             title="Raw graph: every asset and layout control"
@@ -585,7 +585,7 @@ function RelationsCanvasInner({
                 <span className={styles.dockDivider} />
                 <Button
                   className={`${styles.dockButton} ${showAttempts ? styles.dockButtonActive : ''}`}
-                  variant={showAttempts ? 'primary' : 'ghost'}
+                  variant={showAttempts ? 'secondary' : 'ghost'}
                   size="sm"
                   onClick={() => setShowAttempts((v) => !v)}
                   title="Reveal dead-end attempts and unlinked assets"
@@ -605,7 +605,7 @@ function RelationsCanvasInner({
               <span className={styles.segLabel}>Layout</span>
               <Button
                 className={`${styles.dockButton} ${layoutMode === 'force' ? styles.dockButtonActive : ''}`}
-                variant={layoutMode === 'force' ? 'primary' : 'ghost'}
+                variant={layoutMode === 'force' ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => setLayoutMode('force')}
                 title="Organic clusters"
@@ -614,7 +614,7 @@ function RelationsCanvasInner({
               </Button>
               <Button
                 className={`${styles.dockButton} ${layoutMode === 'layered' ? styles.dockButtonActive : ''}`}
-                variant={layoutMode === 'layered' ? 'primary' : 'ghost'}
+                variant={layoutMode === 'layered' ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => setLayoutMode('layered')}
                 title="Top-down provenance flow"
@@ -629,7 +629,7 @@ function RelationsCanvasInner({
                 <Button
                   key={g.id}
                   className={`${styles.dockButton} ${grouping === g.id ? styles.dockButtonActive : ''}`}
-                  variant={grouping === g.id ? 'primary' : 'ghost'}
+                  variant={grouping === g.id ? 'secondary' : 'ghost'}
                   size="sm"
                   onClick={() => setGrouping(g.id)}
                 >

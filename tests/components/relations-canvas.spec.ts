@@ -121,3 +121,22 @@ test('relations canvas focused chrome stays flat', async ({ page }) => {
   await expect.poll(() => boxShadow(page, '[class*="specimen"][class*="focused"]')).not.toContain('24px');
   await screenshot(page, 'relations-canvas-flat-focused-chrome', { fullPage: true });
 });
+
+test('relations canvas dock wraps controls on mobile', async ({ page }) => {
+  await mockImages(page);
+  await page.setViewportSize({ width: 390, height: 720 });
+  await mountComponent(page, 'RelationsCanvas', {
+    onAssetClick: '__record__:assetClick',
+  });
+
+  await page.getByRole('button', { name: 'Graph' }).click();
+  await expect(page.getByRole('button', { name: 'Type' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Composition/ })).toBeVisible();
+
+  const dock = page.getByRole('toolbar', { name: 'Relations canvas controls' });
+  await expect.poll(async () => dock.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    return rect.left >= 0 && rect.right <= window.innerWidth;
+  })).toBe(true);
+  await screenshot(page, 'relations-canvas-dock-mobile', { fullPage: true });
+});
