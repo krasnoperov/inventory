@@ -44,7 +44,10 @@ test('collection placement picker updates role subject and pinning', async ({ pa
   await expect(page.getByLabel('Add collection')).toContainText('Add collection');
   await expect(page.getByText('Cast', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Remove Cast placement draft')).toBeVisible();
+  await expect(page.getByLabel('Role for Cast')).toHaveCount(0);
+  await expect(page.getByText('Character', { exact: true })).toBeVisible();
 
+  await page.getByLabel('Edit Cast placement draft').click();
   await selectDropdown(page, 'Role for Cast', 'Background');
   await page.evaluate((nextProps) => window.__setHarnessProps?.(nextProps), {
     collections,
@@ -74,7 +77,7 @@ test('collection placement picker updates role subject and pinning', async ({ pa
   await selectDropdown(page, 'Add collection', 'Style refs');
   await page.mouse.move(0, 0);
   const rowMetrics = await page.getByLabel('Remove Cast placement draft').evaluate((button) => {
-    const row = button.closest('div');
+    const row = button.closest('[class*="placementRow"]');
     if (!row) return null;
     const styles = window.getComputedStyle(row);
     const rect = row.getBoundingClientRect();
@@ -152,6 +155,11 @@ test('collection placement picker stacks cleanly on mobile', async ({ page }) =>
   });
 
   await expect(page.getByText('Cast', { exact: true })).toBeVisible();
+  await expect(page.getByText('Character', { exact: true })).toBeVisible();
+  await expect(page.getByText('Asset', { exact: true })).toBeVisible();
+  await expect(page.getByText('Pinned', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Role for Cast')).toHaveCount(0);
+  await page.getByLabel('Edit Cast placement draft').click();
   await expect(page.getByLabel('Role for Cast')).toBeVisible();
   await expect(page.getByLabel('Collection subject for Cast')).toBeVisible();
   await expect(page.getByText('Pin variant')).toBeVisible();
@@ -162,4 +170,30 @@ test('collection placement picker stacks cleanly on mobile', async ({ page }) =>
   }));
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
   await screenshot(page, 'collection-placement-picker-mobile');
+});
+
+test('collection placement picker contains long custom role summaries', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 260 });
+  await mountComponent(page, 'CollectionPlacementPicker', {
+    collections,
+    value: [{
+      collectionId: 'cast',
+      role: 'very-long-custom-production-role-that-should-not-expand-the-row',
+      subjectType: 'asset',
+      pinToCreatedVariant: false,
+    }],
+    onChange: '__record__:change',
+    allowSubjectChoice: true,
+    showPinToCreatedVariant: true,
+  });
+
+  const metrics = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
+
+  const roleChip = page.getByText('very-long-custom-production-role-that-should-not-expand-the-row');
+  await expect(roleChip).toHaveCSS('overflow', 'hidden');
+  await expect(roleChip).toHaveCSS('text-overflow', 'ellipsis');
 });
