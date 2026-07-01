@@ -673,8 +673,12 @@ export function ForgeTray({
         mode: 'custom',
         variantIds: current.mode === 'custom' ? current.variantIds : [],
       }));
+      setShowAssetPicker(false);
+      setShowChat(false);
       setShowStylePanel(true);
     } else if (value === 'manage') {
+      setShowAssetPicker(false);
+      setShowChat(false);
       setShowStylePanel(true);
     } else if (value.startsWith('preset:')) {
       setStyleSelection({ mode: 'preset', presetId: value.slice('preset:'.length) });
@@ -698,6 +702,8 @@ export function ForgeTray({
   }, []);
 
   const handleAddClick = useCallback(() => {
+    setShowChat(false);
+    setShowStylePanel(false);
     setShowAssetPicker(true);
   }, []);
 
@@ -734,6 +740,9 @@ export function ForgeTray({
       const defaultName = defaultAssetNameFromFile(file);
       setPendingUploadFile(file);
       setUploadAssetName(defaultName);
+      setShowAssetPicker(false);
+      setShowChat(false);
+      setShowStylePanel(false);
       setShowUploadPrompt(true);
     }
   }, [targetAsset, onUpload, onUploadNewAsset]);
@@ -815,6 +824,9 @@ export function ForgeTray({
       const defaultName = defaultAssetNameFromFile(uploadFile);
       setPendingUploadFile(uploadFile);
       setUploadAssetName(defaultName);
+      setShowAssetPicker(false);
+      setShowChat(false);
+      setShowStylePanel(false);
       setShowUploadPrompt(true);
     }
   }, [onUpload, onUploadNewAsset, targetAsset]);
@@ -937,7 +949,14 @@ export function ForgeTray({
 
   // Toggle chat panel
   const handleToggleChat = useCallback(() => {
-    setShowChat(prev => !prev);
+    setShowChat((current) => {
+      const next = !current;
+      if (next) {
+        setShowAssetPicker(false);
+        setShowStylePanel(false);
+      }
+      return next;
+    });
   }, []);
 
   // Handle applying suggested prompt from chat
