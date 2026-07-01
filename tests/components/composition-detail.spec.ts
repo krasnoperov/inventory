@@ -153,6 +153,9 @@ test('composition detail creates compositions and sets an exact output variant',
   await output.getByRole('button', { name: 'Add Output variant' }).click();
   await expect(page.locator('[class*="pickerOverlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await page.getByLabel('Search exact variants').fill('Scene Bar');
+  await expect(
+    page.getByRole('dialog', { name: 'Choose exact variant' }).getByRole('button', { name: /Scene Bar/ }).first(),
+  ).toHaveCSS('grid-template-columns', /48px /);
   await screenshot(page, 'composition-variant-picker', { fullPage: true });
   await page.getByRole('dialog', { name: 'Choose exact variant' }).getByRole('button', { name: /Scene Bar/ }).click();
 
