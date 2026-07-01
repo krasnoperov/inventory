@@ -305,10 +305,13 @@
   min-width: 0;
   align-self: flex-start;
   flex: var(--card-aspect, 1) 1 calc(var(--card-aspect, 1) * var(--row-h));
+  display: grid;
+  gap: 0.35rem;
 }
 
 .assetCardMenuHostOpen {
   z-index: 4;
+  min-width: min(248px, 100%);
 }
 
 .audioAssetCard {
@@ -366,23 +369,9 @@
 }
 
 .caption {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
   display: grid;
   gap: 0.15rem;
-  padding: 1.5rem 0.5rem 0.45rem;
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  pointer-events: none;
-}
-
-.assetCard:hover .caption,
-.assetCard:focus-within .caption {
-  opacity: 1;
-  pointer-events: auto;
+  min-width: 0;
 }
 
 .assetName {
@@ -392,7 +381,7 @@
   --ctl-hover: transparent;
 
   max-width: 100%;
-  color: oklch(100% 0 0);
+  color: var(--color-text);
   font-weight: 600;
   justify-content: flex-start;
   text-align: left;
@@ -402,7 +391,7 @@
 }
 
 .assetName:hover:not(:disabled) {
-  color: oklch(100% 0 0);
+  color: var(--color-text);
   text-decoration: underline;
 }
 
@@ -414,11 +403,11 @@
 
 .assetMeta span {
   min-width: 0;
-  padding: 0.05rem 0.32rem;
+  padding: 0;
   background: transparent;
   border: 0;
-  border-radius: var(--radius-xs);
-  color: oklch(100% 0 0 / 0.92);
+  border-radius: 0;
+  color: var(--color-text-muted);
   font-size: var(--font-size-micro);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -555,11 +544,9 @@
 }
 
 .cardMenuPanel {
-  top: calc(var(--row-h) + 0.55rem);
-  left: 0;
-  right: auto;
-  width: min(248px, calc(100vw - 2rem));
-  transform: translateX(var(--card-menu-panel-offset, 0px));
+  position: static;
+  width: 100%;
+  transform: none;
 }
 
 .emptyCollection {

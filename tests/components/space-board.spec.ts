@@ -288,9 +288,11 @@ test('media triggers open image assets without changing thumbnail chrome', async
   await expect(imageThumbnailTrigger).toHaveCSS('box-shadow', 'none');
   await expect(imageThumbnailTrigger).toHaveCSS('transform', 'none');
   const imageCaption = page.locator('[class*="caption"]').filter({ hasText: 'Hero sprite' });
+  await expect(imageCaption).toBeVisible();
   await expect(imageCaption).toHaveCSS('opacity', '1');
   await expect(imageCaption).toHaveCSS('transform', 'none');
-  await expect(imageCaption).toHaveCSS('transition-property', 'opacity');
+  await expect(imageCaption).toHaveCSS('transition-property', 'all');
+  await expectNoOverlap(imageCaption, imageThumbnailTrigger);
   await screenshot(page, 'space-board-media-triggers', { fullPage: true });
   await imageThumbnailTrigger.click();
 
@@ -326,7 +328,7 @@ test('asset name triggers open image and audio assets', async ({ page }) => {
   await expect(audioNameTrigger).toBeVisible();
 
   await page.getByTitle('Hero sprite').first().hover();
-  await expect(imageNameTrigger).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await expect(imageNameTrigger).toHaveCSS('color', 'rgb(19, 22, 29)');
   await imageNameTrigger.click();
   await audioNameTrigger.click();
 
@@ -506,8 +508,13 @@ test('collection menus use shared form controls', async ({ page }) => {
   await expect(cardMenuTrigger).toHaveAttribute('aria-haspopup', 'dialog');
   const cardMenuPanel = page.locator('[class*="cardMenuPanel"]').first();
   await expect(cardMenuPanel).toHaveCSS('box-shadow', 'none');
-  const cardPreview = cardMenuTrigger.locator('xpath=ancestor::article[1]').locator('[class*="thumbnailButton"]').first();
+  const heroCard = cardMenuTrigger.locator('xpath=ancestor::article[1]');
+  const cardPreview = heroCard.locator('[class*="thumbnailButton"]').first();
+  const cardCaption = heroCard.locator('[class*="caption"]').first();
+  await expect(cardCaption).toBeVisible();
+  await expectNoOverlap(cardCaption, cardPreview);
   await expectNoOverlap(cardMenuPanel, cardPreview);
+  await expectNoOverlap(cardMenuPanel, page.locator('button[class*="thumbnailButton"][title="Forest background"]').first());
   await expectWithinViewport(page, cardMenuPanel);
   await page.getByLabel('Role for Hero sprite').fill('lead');
   await selectDropdown(page, 'Collection target for Hero sprite', 'Backgrounds');

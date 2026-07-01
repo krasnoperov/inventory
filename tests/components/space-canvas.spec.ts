@@ -34,6 +34,23 @@ function item(id: string, collectionId: string, assetId: string, sort: number) {
   };
 }
 
+async function expectNoOverlap(
+  first: import('@playwright/test').Locator,
+  second: import('@playwright/test').Locator,
+) {
+  await expect.poll(async () => {
+    const firstBox = await first.boundingBox();
+    const secondBox = await second.boundingBox();
+    if (!firstBox || !secondBox) return false;
+    return !(
+      firstBox.x + firstBox.width <= secondBox.x ||
+      secondBox.x + secondBox.width <= firstBox.x ||
+      firstBox.y + firstBox.height <= secondBox.y ||
+      secondBox.y + secondBox.height <= firstBox.y
+    );
+  }).toBe(false);
+}
+
 // Small fixture so props fit in the harness URL: two collections + one unfiled.
 const assets = [
   asset('a0', 'Hero'), asset('a1', 'Tree'), asset('a2', 'Banner'),
@@ -206,7 +223,8 @@ test('space canvas frame card triggers open assets without changing media chrome
 
   await thumbnailTrigger.hover();
   await expect(nameTrigger).toBeVisible();
-  await expect(nameTrigger).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await expect(nameTrigger).toHaveCSS('color', 'rgb(19, 22, 29)');
+  await expectNoOverlap(nameTrigger, thumbnailTrigger);
   await screenshot(page, 'space-canvas-frame-card-triggers', { fullPage: true });
 
   await thumbnailTrigger.click();
