@@ -1519,6 +1519,7 @@ export function ForgeTray({
                 className={styles.forgeButton}
                 onClick={handleSubmit}
                 disabled={!canSubmit || estimate?.allowed === false}
+                aria-label={operationLabel}
                 title={`${operationLabel} (Cmd+Enter)`}
                 variant="secondary"
               >
@@ -1530,7 +1531,6 @@ export function ForgeTray({
                   </svg>
                 )}
                 <span className={styles.buttonLabel}>{operationLabel}</span>
-                <span className={styles.kbd} aria-hidden="true">↵</span>
               </Button>
             </div>
           </div>

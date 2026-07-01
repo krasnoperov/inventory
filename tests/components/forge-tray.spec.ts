@@ -1265,6 +1265,7 @@ test('forge tray keeps mode and options on one compact row at narrow widths', as
   const row = page.getByTestId('forge-options-row');
   await expect(row).toBeVisible();
   await expect(page.getByLabel('Media type')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Generate ×2' })).toBeVisible();
 
   const geometry = await row.evaluate((node) => {
     const rowBox = node.getBoundingClientRect();
