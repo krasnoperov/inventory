@@ -517,7 +517,8 @@ test('collection menus use shared form controls', async ({ page }) => {
   await expect(cardMenuTrigger).toHaveAttribute('aria-haspopup', 'dialog');
   const cardMenuPanel = page.locator('[class*="cardMenuPanel"]').first();
   await expect(cardMenuPanel).toHaveCSS('box-shadow', 'none');
-  await expect(cardMenuPanel.getByRole('button', { name: 'Add asset' })).toBeVisible();
+  await expect(cardMenuPanel.getByRole('button', { name: 'Add asset to collection' })).toBeVisible();
+  await expect(cardMenuPanel.getByRole('button', { name: 'Add asset', exact: true })).toHaveCount(0);
   await expect(cardMenuPanel.getByRole('button', { name: 'Mark style ref' })).toHaveCount(0);
   await expect(cardMenuPanel.getByRole('button', { name: 'Move up' })).toBeVisible();
   await expect(cardMenuPanel.getByRole('button', { name: 'Move down' })).toBeVisible();
