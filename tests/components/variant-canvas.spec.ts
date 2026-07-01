@@ -77,6 +77,22 @@ async function expectLocatorAfterShadow(
   ).toBe(await resolvedShadow(page, shadow));
 }
 
+async function expectNodeChromeBelowMedia(
+  node: import('@playwright/test').Locator,
+) {
+  const boxes = await node.evaluate((element) => {
+    const mediaElement = element.querySelector('[class*="thumbnail"], [class*="audioCard"]');
+    const chromeElement = element.querySelector('[class*="nodeChrome"]');
+    const mediaBox = mediaElement?.getBoundingClientRect();
+    const chromeBox = chromeElement?.getBoundingClientRect();
+    return mediaBox && chromeBox
+      ? { mediaBottom: mediaBox.bottom, chromeTop: chromeBox.top }
+      : null;
+  });
+  expect(boxes).not.toBeNull();
+  expect(boxes!.chromeTop).toBeGreaterThanOrEqual(boxes!.mediaBottom);
+}
+
 test('variant canvas empty state uses minimal chrome', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 520 });
   await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
@@ -108,7 +124,7 @@ test('variant canvas shows derivatives as lineage nodes', async ({ page }) => {
   await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
     spaceId: 'space-1', asset: assets[0], variants: [variant('crops')], lineage,
     selectedVariantId: 'crops-v', allVariants, allAssets: assets,
-    onVariantClick: '__noop__', onGhostNodeClick: '__noop__',
+    onVariantClick: '__noop__', onGhostNodeClick: '__record__:ghost-click',
   });
   await page.waitForSelector('.react-flow__node');
   await expect(page.locator('.react-flow__controls').first()).toHaveCSS('box-shadow', 'none');
@@ -118,11 +134,19 @@ test('variant canvas shows derivatives as lineage nodes', async ({ page }) => {
   for (const f of families) {
     await expect(page.getByText(`Sprite: ${f}_grow`)).toBeVisible();
   }
-  await expect(page.locator('.react-flow__node [class*="label"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(page.locator('.react-flow__node [class*="statusRow"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   const ghostLabel = page.getByTitle('To: Sprite: wheat_grow');
-  const ghostNode = ghostLabel.locator('xpath=ancestor::div[contains(@class, "node")][1]');
+  const ghostNode = ghostLabel.locator('xpath=ancestor::div[contains(@class, "react-flow__node")][1]');
   const ghostPreview = ghostNode.locator('[class*="thumbnail"]').first();
   await expectLocatorAfterShadow(page, ghostPreview, 'var(--relation-ring)');
+  await expect(ghostNode.locator('[class*="statusRow"]')).toContainText('Linked variant');
+  await expectNodeChromeBelowMedia(ghostNode);
+  await ghostLabel.click();
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls).toContainEqual(expect.objectContaining({
+    eventName: 'ghost-click',
+    args: ['wheat_grow'],
+  }));
   await screenshot(page, 'variant-canvas-flat-flow-controls', { fullPage: true });
 });
 
@@ -217,6 +241,8 @@ test('variant canvas previews stay free of hover action overlays', async ({ page
   await expect(page.locator('.react-flow__node')).toBeVisible();
   const preview = page.locator('[class*="thumbnail"]').first();
   await expect(preview.locator('img')).toBeVisible();
+  await expect(page.locator('.react-flow__node').first().locator('[class*="statusRow"]')).toContainText('Variant');
+  await expectNodeChromeBelowMedia(page.locator('.react-flow__node').first());
   await preview.hover();
   await expect(page.getByRole('button', { name: 'View full size' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add to Tray' })).toHaveCount(0);
@@ -323,6 +349,7 @@ test('variant canvas hover chrome stays flat', async ({ page }) => {
 
   const preview = page.locator('[class*="thumbnail"]').first();
   await expect(preview.locator('img')).toBeVisible();
+  await expect(page.locator('.react-flow__node').first().locator('[class*="statusRow"]')).toContainText('Variant');
   await preview.hover();
   await expect(preview).toHaveCSS('box-shadow', 'none');
   await page.waitForSelector('[class*="ready"] .react-flow__node');
@@ -361,6 +388,8 @@ test('variant canvas selected node uses flat selection chrome', async ({ page })
 
   const preview = page.locator('[class*="thumbnail"]').first();
   await expect(preview.locator('img')).toBeVisible();
+  await expect(page.locator('.react-flow__node').first().locator('[class*="statusRow"]')).toContainText('Selected');
+  await expectNodeChromeBelowMedia(page.locator('.react-flow__node').first());
   await expect(preview).toHaveCSS(
     'box-shadow',
     await resolvedShadow(page, 'var(--selection-ring)'),
@@ -414,6 +443,9 @@ test('variant canvas active and forked-from chrome uses tokenized surfaces', asy
 
   await expect(page.locator('.react-flow__node')).toBeVisible();
   const activePreview = page.locator('[class*="thumbnail"]').first();
+  await expect(page.locator('.react-flow__node').first().locator('[class*="statusRow"]')).toContainText('Main');
+  await expect(page.locator('.react-flow__node').first().locator('[class*="statusRow"]')).toContainText('Selected');
+  await expectNodeChromeBelowMedia(page.locator('.react-flow__node').first());
   await expect(activePreview).toHaveCSS(
     'box-shadow',
     await resolvedShadow(page, '-3px 0 0 var(--color-success)'),

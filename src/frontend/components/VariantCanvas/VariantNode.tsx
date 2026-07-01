@@ -176,6 +176,35 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
       )}
     </div>
   ) : null;
+  const relationLinks = (
+    <>
+      {isGhost && (
+        <span className={styles.ghostLabel} title={isDerivative ? `To: ${asset.name}` : `From: ${asset.name}`}>
+          {isDerivative ? '↘' : '↗'} {asset.name}
+        </span>
+      )}
+      {!isGhost && forkedFrom && (
+        <span
+          className={styles.forkedFromLink}
+          title={`Forked from: ${forkedFrom.assetName}`}
+          onClick={(e) => handleForkedToClick(e, forkedFrom.assetId)}
+        >
+          ↗ {forkedFrom.assetName}
+        </span>
+      )}
+      {!isGhost && forkedTo && forkedTo.map((fork) => (
+        <span
+          key={fork.assetId}
+          className={styles.forkedToLink}
+          title={`Forked to: ${fork.assetName}`}
+          onClick={(e) => handleForkedToClick(e, fork.assetId)}
+        >
+          ↘ {fork.assetName}
+        </span>
+      ))}
+    </>
+  );
+  const hasRelationLinks = isGhost || Boolean(forkedFrom) || Boolean(forkedTo && forkedTo.length > 0);
 
   return (
     <div className={nodeClasses} onClick={handleClick}>
@@ -199,43 +228,20 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
         </span>
       ) : null}
 
-      {/* Label - only for ghost nodes (shows source/target asset name) */}
-      {isGhost && (
-        <div className={styles.label}>
-          <span className={styles.ghostLabel} title={isDerivative ? `To: ${asset.name}` : `From: ${asset.name}`}>
-            {isDerivative ? '↘' : '↗'} {asset.name}
+      <div className={styles.nodeChrome}>
+        <div className={styles.statusRow} aria-label="Variant status">
+          <span className={isGhost ? styles.ghostRoleChip : styles.roleChip}>
+            {isGhost ? 'Linked variant' : 'Variant'}
           </span>
+          {isActive ? <span className={styles.mainChip}>Main</span> : null}
+          {isSelected ? <span className={styles.selectedChip}>Selected</span> : null}
         </div>
-      )}
-
-      {/* Forked-from link - for local variants that were forked from another asset */}
-      {!isGhost && forkedFrom && (
-        <div className={styles.label}>
-          <span
-            className={styles.forkedFromLink}
-            title={`Forked from: ${forkedFrom.assetName}`}
-            onClick={(e) => handleForkedToClick(e, forkedFrom.assetId)}
-          >
-            ↗ {forkedFrom.assetName}
-          </span>
-        </div>
-      )}
-
-      {/* Forked-to links - for local variants that were forked to other assets */}
-      {!isGhost && forkedTo && forkedTo.length > 0 && (
-        <div className={styles.label}>
-          {forkedTo.map((fork) => (
-            <span
-              key={fork.assetId}
-              className={styles.forkedToLink}
-              title={`Forked to: ${fork.assetName}`}
-              onClick={(e) => handleForkedToClick(e, fork.assetId)}
-            >
-              ↘ {fork.assetName}
-            </span>
-          ))}
-        </div>
-      )}
+        {hasRelationLinks ? (
+          <div className={styles.relationRow}>
+            {relationLinks}
+          </div>
+        ) : null}
+      </div>
 
       {/* Output handle (for outgoing edges to child variants) - hidden for ghost nodes */}
       {showBottomHandle && (

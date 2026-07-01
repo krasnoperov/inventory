@@ -176,30 +176,78 @@
   fill: currentColor;
 }
 
-/* Label - positioned below node, counter-scaled */
-.label {
+/* Caption chrome - positioned below node, counter-scaled */
+.nodeChrome {
   position: absolute;
   top: 100%;
   left: 50%;
   transform: translateX(-50%) scale(calc(1 / var(--rf-zoom, 1)));
   transform-origin: center top;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 100%;
+  max-width: 220px;
+  margin-top: 4px;
+  pointer-events: none;
+}
+
+.statusRow,
+.relationRow {
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 4px 8px;
-  background: var(--color-surface);
-  border: calc(1px / var(--rf-zoom, 1)) solid var(--color-border);
-  border-radius: var(--radius-sm);
-  white-space: nowrap;
-  margin-top: 4px;
+  max-width: 100%;
 }
 
-.variantId {
+.statusRow {
+  padding: 3px;
+  border: calc(1px / var(--rf-zoom, 1)) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.relationRow {
+  flex-wrap: wrap;
+}
+
+.roleChip,
+.ghostRoleChip,
+.mainChip,
+.selectedChip {
+  min-width: 0;
+  max-width: 120px;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
   font-size: 10px;
   font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.roleChip {
+  background: var(--color-bg);
   color: var(--color-text-muted);
-  font-family: monospace;
+}
+
+.ghostRoleChip {
+  background: var(--color-status-processing-bg);
+  color: var(--color-primary);
+}
+
+.mainChip {
+  background: var(--color-status-completed-bg);
+  color: var(--color-success);
+}
+
+.selectedChip {
+  background: var(--color-status-processing-bg);
+  color: var(--color-primary);
 }
 
 /* Ghost node - cross-asset parent variant */
@@ -220,6 +268,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding: 2px 6px;
+  border: calc(1px / var(--rf-zoom, 1)) solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 /* Forked-to link - shown on local variants that were forked to other assets */
@@ -233,9 +287,11 @@
   white-space: nowrap;
   cursor: pointer;
   padding: 2px 6px;
+  border: calc(1px / var(--rf-zoom, 1)) solid var(--color-border);
   border-radius: var(--radius-xs);
   background: var(--color-status-processing-bg);
   transition: color 0.15s ease, background 0.15s ease;
+  pointer-events: auto;
 }
 
 .forkedToLink:hover {
@@ -254,9 +310,11 @@
   white-space: nowrap;
   cursor: pointer;
   padding: 2px 6px;
+  border: calc(1px / var(--rf-zoom, 1)) solid var(--color-border);
   border-radius: var(--radius-xs);
   background: var(--color-status-completed-bg);
   transition: color 0.15s ease, background 0.15s ease;
+  pointer-events: auto;
 }
 
 .forkedFromLink:hover {
