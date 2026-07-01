@@ -257,6 +257,7 @@ export default function SpacePage() {
     (preset.enabled === true || preset.enabled === 1) &&
     (preset.is_default === true || preset.is_default === 1)
   ));
+  const hasSpaceSidePanel = showCompositionPanel || (showSharingPanel && isOwner) || (showStylePanel && Boolean(spaceId));
 
   useEffect(() => {
     if (!user) {
@@ -335,6 +336,8 @@ export default function SpacePage() {
   const handleOpenCompositions = useCallback(() => {
     requestSync();
     setSelectedCompositionId((current) => current ?? compositions[0]?.id ?? null);
+    setShowSharingPanel(false);
+    setShowStylePanel(false);
     setShowCompositionPanel(true);
   }, [compositions, requestSync]);
 
@@ -343,6 +346,8 @@ export default function SpacePage() {
       name: `Composition ${compositions.length + 1}`,
     });
     setSelectedCompositionId(id);
+    setShowSharingPanel(false);
+    setShowStylePanel(false);
     setShowCompositionPanel(true);
   }, [compositions.length, createComposition]);
 
@@ -543,7 +548,7 @@ export default function SpacePage() {
         onDragLeave={handleSpaceDragLeave}
         onDrop={handleSpaceDrop}
       >
-        <div className={`${styles.canvasWorkspace} ${showCompositionPanel ? styles.canvasWorkspaceWithInspector : ''}`}>
+        <div className={`${styles.canvasWorkspace} ${hasSpaceSidePanel ? styles.canvasWorkspaceWithInspector : ''}`}>
           <div className={styles.canvasStage}>
         <SpaceCanvas
           spaceId={spaceId || ''}
@@ -585,7 +590,14 @@ export default function SpacePage() {
                 active={showSharingPanel}
                 onClick={() => {
                   setSharingActionError(null);
-                  setShowSharingPanel((value) => !value);
+                  setShowSharingPanel((value) => {
+                    const next = !value;
+                    if (next) {
+                      setShowCompositionPanel(false);
+                      setShowStylePanel(false);
+                    }
+                    return next;
+                  });
                 }}
                 title="Manage sharing"
               >
@@ -684,7 +696,14 @@ export default function SpacePage() {
               </CanvasToolbarButton>
               <CanvasToolbarButton
                 className={defaultStylePreset ? styles.styleActive : undefined}
-                onClick={() => setShowStylePanel(v => !v)}
+                onClick={() => setShowStylePanel((value) => {
+                  const next = !value;
+                  if (next) {
+                    setShowCompositionPanel(false);
+                    setShowSharingPanel(false);
+                  }
+                  return next;
+                })}
                 title={defaultStylePreset ? `Style: ${defaultStylePreset.name}` : 'Configure style presets'}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -704,26 +723,6 @@ export default function SpacePage() {
             message="New asset"
             detail="Drop a media file onto the canvas"
           />
-        )}
-
-        {showSharingPanel && isOwner && (
-          <div className={styles.sharingPanelContainer}>
-            <SpaceSharingPanel
-              currentUserRole={space.role}
-              sharing={sharingQuery.data ?? null}
-              isLoading={sharingQuery.isPending}
-              error={sharingQuery.error instanceof Error ? sharingQuery.error.message : null}
-              actionError={sharingActionError}
-              busyAction={busySharingAction}
-              onClose={() => setShowSharingPanel(false)}
-              onInvite={handleInviteMember}
-              onApproveRequest={handleApproveRequest}
-              onRejectRequest={handleRejectRequest}
-              onRevokeInvitation={handleRevokeInvitation}
-              onChangeMemberRole={handleChangeMemberRole}
-              onRevokeMember={handleRevokeMember}
-            />
-          </div>
         )}
 
         {/* Jobs overlay - compact toast-style at bottom left */}
@@ -762,7 +761,7 @@ export default function SpacePage() {
           </div>
 
           {showCompositionPanel && (
-            <div className={styles.compositionPanelContainer}>
+            <div className={styles.spaceSidePanelContainer}>
               <CompositionDetail
                 spaceId={spaceId}
                 layout="dock"
@@ -788,6 +787,40 @@ export default function SpacePage() {
                 onReorderItems={reorderCompositionItems}
                 onOpenAsset={(assetId) => navigate(`/spaces/${spaceId}/assets/${assetId}`)}
                 onClose={() => setShowCompositionPanel(false)}
+              />
+            </div>
+          )}
+          {showSharingPanel && isOwner && (
+            <div className={styles.spaceSidePanelContainer}>
+              <SpaceSharingPanel
+                currentUserRole={space.role}
+                layout="rail"
+                sharing={sharingQuery.data ?? null}
+                isLoading={sharingQuery.isPending}
+                error={sharingQuery.error instanceof Error ? sharingQuery.error.message : null}
+                actionError={sharingActionError}
+                busyAction={busySharingAction}
+                onClose={() => setShowSharingPanel(false)}
+                onInvite={handleInviteMember}
+                onApproveRequest={handleApproveRequest}
+                onRejectRequest={handleRejectRequest}
+                onRevokeInvitation={handleRevokeInvitation}
+                onChangeMemberRole={handleChangeMemberRole}
+                onRevokeMember={handleRevokeMember}
+              />
+            </div>
+          )}
+          {showStylePanel && spaceId && (
+            <div className={styles.spaceSidePanelContainer}>
+              <StylePanel
+                spaceId={spaceId}
+                layout="rail"
+                onClose={() => setShowStylePanel(false)}
+                createStylePreset={createStylePreset}
+                updateStylePreset={updateStylePreset}
+                deleteStylePreset={deleteStylePreset}
+                stylePresets={stylePresets}
+                styleReferenceCollections={collections.filter((collection) => collection.kind === 'style_refs')}
               />
             </div>
           )}
@@ -843,20 +876,6 @@ export default function SpacePage() {
         />
       )}
 
-      {/* Style Panel - floating panel from toolbar */}
-      {showStylePanel && spaceId && (
-        <div className={styles.stylePanelContainer}>
-          <StylePanel
-            spaceId={spaceId}
-            onClose={() => setShowStylePanel(false)}
-            createStylePreset={createStylePreset}
-            updateStylePreset={updateStylePreset}
-            deleteStylePreset={deleteStylePreset}
-            stylePresets={stylePresets}
-            styleReferenceCollections={collections.filter((collection) => collection.kind === 'style_refs')}
-          />
-        </div>
-      )}
     </div>
   );
 }

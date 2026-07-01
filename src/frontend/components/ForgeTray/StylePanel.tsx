@@ -17,6 +17,7 @@ export interface StyleReferenceOption {
 export interface StylePanelProps {
   spaceId: string;
   onClose: () => void;
+  layout?: 'sheet' | 'rail';
   stylePresets?: StylePresetRaw[];
   styleReferenceCollections?: SpaceCollection[];
   customStyleOptions?: StyleReferenceOption[];
@@ -41,6 +42,7 @@ function formatRefCount(count: number): string {
 
 export function StylePanel({
   onClose,
+  layout = 'sheet',
   stylePresets = [],
   styleReferenceCollections = [],
   customStyleOptions = [],
@@ -93,9 +95,8 @@ export function StylePanel({
     setCreateOpen(false);
   }, [createStylePreset, description, makeDefault, name, selectedCollectionId, stylePrompt]);
 
-  return (
-    <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.stylePanel} onClick={(event) => event.stopPropagation()}>
+  const panel = (
+    <div className={`${styles.stylePanel} ${layout === 'rail' ? styles.rail : ''}`} onClick={(event) => event.stopPropagation()}>
         <div className={styles.header}>
           <span className={styles.title}>Style Library</span>
           <div className={styles.headerActions}>
@@ -306,7 +307,16 @@ export function StylePanel({
             </section>
           )}
         </div>
-      </div>
+    </div>
+  );
+
+  if (layout === 'rail') {
+    return panel;
+  }
+
+  return (
+    <div className={styles.backdrop} onClick={onClose}>
+      {panel}
     </div>
   );
 }
