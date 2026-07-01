@@ -1,5 +1,6 @@
 .picker {
-  width: min(100%, 36rem);
+  width: fit-content;
+  max-width: 100%;
   display: grid;
   gap: 0.5rem;
 }
@@ -35,12 +36,13 @@
   flex-wrap: wrap;
   gap: 0.4rem;
   align-items: center;
+  max-width: 100%;
 }
 
 .collectionName {
-  flex: 0 1 8rem;
-  min-width: 6rem;
-  max-width: 10rem;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 8rem;
   overflow: hidden;
   color: var(--color-text);
   font-size: var(--font-size-small-sm);
@@ -50,16 +52,16 @@
 }
 
 .input {
-  flex: 0 1 10rem;
+  flex: 0 0 10rem;
   --ui-text-input-height: 2rem;
   --ui-text-field-font-size: var(--font-size-small-sm);
 }
 
 .select {
-  flex: 0 1 9rem;
-  width: auto;
-  --ui-select-min-width: 0;
-  --ui-select-max-width: 100%;
+  flex: 0 0 auto;
+  width: 9rem;
+  --ui-select-min-width: 9rem;
+  --ui-select-max-width: 9rem;
   --ui-select-height: 2rem;
   --ui-select-font-size: var(--font-size-small-sm);
 }
@@ -86,6 +88,10 @@
 }
 
 @media (max-width: 760px) {
+  .picker {
+    width: 100%;
+  }
+
   .placementRow {
     align-items: stretch;
   }
