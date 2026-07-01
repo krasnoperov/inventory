@@ -376,13 +376,13 @@ export function RelationEditorDialog({
           </IconButton>
         </div>
 
-        <div className={styles.subjectLine}>
-          <span>{sourceLabel}</span>
+        <div className={styles.subjectLine} aria-label="Relation endpoints">
+          <span className={styles.subjectChip}>{sourceLabel}</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M5 12h14" />
             <path d="m12 5 7 7-7 7" />
           </svg>
-          <span>{targetSubject ? getSubjectLabel(targetSubject, assets, variants) : 'Select target'}</span>
+          <span className={styles.subjectChip}>{targetSubject ? getSubjectLabel(targetSubject, assets, variants) : 'Select target'}</span>
         </div>
 
         <div className={styles.field}>
@@ -441,7 +441,7 @@ export function RelationEditorDialog({
             aria-controls="relation-metadata-fields"
             onClick={() => setDetailsOpen((current) => !current)}
           >
-            <span>Details</span>
+            <span>{detailsOpen ? 'Hide details' : 'Details'}</span>
           </Button>
         )}
 

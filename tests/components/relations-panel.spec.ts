@@ -94,8 +94,11 @@ test('relation dialog creates a manual relation with searchable variant target',
   await expect(page.locator('[class*="dialogOverlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.locator('[class*="_dialog_"]').first()).toHaveCSS('box-shadow', 'none');
   await expect(page.locator('[class*="_dialog_"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  const dialogBox = await page.locator('[class*="_dialog_"]').first().boundingBox();
+  expect(dialogBox?.width).toBeLessThanOrEqual(500);
   await expect(page.locator('[class*="subjectLine"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.locator('[class*="subjectLine"]')).toHaveCSS('border-radius', '0px');
+  await expect(page.locator('[class*="subjectChip"]').first()).toHaveCSS('font-weight', '600');
   await expect(page.getByLabel('Label')).toHaveCount(0);
   await expect(page.getByLabel('Context')).toHaveCount(0);
   await expect(page.getByLabel('Notes')).toHaveCount(0);
@@ -108,6 +111,7 @@ test('relation dialog creates a manual relation with searchable variant target',
   await page.mouse.move(0, 0);
   await screenshot(page, 'relation-dialog-create-compact', { fullPage: true });
   await page.getByRole('button', { name: 'Details' }).click();
+  await expect(page.getByRole('button', { name: 'Hide details' })).toBeVisible();
   await page.getByLabel('Label').fill('Inventory tile');
   await page.getByLabel('Context').fill('catalog grid');
   await page.getByLabel('Notes').fill('Use the trimmed 64px sprite.');
@@ -180,6 +184,31 @@ test('relation dialog edits type label context and notes without changing endpoi
       },
     },
   ]);
+});
+
+test('relation dialog keeps compact mobile action layout', async ({ page }) => {
+  await mockMedia(page);
+  await page.setViewportSize({ width: 360, height: 640 });
+  await mountComponent(page, 'RelationEditorDialog', {
+    mode: 'create',
+    assets,
+    variants,
+    sourceSubject: { subjectType: 'asset', assetId: 'hero' },
+    onCancel: '__noop__',
+    onCreate: '__record__:create-relation',
+    onUpdate: '__record__:update-relation',
+  });
+
+  const dialogMetrics = await page.locator('[class*="_dialog_"]').first().evaluate((dialog) => {
+    const rect = dialog.getBoundingClientRect();
+    return { left: rect.left, right: rect.right, width: rect.width, viewport: window.innerWidth };
+  });
+  expect(dialogMetrics.left).toBeGreaterThanOrEqual(16);
+  expect(dialogMetrics.right).toBeLessThanOrEqual(dialogMetrics.viewport - 16);
+  const cancelWidth = await page.getByRole('button', { name: 'Cancel' }).evaluate((button) => {
+    return button.getBoundingClientRect().width;
+  });
+  expect(cancelWidth).toBeGreaterThanOrEqual(dialogMetrics.width - 32);
 });
 
 test('relations panel shows incoming reverse links and clears relations separately from lineage', async ({ page }) => {
