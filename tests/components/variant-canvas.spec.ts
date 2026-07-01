@@ -258,6 +258,58 @@ test('variant canvas previews stay free of hover action overlays', async ({ page
     .toContain('variant-click');
 });
 
+test('variant canvas reads as a scoped asset variant canvas', async ({ page }) => {
+  const scopedAsset = {
+    ...asset('scope', 'Crystal Gate'),
+    active_variant_id: 'scope-v',
+  };
+  const firstVariant = {
+    ...variant('scope'),
+    id: 'scope-v',
+    image_key: 'images/space/scope-v.png',
+    thumb_key: 'images/space/scope-v_thumb.webp',
+    media_key: 'images/space/scope-v.png',
+    media_width: 240,
+    media_height: 180,
+  };
+  const secondVariant = {
+    ...variant('scope'),
+    id: 'scope-v2',
+    image_key: 'images/space/scope-v2.png',
+    thumb_key: 'images/space/scope-v2_thumb.webp',
+    media_key: 'images/space/scope-v2.png',
+    media_width: 240,
+    media_height: 180,
+    created_at: t + 1,
+    updated_at: t + 1,
+  };
+
+  await mockMedia(page);
+  await page.setViewportSize({ width: 1100, height: 720 });
+  await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
+  await sizeCanvasHarness(page);
+  await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
+    spaceId: 'space-1',
+    canvasLabel: 'Details canvas',
+    asset: scopedAsset,
+    variants: [firstVariant, secondVariant],
+    lineage: [],
+    selectedVariantId: 'scope-v',
+    allVariants: [firstVariant, secondVariant],
+    allAssets: [scopedAsset],
+    onVariantClick: '__record__:variant-click',
+  });
+
+  await page.waitForSelector('[class*="ready"] .react-flow__node');
+  const canvasBackground = await page.getByRole('region', { name: 'Details canvas' }).evaluate((node) => getComputedStyle(node).backgroundImage);
+  expect(canvasBackground).toContain('linear-gradient');
+  await expect(page.getByText('Variant 1/2')).toBeVisible();
+  await expect(page.getByText('Variant 2/2')).toBeVisible();
+  await expect(page.getByText('Asset', { exact: true })).toHaveCount(0);
+  await expectNodeChromeBelowMedia(page.locator('.react-flow__node').first());
+  await screenshot(page, 'variant-canvas-scoped-asset-variants', { fullPage: true });
+});
+
 test('variant canvas starred chrome stays flat', async ({ page }) => {
   const starredAsset = {
     ...asset('starred', 'Starred Sprite'),

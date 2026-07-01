@@ -570,6 +570,9 @@ function AssetDetailOverlayChromePreview() {
           <CanvasToolbarBadge tone="neutral" className={assetDetailStyles.assetScopeBadge}>
             Asset
           </CanvasToolbarBadge>
+          <CanvasToolbarBadge tone="neutral" className={assetDetailStyles.variantScopeBadge}>
+            2 variants
+          </CanvasToolbarBadge>
         </CanvasToolbar>
       </div>
       <section className={assetDetailStyles.tileGridOverlay} role="region" aria-label="Tile grid overlay">

@@ -35,6 +35,10 @@ export interface VariantNodeData extends Record<string, unknown> {
   onToggleExpand?: (variantId: string) => void;
   /** Whether the details panel is currently open for this variant. */
   isExpanded?: boolean;
+  /** 0-based position inside the scoped asset variant set. */
+  variantIndex?: number;
+  /** Total local variants in this scoped asset canvas. */
+  variantCount?: number;
   /** Space ID for authenticated media downloads */
   spaceId?: string;
   /** Exact thumbnail width (px) so the card matches the media aspect ratio */
@@ -71,6 +75,8 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     layoutDirection = 'LR',
     onToggleExpand,
     isExpanded,
+    variantIndex,
+    variantCount,
     spaceId,
     thumbWidth,
     thumbHeight,
@@ -124,6 +130,10 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
     (fact): fact is [string, string] => Boolean(fact),
   );
   const showAudioDetails = variant.media_kind === 'audio' && (audioFacts.length > 0 || audioMetadata.prompt);
+  const localVariantLabel =
+    typeof variantIndex === 'number' && typeof variantCount === 'number' && variantCount > 1
+      ? `Variant ${variantIndex + 1}/${variantCount}`
+      : 'Variant';
 
   // Render thumbnail based on variant status and media kind
   const renderThumbnail = () => {
@@ -231,7 +241,7 @@ function VariantNodeComponent({ data, selected }: NodeProps<VariantNodeType>) {
       <div className={styles.nodeChrome}>
         <div className={styles.statusRow} aria-label="Variant status">
           <span className={isGhost ? styles.ghostRoleChip : styles.roleChip}>
-            {isGhost ? 'Linked variant' : 'Variant'}
+            {isGhost ? 'Linked variant' : localVariantLabel}
           </span>
           {isActive ? <span className={styles.mainChip}>Main</span> : null}
           {isSelected ? <span className={styles.selectedChip}>Selected</span> : null}

@@ -777,6 +777,7 @@ test('asset detail overlays use flat chrome', async ({ page }) => {
 
   await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('Details');
   await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('Asset');
+  await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('2 variants');
   await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('Crystal Gate');
   await expect(page.getByRole('region', { name: 'Tile grid overlay' })).toHaveCSS('box-shadow', 'none');
   const generationJobs = page.getByRole('region', { name: 'Generation jobs' });
