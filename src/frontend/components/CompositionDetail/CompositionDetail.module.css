@@ -446,20 +446,21 @@
   margin: 0;
   color: var(--color-text);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 650;
 }
 
 .usageCount {
-  min-width: 1.25rem;
-  padding: 0.08rem 0.32rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   color: var(--color-text-muted);
-  background: var(--color-surface);
+  background: transparent;
   font-size: var(--font-size-micro);
-  font-weight: 700;
+  font-weight: 560;
   line-height: 1.2;
   text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .usageList .usageButton {
@@ -470,21 +471,21 @@
   flex-direction: row;
   gap: 0.35rem;
   min-height: 1.5rem;
-  padding: 0 0.45rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   background: transparent;
 }
 
 .usageList .usageButton:hover {
-  background: var(--ctl-hover, var(--button-ghost-bg-hover));
-  border-color: var(--color-border);
+  background: transparent;
+  color: var(--color-primary);
 }
 
 .usageList .usageButton strong {
   min-width: 0;
   overflow: hidden;
-  font-weight: 650;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -504,7 +505,7 @@
   overflow: hidden;
   color: var(--color-text-muted);
   font-size: var(--font-size-micro);
-  font-weight: 650;
+  font-weight: 560;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

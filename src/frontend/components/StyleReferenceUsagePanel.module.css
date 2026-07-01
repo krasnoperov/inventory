@@ -24,20 +24,21 @@
   margin: 0;
   color: var(--color-text);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 650;
 }
 
 .countBadge {
-  min-width: 1.25rem;
-  padding: 0.08rem 0.32rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   color: var(--color-text-muted);
-  background: var(--color-surface);
+  background: transparent;
   font-size: var(--font-size-micro);
-  font-weight: 700;
+  font-weight: 560;
   line-height: 1.2;
   text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .group {
@@ -50,7 +51,7 @@
 .groupTitle {
   color: var(--color-text-muted);
   font-size: var(--font-size-micro);
-  font-weight: 650;
+  font-weight: 560;
   text-transform: none;
 }
 
