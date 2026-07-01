@@ -34,6 +34,27 @@ async function expectTransparentBackdrop(page: Page) {
   await expect(backdrop).toHaveCSS('backdrop-filter', 'none');
 }
 
+async function expectDockedGeneratorSheet(page: Page, panel: Locator) {
+  const backdrop = page.locator('[class*="backdrop"]').first();
+  await expect(backdrop).toHaveCSS('pointer-events', 'none');
+  await expect(panel).toHaveCSS('pointer-events', 'auto');
+  await expect(panel).toHaveCSS('background-color', await resolvedBackground(page, 'var(--workspace-panel-bg)'));
+
+  const geometry = await panel.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    return {
+      rightGap: window.innerWidth - rect.right,
+      bottomGap: window.innerHeight - rect.bottom,
+      width: rect.width,
+      viewportWidth: window.innerWidth,
+    };
+  });
+  expect(geometry.rightGap).toBeGreaterThanOrEqual(15);
+  expect(geometry.rightGap).toBeLessThanOrEqual(17);
+  expect(geometry.bottomGap).toBeGreaterThanOrEqual(200);
+  expect(geometry.width).toBeLessThanOrEqual(Math.min(520, geometry.viewportWidth - 32));
+}
+
 async function resolvedBackground(page: Page, value: string) {
   return page.evaluate((backgroundValue) => {
     const probe = document.createElement('div');
@@ -129,6 +150,7 @@ test('tile set panel uses shared fields without changing submit payload', async 
   await expect(tileSetModal).toHaveCSS('box-shadow', 'none');
   await expect(tileSetModal).toHaveCSS('transform', 'none');
   await expect(tileSetModal).toHaveCSS('border-radius', '8px');
+  await expectDockedGeneratorSheet(page, tileSetModal);
   await expect(page.getByText('Tile Type')).toHaveCSS('text-transform', 'none');
   await expect.poll(
     () => tileSetModal.evaluate((node) => getComputedStyle(node).animationName),
@@ -178,6 +200,9 @@ test('rotation panel uses shared fields without changing submit payload', async 
   await expect(rotationModal).toHaveCSS('box-shadow', 'none');
   await expect(rotationModal).toHaveCSS('transform', 'none');
   await expect(rotationModal).toHaveCSS('border-radius', '8px');
+  await expectDockedGeneratorSheet(page, rotationModal);
+  await expect(page.locator('[class*="sourceName"]')).toHaveCSS('white-space', 'normal');
+  await expect(page.locator('[class*="sourceName"]')).toHaveCSS('text-overflow', 'clip');
   await expect(page.getByText('Configuration')).toHaveCSS('text-transform', 'none');
   await expect.poll(
     () => rotationModal.evaluate((node) => getComputedStyle(node).animationName),
