@@ -1316,7 +1316,7 @@ export function ForgeTray({
               {currentMediaGroup === 'audio' && (
                 <>
                   <UiSelect
-                    className={styles.selectParam}
+                    className={`${styles.selectParam} ${styles.selectAudioType}`}
                     value={mediaMode}
                     options={audioModeOptions}
                     onValueChange={handleSelectAudioMode}
@@ -1339,7 +1339,7 @@ export function ForgeTray({
                   )}
                   {mediaMode === 'music' && (
                     <UiSelect
-                      className={styles.selectParam}
+                      className={`${styles.selectParam} ${styles.selectMusicProvider}`}
                       value={musicProvider}
                       options={MUSIC_PROVIDER_SELECT_OPTIONS}
                       onValueChange={handleSelectMusicProvider}
