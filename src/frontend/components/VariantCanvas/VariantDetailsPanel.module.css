@@ -247,7 +247,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem;
-  margin-bottom: 0.875rem;
+  margin: 0;
 }
 
 .history {
@@ -294,11 +294,11 @@
   overflow-wrap: anywhere;
 }
 
-.raw {
+.technical {
   margin-top: 0.25rem;
 }
 
-.rawToggle {
+.technicalToggle {
   --ui-button-height: auto;
   --ui-button-pad-x: 0;
   --ui-button-font-size: 0.625rem;
@@ -310,24 +310,29 @@
   letter-spacing: 0;
 }
 
-.rawToggle:hover:not(:disabled) {
+.technicalToggle:hover:not(:disabled) {
   background: transparent;
   color: var(--color-text);
 }
 
-.rawChevron {
+.technicalChevron {
   transition: transform 0.15s ease;
 }
 
-.rawChevronOpen {
+.technicalChevronOpen {
   transform: rotate(90deg);
+}
+
+.technicalBody {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
 }
 
 .rawBody {
   display: grid;
   gap: 0.5rem;
   padding-top: 0.5rem;
-  margin-top: 0.5rem;
   border-top: 1px solid var(--color-border);
 }
 
