@@ -247,7 +247,10 @@ test('composition placement is gated to finished variants', async ({ page }) => 
   await page.getByTitle('Actions for Ready sprite').click();
   await expect(page.getByText('Add to composition')).toHaveCount(1);
   await expect(page.locator('[class*="starterPanel"]')).toHaveCSS('backdrop-filter', 'none');
-  await expect(page.locator('[class*="starterPanel"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(page.locator('[class*="starterPanel"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('[class*="starterPanel"]')).toHaveCSS('border-top-width', '1px');
+  await expect(page.locator('[class*="starterPanel"]')).toHaveCSS('border-left-width', '0px');
+  await expect(page.locator('[class*="starterPanel"]')).toHaveCSS('border-radius', '0px');
   await screenshot(page, 'space-board-starter-panel', { fullPage: true });
 });
 
