@@ -1,6 +1,7 @@
 import { Link } from '../components/Link';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { AppHeader } from '../components/AppHeader';
+import { ButtonLink } from '../ui';
 import styles from './UnknownPage.module.css';
 
 export default function UnknownPage() {
@@ -19,7 +20,7 @@ export default function UnknownPage() {
         <div className={styles.card}>
           <h1 className={styles.code}>404</h1>
           <p className={styles.message}>We couldn't find that page.</p>
-          <Link to="/" className={styles.homeLink}>Back to home</Link>
+          <ButtonLink to="/" variant="primary">Back to home</ButtonLink>
         </div>
       </main>
     </div>
