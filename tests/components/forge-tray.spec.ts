@@ -1287,6 +1287,7 @@ test('forge tray picker disables references incompatible with the selected media
   await expect(page.getByText('Unavailable')).toHaveCount(2);
   await expect(page.getByText('Character (1)', { exact: true })).toHaveCSS('text-transform', 'none');
   await expect(page.getByText('Character (1)', { exact: true })).toHaveCSS('letter-spacing', 'normal');
+  await expect(page.getByRole('button', { name: 'Done' })).toHaveCSS('background-color', await resolvedBackground(page, 'var(--color-surface)'));
   await expect(incompatibleVideo).toHaveCSS('opacity', '1');
   const heroImageChoice = page.getByRole('button', { name: /Hero Image, character \/ image/ }).first();
   await heroImageChoice.hover();
