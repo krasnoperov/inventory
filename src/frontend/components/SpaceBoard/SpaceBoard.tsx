@@ -316,6 +316,7 @@ export function SpaceBoard({
       (fact): fact is string => Boolean(fact),
     );
     const showAudioSummary = isAudioCard;
+    const showCardActions = canEdit || onAddToTray || onCreateRelation || onPlaceInComposition;
     const thumbnail = (
       <Thumbnail
         variant={displayVariant}
@@ -325,6 +326,22 @@ export function SpaceBoard({
         showAudioControls={isAudioCard}
       />
     );
+    const cardActionTrigger = showCardActions ? (
+      <div className={`${styles.cardMenu} ${isCardMenuOpen ? styles.cardMenuOpen : ''}`} data-space-board-panel-root>
+        <IconButton
+          className={styles.cardMenuTrigger}
+          aria-label={`Actions for ${asset.name}`}
+          title={`Actions for ${asset.name}`}
+          aria-haspopup="dialog"
+          aria-expanded={isCardMenuOpen}
+          variant="ghost"
+          size="sm"
+          onClick={() => toggleCardMenu(cardKey)}
+        >
+          <MoreMenuIcon />
+        </IconButton>
+      </div>
+    ) : null;
 
     return (
       <article
@@ -343,9 +360,12 @@ export function SpaceBoard({
         )}
         {!isAudioCard && (
           <div className={styles.caption}>
-            <Button className={styles.assetName} onClick={() => onAssetClick(asset)} variant="ghost" size="sm">
-              {asset.name}
-            </Button>
+            <div className={styles.cardCaptionHeader}>
+              <Button className={styles.assetName} onClick={() => onAssetClick(asset)} variant="ghost" size="sm">
+                {asset.name}
+              </Button>
+              {cardActionTrigger}
+            </div>
             <div className={styles.assetMeta}>
               <span>{item?.subject_type === 'variant' ? 'variant' : asset.type}</span>
               {item?.role && item.role !== asset.type && <span>{item.role}</span>}
@@ -354,9 +374,12 @@ export function SpaceBoard({
         )}
         {showAudioSummary && (
           <div className={styles.audioSummary}>
-            <Button className={styles.audioAssetName} onClick={() => onAssetClick(asset)} variant="ghost" size="sm">
-              {asset.name}
-            </Button>
+            <div className={styles.cardCaptionHeader}>
+              <Button className={styles.audioAssetName} onClick={() => onAssetClick(asset)} variant="ghost" size="sm">
+                {asset.name}
+              </Button>
+              {cardActionTrigger}
+            </div>
             <div className={styles.audioAssetMeta}>
               <span>{item?.subject_type === 'variant' ? 'variant' : asset.type}</span>
               {item?.role && item.role !== asset.type && <span>{item.role}</span>}
@@ -389,134 +412,116 @@ export function SpaceBoard({
             )}
           </div>
         )}
-        {(canEdit || onAddToTray || onCreateRelation || onPlaceInComposition) && (
-          <>
-            <div className={`${styles.cardMenu} ${isCardMenuOpen ? styles.cardMenuOpen : ''}`} data-space-board-panel-root>
-              <IconButton
-                className={styles.cardMenuTrigger}
-                aria-label={`Actions for ${asset.name}`}
-                title={`Actions for ${asset.name}`}
-                aria-haspopup="dialog"
-                aria-expanded={isCardMenuOpen}
-                variant="ghost"
-                size="sm"
-                onClick={() => toggleCardMenu(cardKey)}
-              >
-                <MoreMenuIcon />
-              </IconButton>
-            </div>
-            {isCardMenuOpen && (
-              <div
-                className={styles.cardMenuPanel}
-                data-space-board-panel-root
-              >
-                {onAddToTray && displayVariant && isVariantForgeTrayReady(displayVariant) && (
-                  <Button className={styles.menuButton} onClick={() => onAddToTray(displayVariant, asset)}>
-                    Add to Forge Tray
-                  </Button>
-                )}
-                {onRegenerateVariant && displayVariant && isVariantAudioReady(displayVariant) && (
-                  <Button className={styles.menuButton} onClick={() => onRegenerateVariant(displayVariant)}>
-                    Regenerate audio
-                  </Button>
-                )}
-                {onCreateRelation && (
-                  <Button className={styles.menuButton} onClick={() => onCreateRelation({ subjectType: 'asset', assetId: asset.id })}>
-                    Create relation
-                  </Button>
-                )}
-                {canEdit && orderedCollections.length > 0 && (
-                  <>
-                    <label>
-                      <span>Add to collection</span>
-                      <UiSelect
-                        className={styles.select}
-                        fullWidth
-                        label={`Collection target for ${asset.name}`}
-                        value={targetCollectionId}
-                        options={collectionOptions}
-                        onValueChange={(value) => setCardTargets((prev) => ({ ...prev, [cardKey]: value }))}
-                      />
-                    </label>
-                    <Button
-                      className={styles.menuButton}
-                      onClick={() => targetCollectionId && addAssetToCollection(targetCollectionId, asset.id, getCollectionRole(targetCollectionId, item?.role ?? 'custom'))}
-                    >
-                      Add asset
-                    </Button>
-                    <Button className={styles.menuButton} onClick={() => markAssetAsStyleReference(asset.id)}>
-                      Mark style ref
-                    </Button>
-                  </>
-                )}
-                {canEdit && onPlaceInComposition && displayVariant && isVariantReady(displayVariant) && compositions.length > 0 && (
-                  <CompositionPlacementControl
-                    compositions={compositions}
-                    compositionItems={compositionItems}
-                    variant={displayVariant}
-                    onPlace={onPlaceInComposition}
+        {showCardActions && isCardMenuOpen && (
+          <div
+            className={styles.cardMenuPanel}
+            data-space-board-panel-root
+          >
+            {onAddToTray && displayVariant && isVariantForgeTrayReady(displayVariant) && (
+              <Button className={styles.menuButton} onClick={() => onAddToTray(displayVariant, asset)}>
+                Add to Forge Tray
+              </Button>
+            )}
+            {onRegenerateVariant && displayVariant && isVariantAudioReady(displayVariant) && (
+              <Button className={styles.menuButton} onClick={() => onRegenerateVariant(displayVariant)}>
+                Regenerate audio
+              </Button>
+            )}
+            {onCreateRelation && (
+              <Button className={styles.menuButton} onClick={() => onCreateRelation({ subjectType: 'asset', assetId: asset.id })}>
+                Create relation
+              </Button>
+            )}
+            {canEdit && orderedCollections.length > 0 && (
+              <>
+                <label>
+                  <span>Add to collection</span>
+                  <UiSelect
+                    className={styles.select}
+                    fullWidth
+                    label={`Collection target for ${asset.name}`}
+                    value={targetCollectionId}
+                    options={collectionOptions}
+                    onValueChange={(value) => setCardTargets((prev) => ({ ...prev, [cardKey]: value }))}
                   />
+                </label>
+                <Button
+                  className={styles.menuButton}
+                  onClick={() => targetCollectionId && addAssetToCollection(targetCollectionId, asset.id, getCollectionRole(targetCollectionId, item?.role ?? 'custom'))}
+                >
+                  Add asset
+                </Button>
+                <Button className={styles.menuButton} onClick={() => markAssetAsStyleReference(asset.id)}>
+                  Mark style ref
+                </Button>
+              </>
+            )}
+            {canEdit && onPlaceInComposition && displayVariant && isVariantReady(displayVariant) && compositions.length > 0 && (
+              <CompositionPlacementControl
+                compositions={compositions}
+                compositionItems={compositionItems}
+                variant={displayVariant}
+                onPlace={onPlaceInComposition}
+              />
+            )}
+            {item && canEdit && (
+              <>
+                <label>
+                  <span>Role</span>
+                  <TextInput
+                    value={item.role}
+                    aria-label={`Role for ${asset.name}`}
+                    onChange={(event) => updateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
+                    fullWidth
+                  />
+                </label>
+                {item.subject_type === 'asset' && assetVariants.length > 0 && (
+                  <label>
+                    <span>Pinned variant</span>
+                    <UiSelect
+                      className={styles.select}
+                      fullWidth
+                      value={itemPinnedVariantId}
+                      label={`Pinned variant for ${asset.name}`}
+                      options={pinnedVariantOptions}
+                      onValueChange={(value) => {
+                        const pinnedVariantId =
+                          value || getPinnedVariantIdForAssetCollection(itemCollection, asset);
+                        updateCollectionItem(item.collection_id, item.id, { pinnedVariantId });
+                      }}
+                    />
+                  </label>
                 )}
-                {item && canEdit && (
-                  <>
-                    <label>
-                      <span>Role</span>
-                      <TextInput
-                        value={item.role}
-                        aria-label={`Role for ${asset.name}`}
-                        onChange={(event) => updateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
-                        fullWidth
-                      />
-                    </label>
-                    {item.subject_type === 'asset' && assetVariants.length > 0 && (
-                      <label>
-                        <span>Pinned variant</span>
-                        <UiSelect
-                          className={styles.select}
-                          fullWidth
-                          value={itemPinnedVariantId}
-                          label={`Pinned variant for ${asset.name}`}
-                          options={pinnedVariantOptions}
-                          onValueChange={(value) => {
-                            const pinnedVariantId =
-                              value || getPinnedVariantIdForAssetCollection(itemCollection, asset);
-                            updateCollectionItem(item.collection_id, item.id, { pinnedVariantId });
-                          }}
-                        />
-                      </label>
-                    )}
-                  </>
-                )}
-                {item && canEdit && collectionId && itemIndex !== undefined && collectionItemIds.length > 0 && (
-                  <div className={styles.menuButtonRow}>
-                    <Button
-                      className={styles.menuButton}
-                      onClick={() => reorderCollectionItems(collectionId, moveId(collectionItemIds, item.id, -1))}
-                      disabled={itemIndex === 0}
-                    >
-                      Move up
-                    </Button>
-                    <Button
-                      className={styles.menuButton}
-                      onClick={() => reorderCollectionItems(collectionId, moveId(collectionItemIds, item.id, 1))}
-                      disabled={itemIndex === collectionItemIds.length - 1}
-                    >
-                      Move down
-                    </Button>
-                  </div>
-                )}
-                {item && canEdit && collectionId && (
-                  <Button
-                    className={styles.menuButton}
-                    variant="danger"
-                    onClick={() => deleteCollectionItem(collectionId, item.id)}
-                  >
-                    Remove from collection
-                  </Button>
-                )}
+              </>
+            )}
+            {item && canEdit && collectionId && itemIndex !== undefined && collectionItemIds.length > 0 && (
+              <div className={styles.menuButtonRow}>
+                <Button
+                  className={styles.menuButton}
+                  onClick={() => reorderCollectionItems(collectionId, moveId(collectionItemIds, item.id, -1))}
+                  disabled={itemIndex === 0}
+                >
+                  Move up
+                </Button>
+                <Button
+                  className={styles.menuButton}
+                  onClick={() => reorderCollectionItems(collectionId, moveId(collectionItemIds, item.id, 1))}
+                  disabled={itemIndex === collectionItemIds.length - 1}
+                >
+                  Move down
+                </Button>
               </div>
             )}
-          </>
+            {item && canEdit && collectionId && (
+              <Button
+                className={styles.menuButton}
+                variant="danger"
+                onClick={() => deleteCollectionItem(collectionId, item.id)}
+              >
+                Remove from collection
+              </Button>
+            )}
+          </div>
         )}
       </article>
     );
