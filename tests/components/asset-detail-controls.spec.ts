@@ -708,7 +708,7 @@ test('asset details inspector stays separate from ForgeTray on mobile', async ({
   await expect(inspector).toHaveCSS('box-shadow', 'none');
   await expect(inspector).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(inspector).toHaveCSS('border-left-width', '0px');
-  await expect(inspector).toHaveCSS('border-top-width', '1px');
+  await expect(inspector).toHaveCSS('border-bottom-width', '1px');
   await expect(inspector.getByRole('region', { name: 'Collection membership' })).toBeVisible();
   await expect(inspector.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
   await expect(inspector.getByRole('region', { name: 'Manual relations' })).toBeVisible();
@@ -726,10 +726,29 @@ test('asset details inspector stays separate from ForgeTray on mobile', async ({
   });
   expect(mobileDockGap).not.toBeNull();
   expect(mobileDockGap!).toBeGreaterThanOrEqual(12);
+  const inspectorBeforeDock = await page.evaluate(() => {
+    const details = document.querySelector('[aria-label="Asset details inspector"]');
+    const dock = document.querySelector('[aria-label="Asset generation controls"]');
+    if (!details || !dock) return null;
+    return details.getBoundingClientRect().bottom <= dock.getBoundingClientRect().top;
+  });
+  expect(inspectorBeforeDock).toBe(true);
   await expect.poll(() => visibleHeightInViewport(page.getByLabel('Prompt'))).toBeGreaterThanOrEqual(56);
   await expect.poll(() => visibleRatioInViewport(page.getByLabel('Prompt'))).toBeGreaterThanOrEqual(0.95);
 
   await screenshot(page, 'asset-details-inspector-outside-dock-mobile', { fullPage: true });
+});
+
+test('asset details closed mobile layout keeps the canvas stage in the primary row', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 760 });
+  await mountComponent(page, 'AssetGenerationDockClosedCanvas', {});
+
+  await expect(page.getByRole('region', { name: 'Asset details inspector' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Asset generation controls' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toBeVisible();
+  const stageTop = await page.locator('[class*="canvasStage"]').evaluate((node) => node.getBoundingClientRect().top);
+  expect(stageTop).toBe(0);
+  await screenshot(page, 'asset-details-closed-mobile-layout', { fullPage: true });
 });
 
 test('asset variant inspector stays clear of the generation dock', async ({ page }) => {
