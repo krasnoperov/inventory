@@ -343,7 +343,7 @@ export function ForgeChat({
           disabled={!inputValue.trim() || isLoading}
           title="Send (Enter)"
           aria-label="Send message"
-          variant="primary"
+          variant="secondary"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
             <line x1="22" y1="2" x2="11" y2="13" />
