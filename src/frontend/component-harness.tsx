@@ -11,7 +11,7 @@ import { CompositionDetail, CompositionUsageList } from './components/Compositio
 import { CompositionPlacementControl } from './components/CompositionPlacementControl';
 import { CanvasToolbar, CanvasToolbarButton, CanvasToolbarDivider, CanvasToolbarLink, CanvasToolbarTitle } from './components/CanvasToolbar';
 import { ForgeTray } from './components/ForgeTray';
-import { FormContainer, FormTitle, formStyles } from './components/forms';
+import { FormContainer, FormTitle } from './components/forms';
 import { ImageLightbox } from './components/ImageLightbox';
 import { LineageTree } from './components/LineageTree';
 import { Pagination } from './components/Pagination';
@@ -767,7 +767,6 @@ function FormContainerPreview() {
         <FormTitle>Shared form</FormTitle>
         <TextInput aria-label="Project name" defaultValue="Market scene" fullWidth />
         <Button variant="primary">Continue</Button>
-        <button type="button" className={formStyles.submitButton}>Legacy submit</button>
       </FormContainer>
     </div>
   );
