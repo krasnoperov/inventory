@@ -645,6 +645,10 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   await expect(page.getByLabel('Preset name', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel('Style prompt', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel('Set as space default', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel(`Style prompt for ${russafaPreset.name}`, { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel(`Description for ${russafaPreset.name}`, { exact: true })).toHaveCount(0);
+  await expect(page.getByText(russafaPreset.style_prompt)).toBeVisible();
+  await expect(page.getByText(russafaPreset.description)).toBeVisible();
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-style-sheet', { fullPage: true });
   await page.getByRole('button', { name: /Close/i }).click();
@@ -929,6 +933,36 @@ test('style library sets a preset as default', async ({ page }) => {
     russafaPreset.id,
     { isDefault: true, enabled: true },
   ]);
+});
+
+test('style library edits preset details after opening the preset editor', async ({ page }) => {
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    spaceId: 'space-1',
+    updateStylePreset: '__record__:style-update',
+    stylePresets: [russafaPreset],
+    collections: [styleCollection],
+  });
+
+  await revealOptions(page);
+  await selectDropdown(page, 'Style selector', 'Manage styles...');
+  await expect(page.getByLabel(`Style prompt for ${russafaPreset.name}`, { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: `Edit ${russafaPreset.name}` }).click();
+  await expect(page.getByRole('button', { name: `Hide editor for ${russafaPreset.name}` })).toHaveAttribute('aria-expanded', 'true');
+  await page.getByLabel(`Style prompt for ${russafaPreset.name}`).fill('ink wash, sunlit stone, handmade texture');
+  await page.getByLabel(`Description for ${russafaPreset.name}`).fill('Softer handmade finish');
+  await page.getByRole('button', { name: `Hide editor for ${russafaPreset.name}` }).click();
+  await expect(page.getByRole('button', { name: `Edit ${russafaPreset.name}` })).toHaveAttribute('aria-expanded', 'false');
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  const updates = calls.filter((call) => call.eventName === 'style-update').map((call) => call.args);
+  expect(updates).toEqual(expect.arrayContaining([
+    [russafaPreset.id, { stylePrompt: 'ink wash, sunlit stone, handmade texture' }],
+    [russafaPreset.id, { description: 'Softer handmade finish' }],
+  ]));
 });
 
 test('forge tray submits a named style preset for generation', async ({ page }) => {
