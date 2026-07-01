@@ -284,6 +284,19 @@
   border-top: 1px solid var(--color-border);
 }
 
+.doneButton {
+  --ui-button-height: 2rem;
+  --ui-button-pad-x: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.doneButton:hover:not(:disabled) {
+  background: var(--button-ghost-bg-hover);
+  border-color: var(--color-primary);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .backdrop {

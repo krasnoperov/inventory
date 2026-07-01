@@ -290,7 +290,7 @@ export function AssetPickerModal({
         </div>
 
         <div className={styles.footer}>
-          <Button onClick={onClose} variant="primary">
+          <Button className={styles.doneButton} onClick={onClose} variant="secondary">
             Done
           </Button>
         </div>
