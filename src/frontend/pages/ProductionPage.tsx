@@ -277,13 +277,16 @@ export function ProductionPlacementControls({
         {formError && <p className={styles.formError}>{formError}</p>}
         {!canEdit && <p className={styles.muted}>Viewer access can inspect records but cannot place or delete them.</p>}
 
-        <Button
-          type="submit"
-          variant="primary"
-          disabled={!canEdit || !activeProductionId || isSaving}
-        >
-          {isSaving ? 'Saving...' : form.id ? 'Update Placement' : 'Place Variant'}
-        </Button>
+        <div className={styles.formActions}>
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            disabled={!canEdit || !activeProductionId || isSaving}
+          >
+            {isSaving ? 'Saving...' : form.id ? 'Update Placement' : 'Place Variant'}
+          </Button>
+        </div>
       </form>
     </section>
   );
@@ -301,23 +304,25 @@ export function ProductionHandoffControls({
     <section className={styles.panel}>
       <div className={styles.panelHeader}>
         <h2>Media Handoff</h2>
-        {copyStatus && <span className={styles.copyStatus}>{copyStatus}</span>}
-      </div>
-      <div className={styles.copyActions}>
-        <Button
-          size="sm"
-          onClick={() => onCopyText('JSON', handoffJson)}
-          disabled={!handoff || sortedRecords.length === 0}
-        >
-          Copy JSON
-        </Button>
-        <Button
-          size="sm"
-          onClick={() => onCopyText('Scene args', sceneArgs)}
-          disabled={!sceneArgs}
-        >
-          Copy Scene Args
-        </Button>
+        <div className={styles.panelHeaderActions}>
+          {copyStatus && <span className={styles.copyStatus}>{copyStatus}</span>}
+          <div className={styles.copyActions}>
+            <Button
+              size="sm"
+              onClick={() => onCopyText('JSON', handoffJson)}
+              disabled={!handoff || sortedRecords.length === 0}
+            >
+              Copy JSON
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => onCopyText('Scene args', sceneArgs)}
+              disabled={!sceneArgs}
+            >
+              Copy Scene Args
+            </Button>
+          </div>
+        </div>
       </div>
       <pre className={styles.handoffPreview}>{handoffJson || 'No handoff data loaded.'}</pre>
     </section>

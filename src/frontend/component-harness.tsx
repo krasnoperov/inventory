@@ -978,6 +978,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   ProfileSignInButton: ProfileSignInButtonPreview,
   PublicThemeToggle: PublicThemeToggle as unknown as ComponentType<Record<string, unknown>>,
   ProductionControls: ProductionControlsHarness,
+  ProductionHandoffControls: ProductionHandoffHarness,
   RelationsPanel: RelationsPanel as unknown as ComponentType<Record<string, unknown>>,
   RelationEditorDialog: RelationEditorDialog as unknown as ComponentType<Record<string, unknown>>,
   RelationsCanvas: RelationsCanvasPreview,
