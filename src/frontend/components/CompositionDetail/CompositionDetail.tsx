@@ -71,7 +71,7 @@ export interface CompositionDetailProps {
   onReorderItems: (compositionId: string, itemIds: string[]) => void;
   onOpenAsset?: (assetId: string) => void;
   onClose?: () => void;
-  layout?: 'overlay' | 'dock';
+  layout?: 'overlay' | 'dock' | 'rail';
 }
 
 export function CompositionDetail({
@@ -210,7 +210,10 @@ export function CompositionDetail({
   };
 
   return (
-    <aside className={`${styles.panel} ${layout === 'dock' ? styles.docked : ''}`} aria-label="Composition detail">
+    <aside
+      className={`${styles.panel} ${layout === 'dock' || layout === 'rail' ? styles.docked : ''} ${layout === 'rail' ? styles.rail : ''}`}
+      aria-label="Composition detail"
+    >
       <div className={styles.header}>
         <div>
           <p className={styles.eyebrow}>Composition Detail</p>

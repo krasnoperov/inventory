@@ -460,7 +460,7 @@ function AssetDetailsContextPreview(props: Record<string, unknown>) {
 }
 
 function AssetGenerationDockPreview(props: Record<string, unknown>) {
-  const { variantInspector: rawVariantInspector, ...contextProps } = props;
+  const { variantInspector: rawVariantInspector, showCompositionDetail, ...contextProps } = props;
   const variantInspector = rawVariantInspector as ReactNode | undefined;
   const selectedVariant = stackVariants.find((variant) => variant.id === 'hero-variant') ?? null;
   const selectedVariantIndex = selectedVariant
@@ -497,6 +497,33 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
             compositionItems={stackCompositionItems}
             onOpenComposition={() => undefined}
           />
+          {showCompositionDetail === true && (
+            <div className={assetDetailStyles.compositionPanelContainer}>
+              <CompositionDetail
+                spaceId="space-1"
+                layout="rail"
+                compositions={stackCompositions}
+                compositionItems={stackCompositionItems}
+                assets={stackAssets}
+                variants={stackVariants}
+                lineage={stackLineage}
+                collections={stackCollections}
+                collectionItems={stackCollectionItems}
+                selectedCompositionId="composition-1"
+                canEdit
+                onSelectComposition={() => undefined}
+                onCreateComposition={() => undefined}
+                onUpdateComposition={() => undefined}
+                onDeleteComposition={() => undefined}
+                onCreateItem={() => undefined}
+                onUpdateItem={() => undefined}
+                onDeleteItem={() => undefined}
+                onReorderItems={() => undefined}
+                onOpenAsset={() => undefined}
+                onClose={() => undefined}
+              />
+            </div>
+          )}
           <RelationsPanel
             assets={stackAssets}
             variants={stackVariants}
