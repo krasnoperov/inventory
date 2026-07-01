@@ -612,7 +612,11 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   });
   await disableAnimations(page);
 
-  await page.getByLabel('Prompt').fill('A cozy campfire at dusk');
+  await page.getByLabel('Prompt').fill([
+    'A cozy campfire at dusk with layered smoke, warm rim light, tiny sparks, and mossy stones.',
+    'The composition should include a quiet forest clearing, a small cooking pot, visible embers, and a soft cinematic camera angle.',
+    'Keep the mood calm and grounded while preserving readable silhouettes for game production review.',
+  ].join(' '));
 
   await selectDropdown(page, 'Style selector', 'Manage styles...');
   await expect(page.getByText('Style Library')).toBeVisible();
@@ -624,6 +628,14 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   await expect.poll(
     () => stylePanel.evaluate((node) => getComputedStyle(node).animationName),
   ).not.toContain('slideUp');
+  const styleDockGap = await page.evaluate(() => {
+    const panel = document.querySelector('[class*="stylePanel"]');
+    const tray = document.querySelector('[class*="tray"]');
+    if (!panel || !tray) return null;
+    return tray.getBoundingClientRect().top - panel.getBoundingClientRect().bottom;
+  });
+  expect(styleDockGap).not.toBeNull();
+  expect(styleDockGap!).toBeGreaterThanOrEqual(8);
   await expect(page.locator('[class*="defaultBadge"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-style-sheet', { fullPage: true });
@@ -640,6 +652,14 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   await expect.poll(
     () => chatPanel.evaluate((node) => getComputedStyle(node).animationName),
   ).not.toContain('slide');
+  const chatDockGap = await page.evaluate(() => {
+    const panel = document.querySelector('[class*="chatPanel"]');
+    const tray = document.querySelector('[class*="tray"]');
+    if (!panel || !tray) return null;
+    return tray.getBoundingClientRect().top - panel.getBoundingClientRect().bottom;
+  });
+  expect(chatDockGap).not.toBeNull();
+  expect(chatDockGap!).toBeGreaterThanOrEqual(8);
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-chat-sheet', { fullPage: true });
 });

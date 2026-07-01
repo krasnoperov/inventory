@@ -454,6 +454,30 @@ export function ForgeTray({
   }, [currentAssetId, currentAssetMediaKind, currentAssetType]);
 
   useEffect(() => {
+    const tray = trayRef.current;
+    if (!tray) return;
+
+    const updateSheetOffset = () => {
+      const trayBox = tray.getBoundingClientRect();
+      const gap = 16;
+      const offset = Math.max(gap, window.innerHeight - trayBox.top + gap);
+      document.documentElement.style.setProperty('--forge-sheet-bottom-offset', `${Math.ceil(offset)}px`);
+    };
+
+    updateSheetOffset();
+
+    const resizeObserver = new ResizeObserver(updateSheetOffset);
+    resizeObserver.observe(tray);
+    window.addEventListener('resize', updateSheetOffset);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateSheetOffset);
+      document.documentElement.style.removeProperty('--forge-sheet-bottom-offset');
+    };
+  }, []);
+
+  useEffect(() => {
     if (currentAsset || mediaMode !== 'image') {
       return;
     }
