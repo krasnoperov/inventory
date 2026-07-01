@@ -629,6 +629,72 @@ test('asset details dock keeps the real expanded stack usable on mobile', async 
   await screenshot(page, 'asset-details-stack-mobile', { fullPage: true });
 });
 
+test('asset variant inspector stays clear of the generation dock', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await mountComponent(page, 'AssetGenerationDockWithVariantInspector', {});
+
+  const inspector = page.getByRole('complementary', { name: 'Variant details' });
+  const dock = page.getByRole('region', { name: 'Asset generation controls' });
+  await expect(inspector).toBeVisible();
+  await expect(dock).toBeVisible();
+  await expectNoOverlap(inspector, dock);
+
+  const geometry = await page.evaluate(() => {
+    const panel = document.querySelector('[aria-label="Variant details"]');
+    const generationDock = document.querySelector('[aria-label="Asset generation controls"]');
+    const panelBox = panel?.getBoundingClientRect();
+    const dockBox = generationDock?.getBoundingClientRect();
+    return panelBox && dockBox
+      ? {
+          panelRight: panelBox.right,
+          dockLeft: dockBox.left,
+          panelTop: panelBox.top,
+          panelBottom: panelBox.bottom,
+          viewportHeight: window.innerHeight,
+        }
+      : null;
+  });
+  expect(geometry).not.toBeNull();
+  expect(geometry!.panelRight).toBeLessThanOrEqual(geometry!.dockLeft - 4);
+  expect(geometry!.panelTop).toBeGreaterThanOrEqual(16);
+  expect(geometry!.panelBottom).toBeLessThanOrEqual(geometry!.viewportHeight - 16);
+
+  await screenshot(page, 'asset-details-variant-inspector-clear-of-dock', { fullPage: true });
+});
+
+test('asset variant inspector stays clear of the generation dock on tablet widths', async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 760 });
+  await mountComponent(page, 'AssetGenerationDockWithVariantInspector', {});
+
+  const inspector = page.getByRole('complementary', { name: 'Variant details' });
+  const dock = page.getByRole('region', { name: 'Asset generation controls' });
+  await expect(inspector).toBeVisible();
+  await expect(dock).toBeVisible();
+  await expectNoOverlap(inspector, dock);
+
+  const geometry = await page.evaluate(() => {
+    const panel = document.querySelector('[aria-label="Variant details"]');
+    const generationDock = document.querySelector('[aria-label="Asset generation controls"]');
+    const panelBox = panel?.getBoundingClientRect();
+    const dockBox = generationDock?.getBoundingClientRect();
+    return panelBox && dockBox
+      ? {
+          panelLeft: panelBox.left,
+          panelRight: panelBox.right,
+          panelBottom: panelBox.bottom,
+          dockTop: dockBox.top,
+          viewportWidth: window.innerWidth,
+        }
+      : null;
+  });
+  expect(geometry).not.toBeNull();
+  expect(geometry!.panelLeft).toBeGreaterThanOrEqual(16);
+  expect(geometry!.panelRight).toBeLessThanOrEqual(geometry!.viewportWidth - 16);
+  expect(geometry!.panelBottom).toBeLessThanOrEqual(geometry!.dockTop - 4);
+
+  await screenshot(page, 'asset-details-variant-inspector-tablet-clear-of-dock', { fullPage: true });
+});
+
 test('asset detail overlays use flat chrome', async ({ page }) => {
   await page.setViewportSize({ width: 760, height: 460 });
   await mountComponent(page, 'AssetDetailOverlayChrome', {});

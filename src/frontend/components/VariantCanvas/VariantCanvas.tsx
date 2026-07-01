@@ -61,6 +61,8 @@ export interface VariantCanvasProps {
   spaceId?: string;
   /** Accessible name for the canvas surface when it is embedded in a larger page. */
   canvasLabel?: string;
+  /** Keep the selected variant inspector clear of the asset generation dock. */
+  avoidGenerationDock?: boolean;
   asset: Asset;
   variants: Variant[];
   lineage: Lineage[];
@@ -241,6 +243,7 @@ function getLayoutedElements(
 function VariantCanvasInner({
   spaceId,
   canvasLabel = 'Variant canvas',
+  avoidGenerationDock = false,
   asset,
   variants,
   lineage,
@@ -658,6 +661,7 @@ function VariantCanvasInner({
           variant={expandedVariant}
           asset={asset}
           spaceId={spaceId}
+          avoidGenerationDock={avoidGenerationDock}
           isActive={expandedVariant.id === asset.active_variant_id}
           variantCount={variants.length}
           lineage={lineage}
@@ -683,6 +687,7 @@ function VariantCanvasInner({
 export function VariantCanvas({
   spaceId,
   canvasLabel = 'Variant canvas',
+  avoidGenerationDock = false,
   asset,
   variants,
   lineage,
@@ -789,6 +794,7 @@ export function VariantCanvas({
         asset={asset}
         spaceId={spaceId}
         canvasLabel={canvasLabel}
+        avoidGenerationDock={avoidGenerationDock}
         variants={variants}
         lineage={lineage}
         selectedVariantId={selectedVariantId}
