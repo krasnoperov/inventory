@@ -256,7 +256,7 @@ test('forge tray exposes media type as the first options dropdown', async ({ pag
   await expect(page.locator('[class*="tray"]').first()).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="tray"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(page.locator('[class*="tray"]').first()).toHaveCSS('box-shadow', 'none');
-  await expect(page.locator('[class*="tray"]').first()).toHaveCSS('border-top-left-radius', '12px');
+  await expect(page.locator('[class*="tray"]').first()).toHaveCSS('border-top-left-radius', '8px');
   await expect(page.locator('[class*="tray"]').first()).toHaveCSS(
     'transition-property',
     'border-color',
@@ -634,7 +634,7 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   const stylePanel = page.locator('[class*="stylePanel"]').first();
   await expect(stylePanel).toHaveCSS('box-shadow', 'none');
   await expect(stylePanel).toHaveCSS('transform', 'none');
-  await expect(stylePanel).toHaveCSS('border-radius', '12px');
+  await expect(stylePanel).toHaveCSS('border-radius', '8px');
   await expect.poll(
     () => stylePanel.evaluate((node) => getComputedStyle(node).animationName),
   ).not.toContain('slideUp');
@@ -679,7 +679,7 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   const chatPanel = page.locator('[class*="chatPanel"]').first();
   await expect(chatPanel).toHaveCSS('box-shadow', 'none');
   await expect(chatPanel).toHaveCSS('transform', 'none');
-  await expect(chatPanel).toHaveCSS('border-radius', '12px');
+  await expect(chatPanel).toHaveCSS('border-radius', '8px');
   await expect.poll(
     () => chatPanel.evaluate((node) => getComputedStyle(node).animationName),
   ).not.toContain('slide');
@@ -729,7 +729,7 @@ test('forge tray control bar keeps compact icon actions interactive', async ({ p
   await expect(page.getByText('Image references')).toBeVisible();
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(page.locator('[class*="modal"]').first()).toHaveCSS('border-radius', '12px');
+  await expect(page.locator('[class*="modal"]').first()).toHaveCSS('border-radius', '8px');
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-reference-picker-sheet', { fullPage: true });
   await page.getByRole('button', { name: /Close/i }).click();
@@ -749,7 +749,7 @@ test('forge tray control bar keeps compact icon actions interactive', async ({ p
   await expect(page.locator('[class*="uploadPromptOverlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.locator('[class*="uploadPromptModal"]')).toHaveCSS('box-shadow', 'none');
   await expect(page.locator('[class*="uploadPromptModal"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
-  await expect(page.locator('[class*="uploadPromptModal"]')).toHaveCSS('border-radius', '12px');
+  await expect(page.locator('[class*="uploadPromptModal"]')).toHaveCSS('border-radius', '8px');
   const uploadPromptDockGap = await page.evaluate(() => {
     const prompt = document.querySelector('[class*="uploadPromptModal"]');
     const tray = document.querySelector('[class*="tray"]');
@@ -894,8 +894,8 @@ test('forge chat sheet keeps flattened chrome on mobile', async ({ page }) => {
 
   await page.getByTitle('Chat with Claude about your prompt').click();
   await expect(page.getByText('Chat with Claude')).toBeVisible();
-  await expect(page.locator('[class*="chatPanel"]').first()).toHaveCSS('border-bottom-left-radius', '12px');
-  await expect(page.locator('[class*="chatPanel"]').first()).toHaveCSS('border-bottom-right-radius', '12px');
+  await expect(page.locator('[class*="chatPanel"]').first()).toHaveCSS('border-bottom-left-radius', '8px');
+  await expect(page.locator('[class*="chatPanel"]').first()).toHaveCSS('border-bottom-right-radius', '8px');
 });
 
 test('style library creates a preset from a style collection', async ({ page }) => {

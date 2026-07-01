@@ -196,7 +196,7 @@
   /* ---- Component: workspace panel surfaces ---- */
   --workspace-panel-bg: var(--color-surface);
   --workspace-panel-border: var(--color-border);
-  --workspace-panel-radius: var(--radius-lg);
+  --workspace-panel-radius: var(--radius-md);
   --workspace-panel-shadow: none;
 
   /* ---- Scale: focus and selection rings ---- */

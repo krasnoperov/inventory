@@ -497,11 +497,11 @@
         }
       },
       "radius": {
-        "$value": "{radius.lg}",
+        "$value": "{radius.md}",
         "$extensions": {
           "com.inventory.cssVar": "--workspace-panel-radius",
           "com.inventory.sourceFile": "theme.css",
-          "com.inventory.cssValue": "var(--radius-lg)"
+          "com.inventory.cssValue": "var(--radius-md)"
         }
       },
       "shadow": {

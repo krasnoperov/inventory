@@ -201,7 +201,7 @@ test('asset-scoped variant details dock below the clicked node', async ({ page }
   const detailsPanel = page.getByRole('complementary', { name: 'Variant details' });
   await expect(detailsPanel).toBeVisible();
   await expect(detailsPanel).toHaveCSS('position', 'absolute');
-  await expect(detailsPanel).toHaveCSS('border-radius', '12px');
+  await expect(detailsPanel).toHaveCSS('border-radius', '8px');
 
   const overlaps = await page.evaluate(() => {
     const node = document.querySelector('.react-flow__node');
@@ -360,6 +360,83 @@ test('asset-scoped variant details keep the clicked node visible on tablet width
 
   await page.waitForTimeout(200);
   await screenshot(page, 'variant-canvas-details-tablet-visible-node', { fullPage: true });
+});
+
+test('asset-scoped variant details do not cover a clicked audio node', async ({ page }) => {
+  await page.setViewportSize({ width: 760, height: 620 });
+  await mockMedia(page);
+  await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
+  await sizeCanvasHarness(page);
+  const audioAsset = {
+    ...asset('audio', 'Shorts outro living room production speech with readable title'),
+    type: 'speech',
+    media_kind: 'audio',
+    active_variant_id: 'audio-v',
+  };
+  const audioVariant = {
+    ...variant('audio'),
+    id: 'audio-v',
+    asset_id: audioAsset.id,
+    media_kind: 'audio',
+    media_key: 'audio/shorts-outro.mp3',
+    media_mime_type: 'audio/mpeg',
+    media_duration_ms: 4800,
+    image_key: null,
+    thumb_key: null,
+    recipe: JSON.stringify({
+      prompt: 'Describe the speech clip you want to create for a living room outro without truncating the important words.',
+      model: 'speech-model',
+      voice: 'alloy',
+    }),
+  };
+  await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
+    spaceId: 'space-1',
+    canvasLabel: 'Details canvas',
+    scope: 'asset-details',
+    avoidGenerationDock: true,
+    asset: audioAsset,
+    variants: [audioVariant],
+    lineage: [],
+    selectedVariantId: audioVariant.id,
+    allVariants: [audioVariant],
+    allAssets: [audioAsset],
+    onVariantClick: '__noop__',
+  });
+
+  await page.waitForSelector('.react-flow__node');
+  const node = page.locator('.react-flow__node').first();
+  await node.click();
+  const detailsPanel = page.getByRole('complementary', { name: 'Variant details' });
+  await expect(detailsPanel).toBeVisible();
+
+  const geometry = await page.evaluate(() => {
+    const node = document.querySelector('.react-flow__node');
+    const panel = document.querySelector('[aria-label="Variant details"]');
+    if (!node || !panel) return null;
+    const nodeBox = node.getBoundingClientRect();
+    const panelBox = panel.getBoundingClientRect();
+    const overlaps = !(
+      nodeBox.right <= panelBox.left ||
+      panelBox.right <= nodeBox.left ||
+      nodeBox.bottom <= panelBox.top ||
+      panelBox.bottom <= nodeBox.top
+    );
+    return {
+      overlaps,
+      nodeBottom: nodeBox.bottom,
+      panelTop: panelBox.top,
+      panelRadius: getComputedStyle(panel).borderRadius,
+      panelBottom: panelBox.bottom,
+      viewportHeight: window.innerHeight,
+    };
+  });
+  expect(geometry).not.toBeNull();
+  expect(geometry!.overlaps).toBe(false);
+  expect(geometry!.panelTop).toBeGreaterThanOrEqual(geometry!.nodeBottom);
+  expect(geometry!.panelRadius).toBe('8px');
+  expect(geometry!.panelBottom).toBeLessThanOrEqual(geometry!.viewportHeight - 16);
+
+  await screenshot(page, 'variant-canvas-audio-details-clear-of-node', { fullPage: true });
 });
 
 test('variant canvas retries failed audio variants and renders queued state', async ({ page }) => {

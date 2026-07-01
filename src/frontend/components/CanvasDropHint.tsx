@@ -10,8 +10,10 @@ export function CanvasDropHint({ scope, message, detail }: CanvasDropHintProps) 
   return (
     <div className={styles.hint} role="status">
       <span className={styles.scope}>{scope}</span>
-      <span className={styles.message}>{message}</span>
-      {detail && <span className={styles.detail}>{detail}</span>}
+      <span className={styles.copy}>
+        <span className={styles.message}>{message}</span>
+        {detail && <span className={styles.detail}>{detail}</span>}
+      </span>
     </div>
   );
 }
