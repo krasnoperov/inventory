@@ -717,6 +717,59 @@ test('asset details dock keeps heavy details outside ForgeTray', async ({ page }
   await screenshot(page, 'asset-details-inspector-outside-dock-desktop', { fullPage: true });
 });
 
+test('asset details inspector docks relation editor above relations list', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 760 });
+  await mountComponent(page, 'AssetGenerationDock', {
+    asset: asset(),
+    assetCollectionCount: 1,
+    assetTypeDisabled: false,
+    onAssetTypeChange: '__record__:type',
+    selectedVariant: fullVariant(),
+    selectedVariantIndex: 0,
+    selectedVariantCollectionCount: 1,
+    variantCount: 3,
+    showRelationEditor: true,
+  });
+
+  const dock = page.getByRole('region', { name: 'Asset generation controls' });
+  const inspector = page.getByRole('region', { name: 'Asset details inspector' });
+  const editor = inspector.getByRole('region', { name: 'Create relation' });
+  const relations = inspector.getByRole('region', { name: 'Manual relations' });
+
+  await expect(editor).toBeVisible();
+  await expect(editor).toHaveCSS('position', 'static');
+  await expect(editor).toHaveCSS('border-radius', '8px');
+  await expect(page.locator('[class*="dialogOverlay"]')).toHaveCount(0);
+  await expect(dock).not.toContainText('Create relation');
+  await expect(relations).toBeVisible();
+
+  const editorBeforeRelations = await page.evaluate(() => {
+    const inspector = document.querySelector('[aria-label="Asset details inspector"]');
+    const editor = inspector?.querySelector('[aria-label="Create relation"]');
+    const relations = inspector?.querySelector('[aria-label="Manual relations"]');
+    return Boolean(editor && relations && editor.compareDocumentPosition(relations) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  expect(editorBeforeRelations).toBe(true);
+
+  const geometry = await page.evaluate(() => {
+    const editor = document.querySelector('[aria-label="Create relation"]');
+    const dock = document.querySelector('[aria-label="Asset generation controls"]');
+    if (!editor || !dock) return null;
+    const editorBox = editor.getBoundingClientRect();
+    const dockBox = dock.getBoundingClientRect();
+    const overlaps = !(
+      editorBox.right <= dockBox.left ||
+      dockBox.right <= editorBox.left ||
+      editorBox.bottom <= dockBox.top ||
+      dockBox.bottom <= editorBox.top
+    );
+    return { overlaps };
+  });
+  expect(geometry).toEqual({ overlaps: false });
+
+  await screenshot(page, 'asset-details-relation-editor-docked-inspector', { fullPage: true });
+});
+
 test('asset details inspector stays separate from ForgeTray on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 760 });
   await mountComponent(page, 'AssetGenerationDock', {

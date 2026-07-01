@@ -40,7 +40,7 @@ import { useImageUpload } from '../hooks/useImageUpload';
 import { findAcceptedUploadFile } from '../mediaUpload';
 import { RotationPanel } from '../components/RotationPanel/RotationPanel';
 import { TileGrid } from '../components/TileGrid/TileGrid';
-import { RelationEditorDialog, RelationsPanel } from '../components/RelationsPanel';
+import { RelationEditorPanel, RelationsPanel } from '../components/RelationsPanel';
 import { CompositionDetail, CompositionUsageList } from '../components/CompositionDetail';
 import { StyleReferenceUsagePanel } from '../components/StyleReferenceUsagePanel';
 import {
@@ -1188,10 +1188,12 @@ export default function AssetDetailPage() {
   }, [assetId, asset?.name, deleteAsset, navigate, spaceId]);
 
   const handleOpenCreateRelation = useCallback((subject: SpaceSubject) => {
+    setShowInspector(true);
     setRelationEditor({ mode: 'create', subject });
   }, []);
 
   const handleOpenEditRelation = useCallback((relation: SpaceRelation) => {
+    setShowInspector(true);
     setRelationEditor({ mode: 'edit', relation });
   }, []);
 
@@ -1388,6 +1390,14 @@ export default function AssetDetailPage() {
       </div>
     );
   }
+
+  const relationEditorSourceSubject: SpaceSubject | null = relationEditor
+    ? relationEditor.mode === 'create'
+      ? relationEditor.subject
+      : relationEditor.relation.subject_type === 'asset'
+        ? { subjectType: 'asset', assetId: relationEditor.relation.subject_asset_id ?? undefined }
+        : { subjectType: 'variant', variantId: relationEditor.relation.subject_variant_id ?? undefined }
+    : null;
 
   return (
     <div className={styles.page}>
@@ -1748,16 +1758,30 @@ export default function AssetDetailPage() {
           )}
 
           {relationSubjects.length > 0 && (
-            <RelationsPanel
-              assets={relationAssets}
-              variants={relationVariants}
-              relations={wsRelations}
-              subjects={relationSubjects}
-              primarySubject={{ subjectType: 'asset', assetId }}
-              onCreate={handleOpenCreateRelation}
-              onEdit={handleOpenEditRelation}
-              onDelete={deleteRelation}
-            />
+            <>
+              {relationEditor && relationEditorSourceSubject && (
+                <RelationEditorPanel
+                  mode={relationEditor.mode}
+                  assets={relationAssets}
+                  variants={relationVariants}
+                  sourceSubject={relationEditorSourceSubject}
+                  relation={relationEditor.mode === 'edit' ? relationEditor.relation : undefined}
+                  onCancel={() => setRelationEditor(null)}
+                  onCreate={handleCreateRelation}
+                  onUpdate={handleUpdateRelation}
+                />
+              )}
+              <RelationsPanel
+                assets={relationAssets}
+                variants={relationVariants}
+                relations={wsRelations}
+                subjects={relationSubjects}
+                primarySubject={{ subjectType: 'asset', assetId }}
+                onCreate={handleOpenCreateRelation}
+                onEdit={handleOpenEditRelation}
+                onDelete={deleteRelation}
+              />
+            </>
           )}
         </AssetDetailsInspector>
       </div>
@@ -1783,22 +1807,6 @@ export default function AssetDetailPage() {
           onClose={() => setShowRotationPanel(false)}
           onRateVariant={sendVariantRate}
           onExportTrainingData={() => handleExportTrainingData('rotations')}
-        />
-      )}
-      {relationEditor && (
-        <RelationEditorDialog
-          mode={relationEditor.mode}
-          assets={relationAssets}
-          variants={relationVariants}
-          sourceSubject={relationEditor.mode === 'create' ? relationEditor.subject : (
-            relationEditor.relation.subject_type === 'asset'
-              ? { subjectType: 'asset', assetId: relationEditor.relation.subject_asset_id ?? undefined }
-              : { subjectType: 'variant', variantId: relationEditor.relation.subject_variant_id ?? undefined }
-          )}
-          relation={relationEditor.mode === 'edit' ? relationEditor.relation : undefined}
-          onCancel={() => setRelationEditor(null)}
-          onCreate={handleCreateRelation}
-          onUpdate={handleUpdateRelation}
         />
       )}
     </div>

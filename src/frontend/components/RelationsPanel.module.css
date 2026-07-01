@@ -191,26 +191,22 @@
   padding: 0.125rem 0 0;
 }
 
-.dialogOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-}
-
-.dialog {
-  width: min(500px, 100%);
-  max-height: min(720px, calc(100vh - 2rem));
-  overflow: auto;
+.editorPanel {
+  min-width: 0;
+  width: min(760px, 100%);
   display: grid;
   gap: 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: none;
+  border: 1px solid var(--workspace-panel-border);
+  border-radius: var(--workspace-panel-radius);
+  background: var(--workspace-panel-bg);
+  box-shadow: var(--workspace-panel-shadow);
+}
+
+.editorForm {
+  min-width: 0;
+  overflow: visible;
+  display: grid;
+  gap: 0;
 }
 
 .dialogHeader {
@@ -290,7 +286,7 @@
   font-weight: 600;
 }
 
-.dialog > .field {
+.editorForm > .field {
   padding-top: 0.625rem;
 }
 
@@ -404,12 +400,8 @@
     max-height: 42vh;
   }
 
-  .dialogOverlay {
-    align-items: stretch;
-  }
-
-  .dialog {
-    max-height: calc(100vh - 2rem);
+  .editorPanel {
+    width: 100%;
   }
 
   .dialogActions {
