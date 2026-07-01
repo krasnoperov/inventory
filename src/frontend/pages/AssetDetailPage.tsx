@@ -175,6 +175,30 @@ const ASSET_TYPE_OPTIONS: Array<SelectOption<string>> = PREDEFINED_ASSET_TYPES.m
   label: titleizeAssetType(type),
 }));
 
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" width="14" height="14" aria-hidden="true">
+      <path d="m5 12 4 4L19 6" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
 export function AssetTypeSelect({
   className,
   value,
@@ -340,7 +364,25 @@ export function AssetCollectionsPanel({
     <section className={styles.collectionPanel} aria-label="Collection membership">
       <div className={styles.collectionPanelHeader}>
         <span>Collections</span>
-        {totalMembershipCount > 0 && <span>{totalMembershipCount}</span>}
+        <span className={styles.collectionPanelHeaderActions}>
+          {totalMembershipCount > 0 && <span>{totalMembershipCount}</span>}
+          {managementOpen && (
+            <IconButton
+              size="sm"
+              variant="ghost"
+              className={styles.collectionPanelAction}
+              aria-label="Done managing collections"
+              title="Done managing collections"
+              onClick={() => setManagementOpen(false)}
+            >
+              <CheckIcon />
+            </IconButton>
+          )}
+        </span>
+      </div>
+      <div className={styles.collectionPanelHeader}>
+        <span>Asset</span>
+        {assetCollectionMemberships.length > 0 && <span>{assetCollectionMemberships.length}</span>}
       </div>
       {assetCollectionMemberships.map((item) => {
         const collection = collections.find((entry) => entry.id === item.collection_id);
@@ -393,47 +435,49 @@ export function AssetCollectionsPanel({
           />
           <div className={styles.collectionPanelActions}>
             {assetPlacementDrafts.length > 0 && (
-              <Button
+              <IconButton
                 size="sm"
+                variant="secondary"
                 className={styles.collectionPanelAction}
-                  onClick={() => {
-                    onApplyAssetPlacements();
-                    setResolvedAssetPlacementOpen(false);
-                  }}
+                aria-label="Apply asset collections"
+                title="Apply asset collections"
+                onClick={() => {
+                  onApplyAssetPlacements();
+                  setResolvedAssetPlacementOpen(false);
+                }}
               >
-                Apply asset collections
-              </Button>
+                <CheckIcon />
+              </IconButton>
             )}
-            <Button
+            <IconButton
               size="sm"
               variant="ghost"
               className={styles.collectionPanelAction}
+              aria-label="Hide asset collection picker"
+              title="Hide asset collection picker"
               onClick={() => setResolvedAssetPlacementOpen(false)}
             >
-              Hide
-            </Button>
-            {managementOpen && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className={styles.collectionPanelAction}
-                onClick={() => setManagementOpen(false)}
-              >
-                Done
-              </Button>
-            )}
+              <CloseIcon />
+            </IconButton>
           </div>
         </div>
       ) : (
-        <Button size="sm" className={styles.collectionPanelAction} onClick={() => setResolvedAssetPlacementOpen(true)}>
-          Add asset to collection
-        </Button>
+        <IconButton
+          size="sm"
+          variant="secondary"
+          className={styles.collectionPanelAction}
+          aria-label="Add asset to collection"
+          title="Add asset to collection"
+          onClick={() => setResolvedAssetPlacementOpen(true)}
+        >
+          <PlusIcon />
+        </IconButton>
       )}
 
       {selectedVariant && (
         <>
           <div className={styles.collectionPanelHeader}>
-            <span>Variant collections</span>
+            <span>Variant</span>
             {selectedVariantCollectionMemberships.length > 0 && <span>{selectedVariantCollectionMemberships.length}</span>}
           </div>
           {selectedVariantCollectionMemberships.map((item) => {
@@ -479,53 +523,45 @@ export function AssetCollectionsPanel({
               />
               <div className={styles.collectionPanelActions}>
                 {variantPlacementDrafts.length > 0 && (
-                  <Button
+                  <IconButton
                     size="sm"
+                    variant="secondary"
                     className={styles.collectionPanelAction}
+                    aria-label="Apply variant collections"
+                    title="Apply variant collections"
                     onClick={() => {
                       onApplyVariantPlacements();
                       setResolvedVariantPlacementOpen(false);
                     }}
                   >
-                    Apply variant collections
-                  </Button>
+                    <CheckIcon />
+                  </IconButton>
                 )}
-                <Button
+                <IconButton
                   size="sm"
                   variant="ghost"
                   className={styles.collectionPanelAction}
+                  aria-label="Hide variant collection picker"
+                  title="Hide variant collection picker"
                   onClick={() => setResolvedVariantPlacementOpen(false)}
                 >
-                  Hide
-                </Button>
-                {managementOpen && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className={styles.collectionPanelAction}
-                    onClick={() => setManagementOpen(false)}
-                  >
-                    Done
-                  </Button>
-                )}
+                  <CloseIcon />
+                </IconButton>
               </div>
             </div>
           ) : (
-            <Button size="sm" className={styles.collectionPanelAction} onClick={() => setResolvedVariantPlacementOpen(true)}>
-              Add selected variant
-            </Button>
+            <IconButton
+              size="sm"
+              variant="secondary"
+              className={styles.collectionPanelAction}
+              aria-label="Add selected variant to collection"
+              title="Add selected variant to collection"
+              onClick={() => setResolvedVariantPlacementOpen(true)}
+            >
+              <PlusIcon />
+            </IconButton>
           )}
         </>
-      )}
-      {managementOpen && !showAssetPlacementControls && !showVariantPlacementControls && (
-        <Button
-          size="sm"
-          variant="ghost"
-          className={styles.collectionPanelAction}
-          onClick={() => setManagementOpen(false)}
-        >
-          Done
-        </Button>
       )}
     </section>
   );
