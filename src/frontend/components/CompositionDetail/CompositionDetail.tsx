@@ -71,6 +71,7 @@ export interface CompositionDetailProps {
   onReorderItems: (compositionId: string, itemIds: string[]) => void;
   onOpenAsset?: (assetId: string) => void;
   onClose?: () => void;
+  layout?: 'overlay' | 'dock';
 }
 
 export function CompositionDetail({
@@ -94,6 +95,7 @@ export function CompositionDetail({
   onReorderItems,
   onOpenAsset,
   onClose,
+  layout = 'overlay',
 }: CompositionDetailProps) {
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
   const [query, setQuery] = useState('');
@@ -208,7 +210,7 @@ export function CompositionDetail({
   };
 
   return (
-    <aside className={styles.panel} aria-label="Composition detail">
+    <aside className={`${styles.panel} ${layout === 'dock' ? styles.docked : ''}`} aria-label="Composition detail">
       <div className={styles.header}>
         <div>
           <p className={styles.eyebrow}>Composition Detail</p>
@@ -224,7 +226,7 @@ export function CompositionDetail({
         )}
       </div>
 
-      <div className={styles.body}>
+      <div className={`${styles.body} ${pickerTarget ? styles.bodyWithPicker : ''}`}>
         <section className={styles.listSection} aria-label="Compositions">
           <div className={styles.sectionHeader}>
             <span>Compositions</span>
@@ -412,11 +414,9 @@ export function CompositionDetail({
             </div>
           </section>
         )}
-      </div>
 
-      {pickerTarget && (
-        <div className={styles.pickerOverlay} role="dialog" aria-label="Choose exact variant">
-          <div className={styles.picker}>
+        {pickerTarget && (
+          <aside className={styles.picker} aria-label="Choose exact variant">
             <div className={styles.pickerHeader}>
               <strong>Choose exact variant</strong>
               <IconButton className={styles.panelIconAction} onClick={() => setPickerTarget(null)} title="Close variant picker" aria-label="Close variant picker">
@@ -450,9 +450,9 @@ export function CompositionDetail({
                 </Button>
               ))}
             </div>
-          </div>
-        </div>
-      )}
+          </aside>
+        )}
+      </div>
     </aside>
   );
 }

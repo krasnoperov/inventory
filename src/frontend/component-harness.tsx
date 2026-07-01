@@ -1088,10 +1088,13 @@ function LandingDualChromePreview() {
   );
 }
 
-function SpacePageOverlayChromePreview() {
+function SpacePageOverlayChromePreview(props: Record<string, unknown>) {
+  const showCompositionRail = props.showCompositionRail === true;
   return (
     <div className={spacePageStyles.page}>
       <div className={spacePageStyles.canvasContainer}>
+        <div className={`${spacePageStyles.canvasWorkspace} ${showCompositionRail ? spacePageStyles.canvasWorkspaceWithInspector : ''}`}>
+          <div className={spacePageStyles.canvasStage}>
         <CanvasToolbar ariaLabel="Space controls">
           <CanvasToolbarTitle>
             <h1 className={spacePageStyles.spaceTitle}>Cinematic Marketplace Space With Readable Production Asset Names</h1>
@@ -1119,6 +1122,36 @@ function SpacePageOverlayChromePreview() {
               <span className={spacePageStyles.jobAssetName}>Scout Variant Ready For Review With Long Name</span>
             </div>
           </div>
+        </div>
+          </div>
+
+          {showCompositionRail && (
+            <div className={spacePageStyles.compositionPanelContainer}>
+              <CompositionDetail
+                spaceId="space-1"
+                layout="dock"
+                compositions={stackCompositions}
+                compositionItems={stackCompositionItems}
+                assets={stackAssets}
+                variants={stackVariants}
+                lineage={stackLineage}
+                collections={stackCollections}
+                collectionItems={stackCollectionItems}
+                selectedCompositionId="composition-1"
+                canEdit
+                onSelectComposition={() => undefined}
+                onCreateComposition={() => undefined}
+                onUpdateComposition={() => undefined}
+                onDeleteComposition={() => undefined}
+                onCreateItem={() => undefined}
+                onUpdateItem={() => undefined}
+                onDeleteItem={() => undefined}
+                onReorderItems={() => undefined}
+                onOpenAsset={() => undefined}
+                onClose={() => undefined}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

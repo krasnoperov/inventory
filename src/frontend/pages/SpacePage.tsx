@@ -543,6 +543,8 @@ export default function SpacePage() {
         onDragLeave={handleSpaceDragLeave}
         onDrop={handleSpaceDrop}
       >
+        <div className={`${styles.canvasWorkspace} ${showCompositionPanel ? styles.canvasWorkspaceWithInspector : ''}`}>
+          <div className={styles.canvasStage}>
         <SpaceCanvas
           spaceId={spaceId || ''}
           assets={assets}
@@ -757,6 +759,39 @@ export default function SpacePage() {
             })}
           </div>
         )}
+          </div>
+
+          {showCompositionPanel && (
+            <div className={styles.compositionPanelContainer}>
+              <CompositionDetail
+                spaceId={spaceId}
+                layout="dock"
+                compositions={compositions}
+                compositionItems={compositionItems}
+                assets={assets}
+                variants={variants}
+                lineage={lineage}
+                collections={collections}
+                collectionItems={collectionItems}
+                selectedCompositionId={selectedCompositionId}
+                canEdit={canEdit}
+                onSelectComposition={setSelectedCompositionId}
+                onCreateComposition={canEdit ? handleCreateComposition : undefined}
+                onUpdateComposition={updateComposition}
+                onDeleteComposition={(compositionId) => {
+                  deleteComposition(compositionId);
+                  setSelectedCompositionId((current) => current === compositionId ? null : current);
+                }}
+                onCreateItem={createCompositionItem}
+                onUpdateItem={updateCompositionItem}
+                onDeleteItem={deleteCompositionItem}
+                onReorderItems={reorderCompositionItems}
+                onOpenAsset={(assetId) => navigate(`/spaces/${spaceId}/assets/${assetId}`)}
+                onClose={() => setShowCompositionPanel(false)}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Forge Tray - floating bottom bar */}
@@ -806,36 +841,6 @@ export default function SpacePage() {
           }}
           onClose={() => setShowTileSetPanel(false)}
         />
-      )}
-
-      {showCompositionPanel && (
-        <div className={styles.compositionPanelContainer}>
-          <CompositionDetail
-            spaceId={spaceId}
-            compositions={compositions}
-            compositionItems={compositionItems}
-            assets={assets}
-            variants={variants}
-            lineage={lineage}
-            collections={collections}
-            collectionItems={collectionItems}
-            selectedCompositionId={selectedCompositionId}
-            canEdit={canEdit}
-            onSelectComposition={setSelectedCompositionId}
-            onCreateComposition={canEdit ? handleCreateComposition : undefined}
-            onUpdateComposition={updateComposition}
-            onDeleteComposition={(compositionId) => {
-              deleteComposition(compositionId);
-              setSelectedCompositionId((current) => current === compositionId ? null : current);
-            }}
-            onCreateItem={createCompositionItem}
-            onUpdateItem={updateCompositionItem}
-            onDeleteItem={deleteCompositionItem}
-            onReorderItems={reorderCompositionItems}
-            onOpenAsset={(assetId) => navigate(`/spaces/${spaceId}/assets/${assetId}`)}
-            onClose={() => setShowCompositionPanel(false)}
-          />
-        </div>
       )}
 
       {/* Style Panel - floating panel from toolbar */}
