@@ -108,6 +108,13 @@ function subjectSearchText(subject: SpaceSubject, assets: Asset[], variants: Var
   return [asset?.name, variant?.id, variant ? formatMediaKind(variant.media_kind) : undefined, variant?.description].filter(Boolean).join(' ');
 }
 
+type RelationDirection = 'outgoing' | 'incoming' | 'both';
+
+interface RelationEntry {
+  relation: SpaceRelation;
+  direction: RelationDirection;
+}
+
 export interface RelationsPanelProps {
   assets: Asset[];
   variants: Variant[];
@@ -138,10 +145,22 @@ export function RelationsPanel({
     () => relations.filter((relation) => relationMatchesAny(relation, subjects, 'object')),
     [relations, subjects],
   );
-  const relationCount = useMemo(
-    () => new Set([...outgoing, ...incoming].map((relation) => relation.id)).size,
-    [incoming, outgoing],
-  );
+  const relationEntries = useMemo<RelationEntry[]>(() => {
+    const outgoingIds = new Set(outgoing.map((relation) => relation.id));
+    const incomingIds = new Set(incoming.map((relation) => relation.id));
+    const entries = [...outgoing, ...incoming].reduce<Map<string, RelationEntry>>((map, relation) => {
+      if (map.has(relation.id)) return map;
+      map.set(relation.id, {
+        relation,
+        direction: outgoingIds.has(relation.id) && incomingIds.has(relation.id)
+          ? 'both'
+          : outgoingIds.has(relation.id) ? 'outgoing' : 'incoming',
+      });
+      return map;
+    }, new Map());
+    return Array.from(entries.values());
+  }, [incoming, outgoing]);
+  const relationCount = relationEntries.length;
 
   return (
     <section className={styles.panel} aria-label="Manual relations">
@@ -167,117 +186,148 @@ export function RelationsPanel({
       {relationCount === 0 ? (
         <div className={styles.compactEmpty}>No manual relations</div>
       ) : (
-        <>
-          {outgoing.length > 0 && (
-            <RelationList
-              title="Outgoing"
-              direction="outgoing"
-              relations={outgoing}
-              assets={assets}
-              variants={variants}
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
-          )}
-          {incoming.length > 0 && (
-            <RelationList
-              title="Incoming"
-              direction="incoming"
-              relations={incoming}
-              assets={assets}
-              variants={variants}
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
-          )}
-        </>
+        <RelationRows
+          entries={relationEntries}
+          assets={assets}
+          variants={variants}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
       )}
     </section>
   );
 }
 
-function RelationList({
-  title,
-  direction,
-  relations,
+function RelationRows({
+  entries,
   assets,
   variants,
   onEdit,
   onDelete,
 }: {
-  title: string;
-  direction: 'outgoing' | 'incoming';
-  relations: SpaceRelation[];
+  entries: RelationEntry[];
   assets: Asset[];
   variants: Variant[];
   onEdit: (relation: SpaceRelation) => void;
   onDelete: (relationId: string) => void;
 }) {
   return (
-    <div className={styles.group}>
-      <div className={styles.groupTitle}>{title}</div>
-      <div className={styles.rows}>
-        {relations.map((relation) => {
+    <div className={styles.rows}>
+      {entries.map(({ relation, direction }) => {
           const source = relationSubject(relation);
           const target = relationObject(relation);
           const context = parseRelationContext(relation.context);
           const relationTypeLabel = getRelationTypeLabel(relation.relation_type);
+          const sourceLabel = getSubjectLabel(source, assets, variants);
+          const targetLabel = getSubjectLabel(target, assets, variants);
           const relatedSubject = direction === 'outgoing'
-            ? getSubjectLabel(target, assets, variants)
-            : getSubjectLabel(source, assets, variants);
+            ? targetLabel
+            : direction === 'incoming'
+              ? sourceLabel
+              : null;
           return (
-            <article key={`${direction}-${relation.id}`} className={styles.row}>
-              <div className={styles.rowMain}>
-                <span className={styles.directionBadge}>{direction === 'outgoing' ? 'Out' : 'In'}</span>
-                <div className={styles.rowText}>
-                  <div className={styles.rowTitle}>
-                    {direction === 'incoming' && <span className={styles.relatedSubject}>{relatedSubject}</span>}
-                    <span className={styles.relationSeparator} aria-hidden="true" />
-                    <span className={styles.relationType}>{relationTypeLabel}</span>
-                    <span className={styles.relationSeparator} aria-hidden="true" />
-                    {direction === 'outgoing' && <span className={styles.relatedSubject}>{relatedSubject}</span>}
-                  </div>
-                  {context.label && <div className={styles.rowLabel}>{context.label}</div>}
-                  {context.context && <div className={styles.rowMeta}>{context.context}</div>}
-                  {context.notes && <div className={styles.rowNotes}>{context.notes}</div>}
-                </div>
-              </div>
-              <div className={styles.rowActions}>
-                <IconButton
-                  className={styles.rowButton}
-                  onClick={() => onEdit(relation)}
-                  variant="ghost"
-                  size="sm"
-                  title="Edit relation"
-                  aria-label="Edit relation"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                  </svg>
-                </IconButton>
-                <IconButton
-                  className={styles.rowButton}
-                  onClick={() => onDelete(relation.id)}
-                  variant="ghost"
-                  size="sm"
-                  title="Clear relation"
-                  aria-label="Clear relation"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M3 6h18" />
-                    <path d="M8 6V4h8v2" />
-                    <path d="M19 6l-1 14H6L5 6" />
-                    <path d="M10 11v5" />
-                    <path d="M14 11v5" />
-                  </svg>
-                </IconButton>
-              </div>
-            </article>
+            <RelationRow
+              key={relation.id}
+              relation={relation}
+              direction={direction}
+              relationTypeLabel={relationTypeLabel}
+              sourceLabel={sourceLabel}
+              targetLabel={targetLabel}
+              relatedSubject={relatedSubject}
+              context={context}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
           );
         })}
-      </div>
     </div>
+  );
+}
+
+function RelationRow({
+  relation,
+  direction,
+  relationTypeLabel,
+  sourceLabel,
+  targetLabel,
+  relatedSubject,
+  context,
+  onEdit,
+  onDelete,
+}: {
+  relation: SpaceRelation;
+  direction: RelationDirection;
+  relationTypeLabel: string;
+  sourceLabel: string;
+  targetLabel: string;
+  relatedSubject: string | null;
+  context: SpaceRelationContext;
+  onEdit: (relation: SpaceRelation) => void;
+  onDelete: (relationId: string) => void;
+}) {
+  return (
+    <article className={styles.row}>
+      <div className={styles.rowMain}>
+        <span className={styles.directionBadge}>
+          {direction === 'outgoing' ? 'Out' : direction === 'incoming' ? 'In' : 'Both'}
+        </span>
+        <div className={styles.rowText}>
+          <div className={styles.rowTitle}>
+            {direction === 'both' ? (
+              <>
+                <span className={styles.relatedSubject}>{sourceLabel}</span>
+                <span className={styles.relationSeparator} aria-hidden="true" />
+                <span className={styles.relationType}>{relationTypeLabel}</span>
+                <span className={styles.relationSeparator} aria-hidden="true" />
+                <span className={styles.relatedSubject}>{targetLabel}</span>
+              </>
+            ) : (
+              <>
+                {direction === 'incoming' && relatedSubject && <span className={styles.relatedSubject}>{relatedSubject}</span>}
+                <span className={styles.relationSeparator} aria-hidden="true" />
+                <span className={styles.relationType}>{relationTypeLabel}</span>
+                <span className={styles.relationSeparator} aria-hidden="true" />
+                {direction === 'outgoing' && relatedSubject && <span className={styles.relatedSubject}>{relatedSubject}</span>}
+              </>
+            )}
+          </div>
+          {context.label && <div className={styles.rowLabel}>{context.label}</div>}
+          {context.context && <div className={styles.rowMeta}>{context.context}</div>}
+          {context.notes && <div className={styles.rowNotes}>{context.notes}</div>}
+        </div>
+      </div>
+      <div className={styles.rowActions}>
+        <IconButton
+          className={styles.rowButton}
+          onClick={() => onEdit(relation)}
+          variant="ghost"
+          size="sm"
+          title="Edit relation"
+          aria-label="Edit relation"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+        </IconButton>
+        <IconButton
+          className={styles.rowButton}
+          onClick={() => onDelete(relation.id)}
+          variant="ghost"
+          size="sm"
+          title="Clear relation"
+          aria-label="Clear relation"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 6h18" />
+            <path d="M8 6V4h8v2" />
+            <path d="M19 6l-1 14H6L5 6" />
+            <path d="M10 11v5" />
+            <path d="M14 11v5" />
+          </svg>
+        </IconButton>
+      </div>
+    </article>
   );
 }
 
