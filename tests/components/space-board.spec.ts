@@ -273,6 +273,9 @@ test('media triggers open image assets without changing thumbnail chrome', async
   const imageThumbnailTrigger = page.locator('button[class*="thumbnailButton"][title="Hero sprite"]');
   await expect(imageThumbnailTrigger).toBeVisible();
   await expect(page.locator('section[class*="collection"]').first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('section[class*="collection"]').first()).toHaveCSS('border-top-width', '1px');
+  await expect(page.locator('section[class*="collection"]').first()).toHaveCSS('border-left-width', '0px');
+  await expect(page.locator('section[class*="collection"]').first()).toHaveCSS('border-radius', '0px');
   await expect(page.locator('[class*="collectionEyebrow"]').first()).toHaveCSS('text-transform', 'none');
   await expect(page.locator('[class*="collectionEyebrow"]').first()).toHaveCSS('letter-spacing', 'normal');
   await expect.poll(() => page.locator('section[class*="collection"]').first().evaluate(
