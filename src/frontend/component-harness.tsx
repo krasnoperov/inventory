@@ -42,7 +42,7 @@ import { Button, ButtonLink, Checkbox, IconButton, SegmentedControl, TextArea, T
 import type { MeterStatus } from './hooks/useBillingStatus';
 import { AdminSpendView } from './pages/AdminSpendPage';
 import { AuthorizationDecisionActions } from './pages/AuthorizationApprovalPage';
-import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsStrip, AssetGenerationDock, AssetTitleInlineEditor, AssetTypeSelect } from './pages/AssetDetailPage';
+import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsInspector, AssetDetailsStrip, AssetGenerationDock, AssetTitleInlineEditor, AssetTypeSelect } from './pages/AssetDetailPage';
 import assetDetailStyles from './pages/AssetDetailPage.module.css';
 import DocsPage from './pages/DocsPage';
 import landingStyles from './pages/LandingPage.module.css';
@@ -84,6 +84,7 @@ const AssetTitleInlineEditorHarness = AssetTitleInlineEditor as unknown as Compo
 const AssetCollectionsPanelHarness = AssetCollectionsPanel as unknown as ComponentType<Record<string, unknown>>;
 const AssetGenerationDockHarness = AssetGenerationDock as unknown as ComponentType<Record<string, unknown>>;
 const AssetDetailsContextHarness = AssetDetailsContext as unknown as ComponentType<Record<string, unknown>>;
+const AssetDetailsInspectorHarness = AssetDetailsInspector as unknown as ComponentType<Record<string, unknown>>;
 const AssetDetailsStripHarness = AssetDetailsStrip as unknown as ComponentType<Record<string, unknown>>;
 const ProfileProviderKeyRowHarness = ProfileProviderKeyRow as unknown as ComponentType<Record<string, unknown>>;
 const ProfileDangerZoneHarness = ProfileDangerZone as unknown as ComponentType<Record<string, unknown>>;
@@ -441,9 +442,10 @@ function AssetDetailsStripPreview(props: Record<string, unknown>) {
 
 function AssetDetailsContextPreview(props: Record<string, unknown>) {
   return (
-    <div style={{ maxWidth: '520px' }}>
-      <AssetDetailsContextHarness {...props}>
-        <section aria-label="Expanded asset details" style={{ display: 'grid', gap: 8 }}>
+    <div style={{ maxWidth: '520px', position: 'relative', minHeight: '220px' }}>
+      <AssetDetailsContextHarness {...props} />
+      <AssetDetailsInspectorHarness open>
+        <section aria-label="Inspector sample details" style={{ display: 'grid', gap: 8 }}>
           <div style={{ padding: 8, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)' }}>
             Collections
           </div>
@@ -451,7 +453,7 @@ function AssetDetailsContextPreview(props: Record<string, unknown>) {
             Relations
           </div>
         </section>
-      </AssetDetailsContextHarness>
+      </AssetDetailsInspectorHarness>
     </div>
   );
 }
@@ -462,19 +464,8 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
     ? stackVariants.filter((variant) => variant.asset_id === 'hero').findIndex((variant) => variant.id === selectedVariant.id)
     : undefined;
 
-  return (
-    <AssetGenerationDockHarness
-      details={(
-        <AssetDetailsContextHarness
-          {...props}
-          asset={stackAssets[0]}
-          assetCollectionCount={1}
-          fullDetailsOpen
-          selectedVariant={selectedVariant}
-          selectedVariantIndex={selectedVariantIndex}
-          selectedVariantCollectionCount={1}
-          variantCount={stackVariants.filter((variant) => variant.asset_id === 'hero').length}
-        >
+  const detailsInspector = (
+    <AssetDetailsInspector open>
           <AssetCollectionsPanel
             assetPlacementDrafts={[]}
             collections={stackCollections}
@@ -516,18 +507,40 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
             onEdit={() => undefined}
             onDelete={() => undefined}
           />
-        </AssetDetailsContextHarness>
-      )}
-      tray={(
-        <ForgeTray
-          allAssets={stackAssets}
-          allVariants={stackVariants}
-          onSubmit={() => undefined}
-          onBrandBackground={false}
-          floating={false}
+    </AssetDetailsInspector>
+  );
+
+  return (
+    <div
+      className={`${assetDetailStyles.canvasContainer} ${assetDetailStyles.canvasContainerWithInspector}`}
+      style={{ height: '100vh' }}
+    >
+      <div className={assetDetailStyles.canvasStage}>
+        <AssetGenerationDockHarness
+          details={(
+            <AssetDetailsContextHarness
+              {...props}
+              asset={stackAssets[0]}
+              assetCollectionCount={1}
+              selectedVariant={selectedVariant}
+              selectedVariantIndex={selectedVariantIndex}
+              selectedVariantCollectionCount={1}
+              variantCount={stackVariants.filter((variant) => variant.asset_id === 'hero').length}
+            />
+          )}
+          tray={(
+            <ForgeTray
+              allAssets={stackAssets}
+              allVariants={stackVariants}
+              onSubmit={() => undefined}
+              onBrandBackground={false}
+              floating={false}
+            />
+          )}
         />
-      )}
-    />
+      </div>
+      {detailsInspector}
+    </div>
   );
 }
 
@@ -555,8 +568,6 @@ function AssetGenerationDockAudioNoEllipsisPreview() {
         <AssetDetailsContextHarness
           asset={audioAsset}
           assetCollectionCount={0}
-          fullDetailsOpen={false}
-          onToggleFullDetails={() => undefined}
           selectedVariant={audioVariant}
           selectedVariantIndex={0}
           selectedVariantCollectionCount={0}
@@ -618,10 +629,10 @@ function AssetDetailOverlayChromePreview() {
             Crystal Gate
           </CanvasToolbarTitle>
           <CanvasToolbarBadge tone="neutral">
-            Details Space
+            Details
           </CanvasToolbarBadge>
           <CanvasToolbarBadge tone="neutral" className={assetDetailStyles.assetScopeBadge}>
-            Asset scope
+            Asset
           </CanvasToolbarBadge>
           <CanvasToolbarBadge tone="neutral" className={assetDetailStyles.variantScopeBadge}>
             2 variants

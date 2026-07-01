@@ -118,17 +118,19 @@ interface AssetDetailsStripProps {
   asset: Asset;
   assetCollectionCount: number;
   assetTypeDisabled?: boolean;
-  fullDetailsOpen: boolean;
   onAssetTypeChange?: (value: string) => void;
-  onToggleFullDetails: () => void;
   selectedVariant: Variant | null;
   selectedVariantIndex?: number;
   selectedVariantCollectionCount: number;
   variantCount: number;
 }
 
-interface AssetDetailsContextProps extends AssetDetailsStripProps {
+type AssetDetailsContextProps = AssetDetailsStripProps;
+
+interface AssetDetailsInspectorProps {
   children?: React.ReactNode;
+  className?: string;
+  open: boolean;
 }
 
 function titleizeAssetType(value: string) {
@@ -571,9 +573,7 @@ export function AssetDetailsStrip({
   asset,
   assetCollectionCount,
   assetTypeDisabled = false,
-  fullDetailsOpen,
   onAssetTypeChange,
-  onToggleFullDetails,
   selectedVariant,
   selectedVariantIndex,
   selectedVariantCollectionCount,
@@ -585,8 +585,6 @@ export function AssetDetailsStrip({
   const variantScope = selectedVariant
     ? formatSelectedVariant(selectedVariant, selectedVariantIndex, variantCount)
     : `${formatVariantCount(variantCount)} · None`;
-  const detailsActionText = 'Scope';
-  const detailsActionLabel = `${fullDetailsOpen ? 'Collapse' : 'Expand'} asset scope details`;
 
   return (
     <section className={styles.assetDetailsStrip} aria-label="Details scoped space summary">
@@ -639,42 +637,31 @@ export function AssetDetailsStrip({
           </div>
         )}
       </dl>
-
-      <Button
-        size="sm"
-        variant="secondary"
-        className={`${styles.assetDetailsAction} ${fullDetailsOpen ? styles.assetDetailsActionOpen : ''}`}
-        onClick={() => onToggleFullDetails()}
-        aria-expanded={fullDetailsOpen}
-        aria-label={detailsActionLabel}
-        title={detailsActionLabel}
-      >
-        {detailsActionText}
-        <svg
-          className={styles.assetDetailsChevron}
-          viewBox="0 0 16 16"
-          aria-hidden="true"
-          focusable="false"
-        >
-          <path d="M4 6l4 4 4-4" />
-        </svg>
-      </Button>
     </section>
   );
 }
 
 export function AssetDetailsContext({
-  children,
   ...stripProps
 }: AssetDetailsContextProps) {
   return (
     <div className={styles.assetDetailsContext}>
       <AssetDetailsStrip {...stripProps} />
-      {stripProps.fullDetailsOpen && children && (
-        <div className={styles.assetExpandedDetailsPanel} role="region" aria-label="Expanded asset details">
-          {children}
-        </div>
-      )}
+    </div>
+  );
+}
+
+export function AssetDetailsInspector({ children, className, open }: AssetDetailsInspectorProps) {
+  if (!open || !children) return null;
+
+  return (
+    <div
+      id="asset-details-inspector"
+      className={`${styles.assetDetailsInspector} ${className ?? ''}`}
+      role="region"
+      aria-label="Asset details inspector"
+    >
+      {children}
     </div>
   );
 }
@@ -1346,11 +1333,12 @@ export default function AssetDetailPage() {
 
       {/* Full-screen canvas container */}
       <div
-        className={`${styles.canvasContainer} ${isDetailsDragOver ? styles.canvasDropActive : ''}`}
+        className={`${styles.canvasContainer} ${showInspector ? styles.canvasContainerWithInspector : ''} ${isDetailsDragOver ? styles.canvasDropActive : ''}`}
         onDragOver={handleDetailsDragOver}
         onDragLeave={handleDetailsDragLeave}
         onDrop={handleDetailsDrop}
       >
+        <div className={styles.canvasStage}>
         {/* Variant Canvas - fills entire container */}
         <VariantCanvas
           spaceId={spaceId}
@@ -1421,10 +1409,10 @@ export default function AssetDetailPage() {
               />
             </CanvasToolbarTitle>
             <CanvasToolbarBadge tone="neutral">
-              Details Space
+              Details
             </CanvasToolbarBadge>
             <CanvasToolbarBadge tone="neutral" className={styles.assetScopeBadge}>
-              Asset scope
+              Asset
             </CanvasToolbarBadge>
             <CanvasToolbarBadge tone="neutral" className={styles.variantScopeBadge}>
               {formatVariantCount(variants.length)}
@@ -1435,6 +1423,19 @@ export default function AssetDetailPage() {
               </CanvasToolbarGroup>
             )}
             <CanvasToolbarDivider />
+            <CanvasToolbarButton
+              onClick={() => setShowInspector((open) => !open)}
+              active={showInspector}
+              title={showInspector ? 'Hide asset details' : 'Show asset details'}
+              aria-expanded={showInspector}
+              aria-controls="asset-details-inspector"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 5h16" />
+                <path d="M4 12h16" />
+                <path d="M4 19h10" />
+              </svg>
+            </CanvasToolbarButton>
             {rotationEnabled && selectedVariant?.status === 'completed' && selectedVariant?.image_key && (
               <CanvasToolbarButton
                 onClick={() => setShowRotationPanel(true)}
@@ -1536,8 +1537,6 @@ export default function AssetDetailPage() {
           );
         })()}
 
-      </div>
-
       {/* Confirmation Dialog */}
       {confirmDialog && (
         <div className={styles.dialogOverlay} onClick={() => setConfirmDialog(null)}>
@@ -1604,70 +1603,12 @@ export default function AssetDetailPage() {
             asset={asset}
             assetCollectionCount={assetCollectionMemberships.length}
             assetTypeDisabled={actionInProgress}
-            fullDetailsOpen={showInspector}
             onAssetTypeChange={handleTypeChange}
-            onToggleFullDetails={() => setShowInspector((open) => !open)}
             selectedVariant={selectedVariant}
             selectedVariantIndex={selectedVariantIndex}
             selectedVariantCollectionCount={selectedVariantCollectionMemberships.length}
             variantCount={variants.length}
-          >
-            {canEdit && collections.length > 0 && (
-              <div ref={collectionPanelRef}>
-                <AssetCollectionsPanel
-                  assetPlacementDrafts={assetPlacementDrafts}
-                  collections={collections}
-                  collectionItems={[
-                    ...assetCollectionMemberships,
-                    ...selectedVariantCollectionMemberships,
-                  ]}
-                  hideWhenEmpty
-                  onApplyAssetPlacements={handleApplyAssetPlacements}
-                  onApplyVariantPlacements={handleApplyVariantPlacements}
-                  onAssetPlacementDraftsChange={setAssetPlacementDrafts}
-                  onDeleteCollectionItem={deleteCollectionItem}
-                  onUpdateCollectionItem={updateCollectionItem}
-                  onVariantPlacementControlsOpenChange={setVariantPlacementControlsOpen}
-                  onVariantPlacementDraftsChange={setVariantPlacementDrafts}
-                  selectedVariant={selectedVariant}
-                  variantPlacementControlsOpen={variantPlacementControlsOpen}
-                  variantPlacementDrafts={variantPlacementDrafts}
-                  variants={variants}
-                />
-              </div>
-            )}
-
-            <StyleReferenceUsagePanel
-              spaceId={spaceId || ''}
-              collections={styleUsage.collections}
-              presets={styleUsage.presets}
-              outputs={styleUsage.outputs}
-            />
-
-            {assetId && (
-              <CompositionUsageList
-                targetAssetId={assetId}
-                assets={wsAssets}
-                variants={wsVariants}
-                compositions={compositions}
-                compositionItems={compositionItems}
-                onOpenComposition={handleOpenComposition}
-              />
-            )}
-
-            {relationSubjects.length > 0 && (
-              <RelationsPanel
-                assets={relationAssets}
-                variants={relationVariants}
-                relations={wsRelations}
-                subjects={relationSubjects}
-                primarySubject={{ subjectType: 'asset', assetId }}
-                onCreate={handleOpenCreateRelation}
-                onEdit={handleOpenEditRelation}
-                onDelete={deleteRelation}
-              />
-            )}
-          </AssetDetailsContext>
+          />
         )}
         tray={(
           <ForgeTray
@@ -1701,6 +1642,67 @@ export default function AssetDetailPage() {
           />
         )}
       />
+
+        </div>
+
+        <AssetDetailsInspector open={showInspector}>
+          {canEdit && collections.length > 0 && (
+            <div ref={collectionPanelRef}>
+              <AssetCollectionsPanel
+                assetPlacementDrafts={assetPlacementDrafts}
+                collections={collections}
+                collectionItems={[
+                  ...assetCollectionMemberships,
+                  ...selectedVariantCollectionMemberships,
+                ]}
+                hideWhenEmpty
+                onApplyAssetPlacements={handleApplyAssetPlacements}
+                onApplyVariantPlacements={handleApplyVariantPlacements}
+                onAssetPlacementDraftsChange={setAssetPlacementDrafts}
+                onDeleteCollectionItem={deleteCollectionItem}
+                onUpdateCollectionItem={updateCollectionItem}
+                onVariantPlacementControlsOpenChange={setVariantPlacementControlsOpen}
+                onVariantPlacementDraftsChange={setVariantPlacementDrafts}
+                selectedVariant={selectedVariant}
+                variantPlacementControlsOpen={variantPlacementControlsOpen}
+                variantPlacementDrafts={variantPlacementDrafts}
+                variants={variants}
+              />
+            </div>
+          )}
+
+          <StyleReferenceUsagePanel
+            spaceId={spaceId || ''}
+            collections={styleUsage.collections}
+            presets={styleUsage.presets}
+            outputs={styleUsage.outputs}
+          />
+
+          {assetId && (
+            <CompositionUsageList
+              targetAssetId={assetId}
+              assets={wsAssets}
+              variants={wsVariants}
+              compositions={compositions}
+              compositionItems={compositionItems}
+              onOpenComposition={handleOpenComposition}
+            />
+          )}
+
+          {relationSubjects.length > 0 && (
+            <RelationsPanel
+              assets={relationAssets}
+              variants={relationVariants}
+              relations={wsRelations}
+              subjects={relationSubjects}
+              primarySubject={{ subjectType: 'asset', assetId }}
+              onCreate={handleOpenCreateRelation}
+              onEdit={handleOpenEditRelation}
+              onDelete={deleteRelation}
+            />
+          )}
+        </AssetDetailsInspector>
+      </div>
 
       {/* Rotation Panel modal */}
       {showRotationPanel && selectedVariant && asset && (
