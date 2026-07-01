@@ -698,6 +698,9 @@ test('forge tray control bar keeps compact icon actions interactive', async ({ p
   await expect(page.getByText('Image references')).toBeVisible();
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('[class*="modal"]').first()).toHaveCSS('border-radius', '8px');
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'forge-tray-reference-picker-sheet', { fullPage: true });
   await page.getByRole('button', { name: /Close/i }).click();
 
   const fileChooserPromise = page.waitForEvent('filechooser');
