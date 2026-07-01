@@ -80,6 +80,11 @@
   color: var(--color-text-muted);
 }
 
+.removeButton:hover:not(:disabled),
+.removeButton:focus-visible {
+  color: var(--color-error);
+}
+
 @media (max-width: 760px) {
   .placementRow {
     align-items: stretch;

@@ -181,6 +181,8 @@ test('asset detail controls use shared selects and collection buttons', async ({
   await selectDropdown(page, 'Pinned variant in Cast', 'Variant 2 star');
   await page.getByLabel('Role in Cast').fill('lead');
   await page.getByRole('button', { name: 'Remove Cast from asset collections' }).click();
+  await expect(page.getByRole('button', { name: 'Remove Style refs placement draft' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove Cast placement draft' })).toBeVisible();
   await page.getByRole('button', { name: 'Add asset placement' }).click();
   await page.getByRole('button', { name: 'Add variant placement' }).click();
 
