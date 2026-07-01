@@ -67,8 +67,12 @@ test('variant details panel uses shared action controls', async ({ page }) => {
   await expect(page.getByRole('complementary', { name: 'Variant details' })).toHaveCSS('box-shadow', 'none');
   await expect(page.getByRole('complementary', { name: 'Variant details' })).toHaveCSS('transform', 'none');
   await expect(page.getByRole('complementary', { name: 'Variant details' })).not.toHaveCSS('animation-name', /slideIn/);
+  await expect(page.getByRole('heading', { name: 'Crystal Gate' })).toBeVisible();
+  await expect(page.getByText('variant-')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Close variant details' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Close variant details' })).toHaveCSS('position', 'static');
   await expect(page.getByRole('button', { name: 'View full size' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View full size' }).locator('xpath=ancestor::div[contains(@class, "actions")]')).toHaveCSS('padding-right', '0px');
   const starButton = page.getByRole('button', { name: 'Star variant' });
   await expect(starButton).toHaveAttribute('aria-pressed', 'false');
   await expect(starButton).toHaveText('');
@@ -119,4 +123,36 @@ test('variant details panel uses shared action controls', async ({ page }) => {
     'active',
     'delete',
   ]);
+});
+
+test('variant details panel keeps mobile inspector within viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 640 });
+  await mountComponent(page, 'VariantDetailsPanel', {
+    asset,
+    variant,
+    spaceId: 'space-1',
+    isActive: true,
+    variantCount: 1,
+    lineage: [],
+    allVariants: [variant],
+    allAssets: [asset],
+    onClose: '__record__:close',
+    onStarVariant: '__record__:star',
+  });
+
+  const bounds = await page.getByRole('complementary', { name: 'Variant details' }).evaluate((panel) => {
+    const rect = panel.getBoundingClientRect();
+    return {
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      bottom: rect.bottom,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    };
+  });
+  expect(bounds.left).toBeGreaterThanOrEqual(16);
+  expect(bounds.right).toBeLessThanOrEqual(bounds.viewportWidth - 16);
+  expect(bounds.top).toBeGreaterThanOrEqual(16);
+  expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight - 16);
 });
