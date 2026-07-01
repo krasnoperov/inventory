@@ -765,11 +765,12 @@ test('forge tray control bar keeps compact icon actions interactive', async ({ p
   await screenshot(page, 'forge-tray-upload-prompt', { fullPage: true });
   await page.getByPlaceholder('Asset name').fill('');
   await expect(page.getByRole('button', { name: 'Create Asset' })).toBeDisabled();
-  await page.getByRole('button', { name: 'Cancel' }).click();
-  await expect(page.getByText('Create New Asset')).toHaveCount(0);
 
   await chatButton.click();
+  await expect(page.getByText('Create New Asset')).toHaveCount(0);
   await expect(page.getByText('Chat with Claude')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByText('Chat with Claude')).toHaveCount(0);
 });
 
 test('forge chat actions send messages and apply suggested prompts', async ({ page }) => {

@@ -673,10 +673,16 @@ export function ForgeTray({
         mode: 'custom',
         variantIds: current.mode === 'custom' ? current.variantIds : [],
       }));
+      setPendingUploadFile(null);
+      setUploadAssetName('');
+      setShowUploadPrompt(false);
       setShowAssetPicker(false);
       setShowChat(false);
       setShowStylePanel(true);
     } else if (value === 'manage') {
+      setPendingUploadFile(null);
+      setUploadAssetName('');
+      setShowUploadPrompt(false);
       setShowAssetPicker(false);
       setShowChat(false);
       setShowStylePanel(true);
@@ -702,6 +708,9 @@ export function ForgeTray({
   }, []);
 
   const handleAddClick = useCallback(() => {
+    setPendingUploadFile(null);
+    setUploadAssetName('');
+    setShowUploadPrompt(false);
     setShowChat(false);
     setShowStylePanel(false);
     setShowAssetPicker(true);
@@ -952,6 +961,9 @@ export function ForgeTray({
     setShowChat((current) => {
       const next = !current;
       if (next) {
+        setPendingUploadFile(null);
+        setUploadAssetName('');
+        setShowUploadPrompt(false);
         setShowAssetPicker(false);
         setShowStylePanel(false);
       }
