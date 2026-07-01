@@ -135,6 +135,10 @@ test('composition detail creates compositions and sets an exact output variant',
   await expect(page.getByRole('complementary', { name: 'Composition detail' })).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(page.getByText('Composition Detail', { exact: true })).toHaveCSS('text-transform', 'none');
   await expect(page.getByText('Compositions', { exact: true })).toHaveCSS('text-transform', 'none');
+  await expect(page.getByText('Add', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add Output variant' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add Background variant' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add Characters variant' })).toBeVisible();
 
   await screenshot(page, 'composition-detail-controls', { fullPage: true });
 
@@ -142,7 +146,7 @@ test('composition detail creates compositions and sets an exact output variant',
   await expect.poll(() => calls(page)).toContain('create-composition');
 
   const output = page.getByRole('heading', { name: 'Output' }).locator('xpath=ancestor::section[1]');
-  await output.getByRole('button', { name: 'Add' }).click();
+  await output.getByRole('button', { name: 'Add Output variant' }).click();
   await expect(page.locator('[class*="pickerOverlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await page.getByLabel('Search exact variants').fill('Scene Bar');
   await screenshot(page, 'composition-variant-picker', { fullPage: true });
@@ -174,7 +178,7 @@ test('composition detail adds, replaces, removes, and reorders slot items withou
   }));
 
   const props = page.getByRole('heading', { name: 'Props' }).locator('xpath=ancestor::section[1]');
-  await props.getByRole('button', { name: 'Add' }).click();
+  await props.getByRole('button', { name: 'Add Props variant' }).click();
   await page.getByLabel('Search exact variants').fill('Anna');
   await page.getByRole('button', { name: /Anna/ }).first().click();
   await expect.poll(() => calls(page)).toContainEqual(expect.stringContaining(

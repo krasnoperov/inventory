@@ -261,24 +261,28 @@
 }
 
 .panelIconAction,
-.rowIconButton {
+.rowIconButton,
+.slotAddButton {
   --ui-button-height: 32px;
   --ui-button-pad-x: 0;
   border-radius: var(--radius-sm);
   flex: 0 0 auto;
 }
 
-.rowIconButton {
+.rowIconButton,
+.slotAddButton {
   --ui-button-height: 28px;
 }
 
 .panelIconAction svg,
-.rowIconButton svg {
+.rowIconButton svg,
+.slotAddButton svg {
   width: 16px;
   height: 16px;
 }
 
-.rowIconButton svg {
+.rowIconButton svg,
+.slotAddButton svg {
   width: 14px;
   height: 14px;
 }

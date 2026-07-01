@@ -301,6 +301,7 @@ export function CompositionDetail({
             <SlotBlock
               title="Output"
               empty="No exact output variant set"
+              addLabel="Add Output variant"
               canEdit={canEdit}
               single
               onAdd={() => setPickerTarget({ kind: 'output' })}
@@ -329,6 +330,7 @@ export function CompositionDetail({
                   key={config.role}
                   title={config.title}
                   empty={config.empty}
+                  addLabel={`Add ${config.title} variant`}
                   canEdit={canEdit}
                   single={config.single}
                   onAdd={() => setPickerTarget({ kind: 'add', role: config.role })}
@@ -427,6 +429,7 @@ export function CompositionDetail({
 interface SlotBlockProps {
   title: string;
   empty: string;
+  addLabel: string;
   canEdit: boolean;
   single?: boolean;
   hasItems?: boolean;
@@ -434,14 +437,26 @@ interface SlotBlockProps {
   children: ReactNode;
 }
 
-function SlotBlock({ title, empty, canEdit, single, hasItems, onAdd, children }: SlotBlockProps) {
+function SlotBlock({ title, empty, addLabel, canEdit, single, hasItems, onAdd, children }: SlotBlockProps) {
   const hasChildren = hasItems ?? Boolean(children);
   return (
     <section className={styles.slot}>
       <div className={styles.slotHeader}>
         <h3>{title}</h3>
         {canEdit && (!single || !hasChildren) && (
-          <Button className={styles.actionButton} size="sm" onClick={onAdd}>Add</Button>
+          <IconButton
+            className={styles.slotAddButton}
+            size="sm"
+            variant="ghost"
+            onClick={onAdd}
+            title={addLabel}
+            aria-label={addLabel}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+          </IconButton>
         )}
       </div>
       <div className={styles.slotBody}>
