@@ -368,6 +368,8 @@ export function AssetCollectionsPanel({
             value={assetPlacementDrafts}
             onChange={onAssetPlacementDraftsChange}
             label="Add asset to collections"
+            addSelectLabel="Add asset to collection"
+            showLabel={false}
             defaultSubjectType="asset"
             showPinToCreatedVariant={Boolean(selectedVariant)}
           />
@@ -453,6 +455,8 @@ export function AssetCollectionsPanel({
                 value={variantPlacementDrafts}
                 onChange={onVariantPlacementDraftsChange}
                 label="Add selected variant to collections"
+                addSelectLabel="Add selected variant to collection"
+                showLabel={false}
                 defaultSubjectType="variant"
               />
               <div className={styles.collectionPanelActions}>
