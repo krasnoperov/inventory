@@ -91,6 +91,17 @@ function MoreMenuIcon() {
   );
 }
 
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M4 7h16" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M6 7l1 13h10l1-13" />
+      <path d="M9 7V4h6v3" />
+    </svg>
+  );
+}
+
 const COLLECTION_KIND_OPTIONS: Array<SelectOption<CollectionKind>> = COLLECTION_KINDS.map((kind) => ({
   value: kind,
   label: COLLECTION_KIND_LABELS[kind],
@@ -504,16 +515,17 @@ export function SpaceBoard({
                     <path d="m6 9 6 6 6-6" />
                   </svg>
                 </IconButton>
+                <IconButton
+                  className={`${styles.menuIconButton} ${styles.destructiveIconButton}`}
+                  aria-label="Remove from collection"
+                  title="Remove from collection"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deleteCollectionItem(collectionId, item.id)}
+                >
+                  <TrashIcon />
+                </IconButton>
               </div>
-            )}
-            {item && canEdit && collectionId && (
-              <Button
-                className={`${styles.menuButton} ${styles.destructiveButton}`}
-                variant="ghost"
-                onClick={() => deleteCollectionItem(collectionId, item.id)}
-              >
-                Remove from collection
-              </Button>
             )}
           </div>
         )}
@@ -642,18 +654,21 @@ export function SpaceBoard({
                         <path d="m6 9 6 6 6-6" />
                       </svg>
                     </IconButton>
+                    <IconButton
+                      className={`${styles.menuIconButton} ${styles.destructiveIconButton}`}
+                      aria-label="Delete collection"
+                      title="Delete collection"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (window.confirm(`Delete "${collection.name}"? Assets and variants will remain in the space.`)) {
+                          deleteCollection(collection.id);
+                        }
+                      }}
+                    >
+                      <TrashIcon />
+                    </IconButton>
                   </div>
-                  <Button
-                    className={`${styles.menuButton} ${styles.destructiveButton}`}
-                    variant="ghost"
-                    onClick={() => {
-                      if (window.confirm(`Delete "${collection.name}"? Assets and variants will remain in the space.`)) {
-                        deleteCollection(collection.id);
-                      }
-                    }}
-                  >
-                    Delete collection
-                  </Button>
                 </div>
               )}
             </div>
