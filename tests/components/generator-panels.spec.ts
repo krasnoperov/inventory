@@ -266,9 +266,10 @@ test('rotation panel keeps rating controls in footer chrome', async ({ page }) =
   const eastVariant = { ...sourceVariant, id: 'rotation-east', quality_rating: null };
   const southVariant = { ...sourceVariant, id: 'rotation-south', quality_rating: 'rejected' };
   const westVariant = { ...sourceVariant, id: 'rotation-west', quality_rating: null };
+  const longEastDirection = 'East side production view with a long readable label';
   const rotationViews = [
     { id: 'view-north', rotation_set_id: completedRotationSet.id, variant_id: northVariant.id, direction: 'North', step_index: 0, prompt: null, created_at: baseTime, updated_at: baseTime },
-    { id: 'view-east', rotation_set_id: completedRotationSet.id, variant_id: eastVariant.id, direction: 'East', step_index: 1, prompt: null, created_at: baseTime, updated_at: baseTime },
+    { id: 'view-east', rotation_set_id: completedRotationSet.id, variant_id: eastVariant.id, direction: longEastDirection, step_index: 1, prompt: null, created_at: baseTime, updated_at: baseTime },
     { id: 'view-south', rotation_set_id: completedRotationSet.id, variant_id: southVariant.id, direction: 'South', step_index: 2, prompt: null, created_at: baseTime, updated_at: baseTime },
     { id: 'view-west', rotation_set_id: completedRotationSet.id, variant_id: westVariant.id, direction: 'West', step_index: 3, prompt: null, created_at: baseTime, updated_at: baseTime },
   ];
@@ -301,7 +302,23 @@ test('rotation panel keeps rating controls in footer chrome', async ({ page }) =
     () => approvedDirection.evaluate((element) => getComputedStyle(element).borderLeftColor),
   ).toBe(approvedBorderColor);
 
-  const eastDirection = page.getByRole('button', { name: /East/ });
+  const longDirectionLabel = page.getByText(longEastDirection);
+  await expect(longDirectionLabel).toHaveCSS('white-space', 'normal');
+  await expect(longDirectionLabel).toHaveCSS('text-overflow', 'clip');
+
+  const eastDirection = page.getByRole('button', { name: /East side production view/ });
+  const directionGeometry = await eastDirection.evaluate((node) => {
+    const image = node.querySelector('img');
+    const label = Array.from(node.querySelectorAll('span')).find((entry) => entry.textContent?.includes('East side production view'));
+    if (!image || !label) return null;
+    const imageBox = image.getBoundingClientRect();
+    const labelBox = label.getBoundingClientRect();
+    return {
+      labelBelowImage: labelBox.top >= imageBox.bottom - 1,
+    };
+  });
+  expect(directionGeometry).not.toBeNull();
+  expect(directionGeometry!.labelBelowImage).toBe(true);
   await eastDirection.focus();
   await expect(eastDirection).toHaveCSS('box-shadow', await resolvedShadow(page, 'var(--focus-ring)'));
   await expectLocatorAfterShadow(page, eastDirection, 'none');
@@ -310,6 +327,9 @@ test('rotation panel keeps rating controls in footer chrome', async ({ page }) =
   await expect(page.getByRole('radio', { name: 'Approve' })).toHaveCount(1);
   await expect(page.getByRole('radio', { name: 'Reject' })).toHaveCount(1);
   await expect(page.locator('[class*="ratingBadge"], [class*="ratingButtons"]')).toHaveCount(0);
+  const ratingContext = page.getByText(longEastDirection).last();
+  await expect(ratingContext).toHaveCSS('white-space', 'normal');
+  await expect(ratingContext).toHaveCSS('text-overflow', 'clip');
 
   await resetScrollablePanels(page);
   await screenshot(page, 'rotation-panel-rating-chrome', { fullPage: true });
