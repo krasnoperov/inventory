@@ -13,7 +13,6 @@ import { WorkspaceChrome } from '../components/WorkspaceChrome';
 import { CanvasDropHint } from '../components/CanvasDropHint';
 import {
   CanvasToolbar,
-  CanvasToolbarBadge,
   CanvasToolbarButton,
   CanvasToolbarDivider,
   CanvasToolbarGroup,
@@ -1408,15 +1407,6 @@ export default function AssetDetailPage() {
                 onStartEditName={handleStartEditName}
               />
             </CanvasToolbarTitle>
-            <CanvasToolbarBadge tone="neutral">
-              Details
-            </CanvasToolbarBadge>
-            <CanvasToolbarBadge tone="neutral" className={styles.assetScopeBadge}>
-              Asset
-            </CanvasToolbarBadge>
-            <CanvasToolbarBadge tone="neutral" className={styles.variantScopeBadge}>
-              {formatVariantCount(variants.length)}
-            </CanvasToolbarBadge>
             {wsStatus === 'connected' && (
               <CanvasToolbarGroup>
                 <CanvasToolbarLive />
