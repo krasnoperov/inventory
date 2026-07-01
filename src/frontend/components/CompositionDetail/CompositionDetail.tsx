@@ -351,7 +351,21 @@ export function CompositionDetail({
                         <div key={item.id} className={styles.missingRow}>
                           Missing source variant {item.variant_id}
                           {canEdit && (
-                            <Button className={styles.actionButton} size="sm" onClick={() => onDeleteItem(selectedComposition.id, item.id)}>Remove</Button>
+                            <IconButton
+                              className={`${styles.rowIconButton} ${styles.rowRemoveButton}`}
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => onDeleteItem(selectedComposition.id, item.id)}
+                              title={`Remove missing variant ${item.variant_id} from composition`}
+                              aria-label={`Remove missing variant ${item.variant_id} from composition`}
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                                <path d="M4 7h16" />
+                                <path d="M10 11v6M14 11v6" />
+                                <path d="M6 7l1 13h10l1-13" />
+                                <path d="M9 7V4h6v3" />
+                              </svg>
+                            </IconButton>
                           )}
                         </div>
                       );

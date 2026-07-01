@@ -243,6 +243,25 @@ test('composition detail preserves mixed slot order when reordering same-role it
   ));
 });
 
+test('composition detail uses an icon action for missing source rows', async ({ page }) => {
+  await mountComponent(page, 'CompositionDetail', detailProps({
+    compositionItems: [
+      { id: 'missing-item', composition_id: 'composition-1', role: 'character', asset_id: 'missing-asset', variant_id: 'missing-v1', metadata: '{}', sort_index: 0, created_by: 'user-1', created_at: baseTime, updated_at: baseTime },
+    ],
+  }));
+
+  const missingRow = page
+    .getByRole('button', { name: 'Remove missing variant missing-v1 from composition' })
+    .locator('xpath=ancestor::div[1]');
+  await expect(missingRow).toBeVisible();
+  await expect(missingRow.getByText('Remove', { exact: true })).toHaveCount(0);
+  await expect(missingRow.getByRole('button', { name: 'Remove missing variant missing-v1 from composition' })).toBeVisible();
+  await screenshot(page, 'composition-detail-missing-row', { fullPage: true });
+
+  await missingRow.getByRole('button', { name: 'Remove missing variant missing-v1 from composition' }).click();
+  await expect.poll(() => calls(page)).toContain('delete-item:["composition-1","missing-item"]');
+});
+
 test('composition detail hides reorder controls for viewers', async ({ page }) => {
   await mountComponent(page, 'CompositionDetail', detailProps({
     canEdit: false,
