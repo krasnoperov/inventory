@@ -458,20 +458,32 @@ export function SpaceBoard({
             )}
             {item && canEdit && collectionId && itemIndex !== undefined && collectionItemIds.length > 0 && (
               <div className={styles.menuButtonRow}>
-                <Button
-                  className={styles.menuButton}
+                <IconButton
+                  className={styles.menuIconButton}
                   onClick={() => reorderCollectionItems(collectionId, moveId(collectionItemIds, item.id, -1))}
                   disabled={itemIndex === 0}
+                  title="Move up"
+                  aria-label="Move up"
+                  variant="secondary"
+                  size="sm"
                 >
-                  Move up
-                </Button>
-                <Button
-                  className={styles.menuButton}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <path d="m18 15-6-6-6 6" />
+                  </svg>
+                </IconButton>
+                <IconButton
+                  className={styles.menuIconButton}
                   onClick={() => reorderCollectionItems(collectionId, moveId(collectionItemIds, item.id, 1))}
                   disabled={itemIndex === collectionItemIds.length - 1}
+                  title="Move down"
+                  aria-label="Move down"
+                  variant="secondary"
+                  size="sm"
                 >
-                  Move down
-                </Button>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </IconButton>
               </div>
             )}
             {item && canEdit && collectionId && (
@@ -576,20 +588,32 @@ export function SpaceBoard({
                     </div>
                   )}
                   <div className={styles.menuButtonRow}>
-                    <Button
-                      className={styles.menuButton}
+                    <IconButton
+                      className={styles.menuIconButton}
                       onClick={() => moveCollection(collection, -1)}
                       disabled={index === 0}
+                      title="Move collection up"
+                      aria-label="Move collection up"
+                      variant="secondary"
+                      size="sm"
                     >
-                      Move up
-                    </Button>
-                    <Button
-                      className={styles.menuButton}
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path d="m18 15-6-6-6 6" />
+                      </svg>
+                    </IconButton>
+                    <IconButton
+                      className={styles.menuIconButton}
                       onClick={() => moveCollection(collection, 1)}
                       disabled={index === orderedCollections.length - 1}
+                      title="Move collection down"
+                      aria-label="Move collection down"
+                      variant="secondary"
+                      size="sm"
                     >
-                      Move down
-                    </Button>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </IconButton>
                   </div>
                   <Button
                     className={styles.menuButton}

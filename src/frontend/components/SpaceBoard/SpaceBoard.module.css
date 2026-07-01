@@ -240,6 +240,19 @@
   border-radius: var(--radius-sm);
 }
 
+.menuIconButton {
+  --ui-button-height: 30px;
+  --ui-button-pad-x: 0;
+
+  width: 30px;
+  border-radius: var(--radius-sm);
+}
+
+.menuIconButton svg {
+  width: 14px;
+  height: 14px;
+}
+
 .collectionMenuPanel label,
 .cardMenuPanel label {
   display: grid;
@@ -277,6 +290,10 @@
 
 .menuButtonRow .menuButton {
   flex: 1;
+}
+
+.menuButtonRow .menuIconButton {
+  flex: 0 0 30px;
 }
 
 .previewStrip {
