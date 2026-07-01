@@ -673,8 +673,18 @@ export function ForgeTray({
         mode: 'custom',
         variantIds: current.mode === 'custom' ? current.variantIds : [],
       }));
+      setPendingUploadFile(null);
+      setUploadAssetName('');
+      setShowUploadPrompt(false);
+      setShowAssetPicker(false);
+      setShowChat(false);
       setShowStylePanel(true);
     } else if (value === 'manage') {
+      setPendingUploadFile(null);
+      setUploadAssetName('');
+      setShowUploadPrompt(false);
+      setShowAssetPicker(false);
+      setShowChat(false);
       setShowStylePanel(true);
     } else if (value.startsWith('preset:')) {
       setStyleSelection({ mode: 'preset', presetId: value.slice('preset:'.length) });
@@ -698,6 +708,11 @@ export function ForgeTray({
   }, []);
 
   const handleAddClick = useCallback(() => {
+    setPendingUploadFile(null);
+    setUploadAssetName('');
+    setShowUploadPrompt(false);
+    setShowChat(false);
+    setShowStylePanel(false);
     setShowAssetPicker(true);
   }, []);
 
@@ -734,6 +749,9 @@ export function ForgeTray({
       const defaultName = defaultAssetNameFromFile(file);
       setPendingUploadFile(file);
       setUploadAssetName(defaultName);
+      setShowAssetPicker(false);
+      setShowChat(false);
+      setShowStylePanel(false);
       setShowUploadPrompt(true);
     }
   }, [targetAsset, onUpload, onUploadNewAsset]);
@@ -758,6 +776,19 @@ export function ForgeTray({
     setUploadAssetName('');
     setShowUploadPrompt(false);
   }, []);
+
+  useEffect(() => {
+    if (!showUploadPrompt) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        handleUploadPromptCancel();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [handleUploadPromptCancel, showUploadPrompt]);
 
   // Drag-and-drop handlers
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -802,6 +833,9 @@ export function ForgeTray({
       const defaultName = defaultAssetNameFromFile(uploadFile);
       setPendingUploadFile(uploadFile);
       setUploadAssetName(defaultName);
+      setShowAssetPicker(false);
+      setShowChat(false);
+      setShowStylePanel(false);
       setShowUploadPrompt(true);
     }
   }, [onUpload, onUploadNewAsset, targetAsset]);
@@ -924,7 +958,17 @@ export function ForgeTray({
 
   // Toggle chat panel
   const handleToggleChat = useCallback(() => {
-    setShowChat(prev => !prev);
+    setShowChat((current) => {
+      const next = !current;
+      if (next) {
+        setPendingUploadFile(null);
+        setUploadAssetName('');
+        setShowUploadPrompt(false);
+        setShowAssetPicker(false);
+        setShowStylePanel(false);
+      }
+      return next;
+    });
   }, []);
 
   // Handle applying suggested prompt from chat
@@ -1635,12 +1679,10 @@ export function ForgeTray({
 
       {/* Upload prompt modal for creating new asset */}
       {showUploadPrompt && (
-        <div className={styles.uploadPromptOverlay} onClick={handleUploadPromptCancel}>
+        <div className={styles.uploadPromptOverlay}>
           <div
             className={styles.uploadPromptModal}
-            onClick={(e) => e.stopPropagation()}
             role="dialog"
-            aria-modal="true"
             aria-labelledby="forge-upload-prompt-title"
           >
             <div className={styles.uploadPromptHeader}>

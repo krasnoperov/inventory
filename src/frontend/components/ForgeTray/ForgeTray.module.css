@@ -310,7 +310,8 @@
   align-items: flex-end;
   justify-content: flex-end;
   padding: 1rem 1rem var(--forge-sheet-bottom-offset, 13rem);
-  z-index: 1000;
+  z-index: 650;
+  pointer-events: none;
   animation: forgeErrorFadeIn 0.15s ease;
 }
 
@@ -321,6 +322,7 @@
   width: min(360px, calc(100vw - 2rem));
   box-shadow: var(--workspace-panel-shadow);
   overflow: hidden;
+  pointer-events: auto;
   animation: forgeErrorFadeIn 0.15s ease;
 }
 

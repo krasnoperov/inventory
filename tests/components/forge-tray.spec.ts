@@ -669,10 +669,9 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   await expect(page.getByText('Add assets to a Style References collection to use custom refs.')).toHaveCount(0);
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-style-sheet', { fullPage: true });
-  await page.getByRole('button', { name: /Close/i }).click();
-  await expect(page.getByText('Style Library')).toHaveCount(0);
 
   await page.getByTitle('Chat with Claude about your prompt').click();
+  await expect(page.getByText('Style Library')).toHaveCount(0);
   await expect(page.getByText('Chat with Claude')).toBeVisible();
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
@@ -694,6 +693,9 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   await expect(page.getByRole('button', { name: 'Send message' })).toHaveCSS('background-color', await resolvedBackground(page, 'var(--color-surface)'));
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-chat-sheet', { fullPage: true });
+  await page.keyboard.press('Escape');
+  await expect(page.getByText('Chat with Claude')).toHaveCount(0);
+  await expect(page.getByText('Style Library')).toHaveCount(0);
 });
 
 test('forge tray control bar keeps compact icon actions interactive', async ({ page }) => {
@@ -763,11 +765,12 @@ test('forge tray control bar keeps compact icon actions interactive', async ({ p
   await screenshot(page, 'forge-tray-upload-prompt', { fullPage: true });
   await page.getByPlaceholder('Asset name').fill('');
   await expect(page.getByRole('button', { name: 'Create Asset' })).toBeDisabled();
-  await page.getByRole('button', { name: 'Cancel' }).click();
-  await expect(page.getByText('Create New Asset')).toHaveCount(0);
 
   await chatButton.click();
+  await expect(page.getByText('Create New Asset')).toHaveCount(0);
   await expect(page.getByText('Chat with Claude')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByText('Chat with Claude')).toHaveCount(0);
 });
 
 test('forge chat actions send messages and apply suggested prompts', async ({ page }) => {
