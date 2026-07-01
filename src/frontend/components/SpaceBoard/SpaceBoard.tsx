@@ -495,8 +495,8 @@ export function SpaceBoard({
             )}
             {item && canEdit && collectionId && (
               <Button
-                className={styles.menuButton}
-                variant="danger"
+                className={`${styles.menuButton} ${styles.destructiveButton}`}
+                variant="ghost"
                 onClick={() => deleteCollectionItem(collectionId, item.id)}
               >
                 Remove from collection
@@ -630,8 +630,8 @@ export function SpaceBoard({
                     </IconButton>
                   </div>
                   <Button
-                    className={styles.menuButton}
-                    variant="danger"
+                    className={`${styles.menuButton} ${styles.destructiveButton}`}
+                    variant="ghost"
                     onClick={() => {
                       if (window.confirm(`Delete "${collection.name}"? Assets and variants will remain in the space.`)) {
                         deleteCollection(collection.id);
