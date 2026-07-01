@@ -482,26 +482,10 @@
   --ui-select-max-width: 6rem;
 }
 
-/* Mini destination control */
-.miniSeg {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  background: var(--ctl-track);
-  border-radius: 9px;
-}
-
-.miniSegText {
-  --ui-button-height: 1.5rem;
-  --ui-button-pad-x: 0.625rem;
-  --ui-button-font-size: 0.75rem;
-  border-radius: 6px;
-  font-weight: 500;
-}
-
-.miniSegText.active {
-  font-weight: 600;
+.selectDestination {
+  --ui-select-height: 1.875rem;
+  --ui-select-min-width: 5rem;
+  --ui-select-max-width: 5.25rem;
 }
 
 /* Control bar */

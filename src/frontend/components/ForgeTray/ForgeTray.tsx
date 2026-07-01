@@ -399,6 +399,7 @@ export function ForgeTray({
   const [videoResolution, setVideoResolution] = useState<VideoGenerationResolution>(DEFAULT_VIDEO_GENERATION_RESOLUTION);
   const [videoDurationSeconds, setVideoDurationSeconds] = useState<VideoGenerationDurationSeconds>(DEFAULT_VIDEO_GENERATION_DURATION_SECONDS);
   const [videoTier, setVideoTier] = useState<VideoGenerationTier>(DEFAULT_VIDEO_GENERATION_TIER);
+  const trayRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const estimateRequestIdRef = useRef<string | null>(null);
@@ -414,8 +415,6 @@ export function ForgeTray({
 
   // Destination state
   const [destinationType, setDestinationType] = useState<DestinationType>('existing_asset');
-  const currentDestinationRef = useRef<HTMLButtonElement>(null);
-  const newDestinationRef = useRef<HTMLButtonElement>(null);
   // The asset name is auto-derived (Image N / Video N / Audio N). It only becomes
   // user-controlled once the user types into the (subtle) name field; until then
   // it tracks the auto default so switching media type relabels it.
@@ -897,29 +896,27 @@ export function ForgeTray({
     }
   }, [handleSubmit]);
 
-  const handleDestinationKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (isSubmitting) return;
+  useEffect(() => {
+    if (!trayFocused) return;
 
-    const selectDestination = (nextDestination: DestinationType) => {
-      const resolvedDestination = nextDestination === 'existing_asset' && !canUseExistingDestination
-        ? 'new_asset'
-        : nextDestination;
-      e.preventDefault();
-      setDestinationType(resolvedDestination);
-      const targetRef = resolvedDestination === 'existing_asset' ? currentDestinationRef : newDestinationRef;
-      requestAnimationFrame(() => targetRef.current?.focus());
+    const handleOutsidePress = (event: Event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target) {
+        setTrayFocused(false);
+        return;
+      }
+      if (trayRef.current?.contains(target)) return;
+      if (target.closest('[role="listbox"], [role="option"], [data-highlighted], [data-selected]')) return;
+      setTrayFocused(false);
     };
 
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-      selectDestination(destinationType === 'existing_asset' ? 'new_asset' : 'existing_asset');
-    } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-      selectDestination(destinationType === 'existing_asset' ? 'new_asset' : 'existing_asset');
-    } else if (e.key === 'Home') {
-      selectDestination('existing_asset');
-    } else if (e.key === 'End') {
-      selectDestination('new_asset');
-    }
-  }, [canUseExistingDestination, destinationType, isSubmitting]);
+    document.addEventListener('pointerdown', handleOutsidePress, true);
+    document.addEventListener('mousedown', handleOutsidePress, true);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsidePress, true);
+      document.removeEventListener('mousedown', handleOutsidePress, true);
+    };
+  }, [trayFocused]);
 
   // Toggle chat panel
   const handleToggleChat = useCallback(() => {
@@ -1011,7 +1008,7 @@ export function ForgeTray({
   ]);
 
   const canAddMore = slots.length < effectiveMaxSlots;
-  // Show destination toggle on AssetDetailPage (has currentAsset) so user can choose existing vs new
+  // Show destination select on AssetDetailPage (has currentAsset) so user can choose existing vs new.
   const showDestinationToggle = !!currentAsset;
   const showNameInput = effectiveDestinationType === 'new_asset';
   const canManageStyles = !!spaceId;
@@ -1088,6 +1085,24 @@ export function ForgeTray({
     [],
   );
 
+  const destinationOptions = useMemo<Array<SelectOption<DestinationType>>>(() => [
+    {
+      value: 'existing_asset',
+      label: 'Current',
+      disabled: !canUseExistingDestination,
+      textValue: 'Current asset',
+    },
+    { value: 'new_asset', label: 'New', textValue: 'New asset' },
+  ], [canUseExistingDestination]);
+
+  const handleDestinationSelect = useCallback((value: DestinationType) => {
+    if (value === 'existing_asset' && !canUseExistingDestination) {
+      setDestinationType('new_asset');
+      return;
+    }
+    setDestinationType(value);
+  }, [canUseExistingDestination]);
+
   const styleSelectOptions = useMemo<Array<SelectOption<string>>>(() => {
     const options: Array<SelectOption<string>> = [
       { value: 'default', label: 'Default' },
@@ -1120,41 +1135,19 @@ export function ForgeTray({
     showChat;
   const showNameChip = showNameInput && (isTrayExpanded || nameEdited || showDestinationToggle);
   const destinationToggle = showDestinationToggle ? (
-    <div
-      className={styles.miniSeg}
-      role="radiogroup"
-      aria-label="Destination"
-      onKeyDown={handleDestinationKeyDown}
-    >
-      <Button
-        ref={currentDestinationRef}
-        role="radio"
-        aria-checked={destinationType === 'existing_asset'}
-        variant={destinationType === 'existing_asset' ? 'primary' : 'ghost'}
-        size="sm"
-        className={`${styles.miniSegText} ${destinationType === 'existing_asset' ? styles.active : ''}`}
-        onClick={() => setDestinationType('existing_asset')}
-        disabled={isSubmitting || !canUseExistingDestination}
-        tabIndex={destinationType === 'existing_asset' ? 0 : -1}
-        title={!canUseExistingDestination ? `${mediaModeConfig.label} mode creates ${selectedMediaKind} assets` : 'Add to current asset'}
-      >
-        Current
-      </Button>
-      <Button
-        ref={newDestinationRef}
-        role="radio"
-        aria-checked={destinationType === 'new_asset'}
-        variant={destinationType === 'new_asset' ? 'primary' : 'ghost'}
-        size="sm"
-        className={`${styles.miniSegText} ${destinationType === 'new_asset' ? styles.active : ''}`}
-        onClick={() => setDestinationType('new_asset')}
-        disabled={isSubmitting}
-        tabIndex={destinationType === 'new_asset' ? 0 : -1}
-        title="Create new asset"
-      >
-        New
-      </Button>
-    </div>
+    <UiSelect
+      className={styles.selectDestination}
+      value={destinationType}
+      options={destinationOptions}
+      onValueChange={handleDestinationSelect}
+      disabled={isSubmitting}
+      label="Destination"
+      title={
+        destinationType === 'existing_asset'
+          ? 'Add to current asset'
+          : 'Create new asset'
+      }
+    />
   ) : null;
 
   // Build tray class with drag-over state
@@ -1168,6 +1161,7 @@ export function ForgeTray({
   return (
     <>
       <div
+        ref={trayRef}
         className={trayClass}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
