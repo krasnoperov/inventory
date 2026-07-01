@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { CollectionPlacementInput } from '../../shared/websocket-types';
 import type { SpaceCollection } from '../space/protocol';
 import { Checkbox, IconButton, TextInput, UiSelect, type SelectOption } from '../ui';
@@ -39,6 +40,15 @@ const ADD_COLLECTION_PLACEHOLDER = '__add_collection__';
 
 function isKnownCollectionItemRole(role: string | undefined): role is typeof KNOWN_COLLECTION_ITEM_ROLES[number] {
   return Boolean(role && KNOWN_COLLECTION_ITEM_ROLES.includes(role as typeof KNOWN_COLLECTION_ITEM_ROLES[number]));
+}
+
+function getRoleLabel(role: string | undefined): string {
+  if (!role || role === 'custom') return 'Custom role';
+  return ROLE_LABELS[role] ?? role;
+}
+
+function getSubjectLabel(subjectType: 'asset' | 'variant'): string {
+  return subjectType === 'variant' ? 'Exact variant' : 'Asset';
 }
 
 interface CollectionPlacementPickerProps {
@@ -93,6 +103,14 @@ export function CollectionPlacementPicker({
   disabled = false,
   className,
 }: CollectionPlacementPickerProps) {
+  const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (editingCollectionId && !value.some((placement) => placement.collectionId === editingCollectionId)) {
+      setEditingCollectionId(null);
+    }
+  }, [editingCollectionId, value]);
+
   if (collections.length === 0) return null;
 
   const selectedByCollection = new Map(value.map((placement) => [placement.collectionId, placement]));
@@ -120,6 +138,7 @@ export function CollectionPlacementPicker({
     if (collectionId === ADD_COLLECTION_PLACEHOLDER) return;
     const collection = collections.find((candidate) => candidate.id === collectionId);
     if (!collection || selectedByCollection.has(collection.id)) return;
+    setEditingCollectionId(collection.id);
     onChange([
       ...value,
       {
@@ -155,11 +174,62 @@ export function CollectionPlacementPicker({
             if (!collection) return null;
             const selectedRole = isKnownCollectionItemRole(placement.role) ? placement.role : 'custom';
             const subjectType = placement.subjectType ?? defaultSubjectType;
+            const isEditing = editingCollectionId === collection.id;
+            const roleLabel = getRoleLabel(placement.role);
+            const subjectLabel = getSubjectLabel(subjectType);
 
             return (
-              <div key={placement.collectionId} className={styles.placementRow}>
-                <div className={styles.placementMain}>
+              <div
+                key={placement.collectionId}
+                className={`${styles.placementRow} ${isEditing ? styles.placementRowEditing : ''}`}
+              >
+                <div className={styles.placementSummary}>
                   <span className={styles.collectionName}>{collection.name}</span>
+                  <span className={styles.summaryMeta} title={roleLabel}>{roleLabel}</span>
+                  {allowSubjectChoice && <span className={styles.summaryMeta} title={subjectLabel}>{subjectLabel}</span>}
+                  {showPinToCreatedVariant && subjectType === 'asset' && placement.pinToCreatedVariant !== false && (
+                    <span className={styles.summaryMeta}>Pinned</span>
+                  )}
+                </div>
+                <div className={styles.placementActions}>
+                  <IconButton
+                    className={styles.editButton}
+                    variant={isEditing ? 'secondary' : 'ghost'}
+                    size="sm"
+                    aria-label={`${isEditing ? 'Done editing' : 'Edit'} ${collection.name} placement draft`}
+                    title={`${isEditing ? 'Done editing' : 'Edit'} ${collection.name} placement draft`}
+                    disabled={disabled}
+                    onClick={() => setEditingCollectionId(isEditing ? null : collection.id)}
+                  >
+                    {isEditing ? (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" width="14" height="14" aria-hidden="true">
+                        <path d="m5 12 4 4L19 6" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    )}
+                  </IconButton>
+                  <IconButton
+                    className={styles.removeButton}
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Remove ${collection.name} placement draft`}
+                    title={`Remove ${collection.name} placement draft`}
+                    disabled={disabled}
+                    onClick={() => removeCollection(collection.id)}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
+                      <path d="M4 7h16" />
+                      <path d="M10 11v6M14 11v6" />
+                      <path d="M6 7l1 13h10l1-13" />
+                      <path d="M9 7V4h6v3" />
+                    </svg>
+                  </IconButton>
+                </div>
+                {isEditing && (
                   <div className={styles.placementControls}>
                     <UiSelect
                       className={styles.select}
@@ -208,23 +278,7 @@ export function CollectionPlacementPicker({
                       </label>
                     )}
                   </div>
-                </div>
-                <IconButton
-                  className={styles.removeButton}
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Remove ${collection.name} placement draft`}
-                  title={`Remove ${collection.name} placement draft`}
-                  disabled={disabled}
-                  onClick={() => removeCollection(collection.id)}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
-                    <path d="M4 7h16" />
-                    <path d="M10 11v6M14 11v6" />
-                    <path d="M6 7l1 13h10l1-13" />
-                    <path d="M9 7V4h6v3" />
-                  </svg>
-                </IconButton>
+                )}
               </div>
             );
           })}
