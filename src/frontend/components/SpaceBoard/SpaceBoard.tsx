@@ -3,6 +3,7 @@ import { Thumbnail } from '../Thumbnail';
 import { CompositionPlacementControl } from '../CompositionPlacementControl';
 import { getAudioCardMetadata } from '../assetCardMetadata';
 import { ForgeTrayActionButton } from '../ForgeTrayActionButton';
+import { OpenAssetActionButton } from '../OpenAssetActionButton';
 import { Button, ColorInput, IconButton, TextInput, UiSelect, type SelectOption } from '../../ui';
 import type {
   Asset,
@@ -17,7 +18,7 @@ import type {
   SpaceCollection,
   Variant,
 } from '../../space/protocol';
-import { isVariantAudioReady, isVariantForgeTrayReady, isVariantLoading, isVariantReady } from '../../space/protocol';
+import { isVariantAudioReady, isVariantForgeTrayReady, isVariantLoading, isVariantReady, isVariantVideoReady } from '../../space/protocol';
 import type { CompositionShortcut } from '../../productionShortcuts';
 import {
   aspectRatioForVariant,
@@ -284,6 +285,7 @@ export function SpaceBoard({
     const isCardMenuOpen = openCardMenuKey === cardKey;
     const aspectRatio = aspectRatioForVariant(displayVariant);
     const isAudioCard = displayVariant ? isVariantAudioReady(displayVariant) : false;
+    const isVideoCard = displayVariant ? isVariantVideoReady(displayVariant) : false;
     const audioMetadata = getAudioCardMetadata(displayVariant);
     const pinnedVariantOptions: Array<SelectOption<string>> = [
       ...(itemCollection?.kind !== 'style_refs' ? [{ value: '', label: 'Main variant' }] : []),
@@ -309,6 +311,12 @@ export function SpaceBoard({
         subjectName={asset.name}
       />
     ) : null;
+    const openAssetAction = (
+      <OpenAssetActionButton
+        onClick={() => onAssetClick(asset)}
+        subjectName={asset.name}
+      />
+    );
     const thumbnail = (
       <Thumbnail
         variant={displayVariant}
@@ -316,6 +324,7 @@ export function SpaceBoard({
         spaceId={spaceId}
         className={styles.thumbnail}
         showAudioControls={isAudioCard}
+        showVideoControls={isVideoCard}
       />
     );
     const cardActionTrigger = showCardMenuActions ? (
@@ -341,7 +350,7 @@ export function SpaceBoard({
         className={`${styles.assetCard} ${isAudioCard ? styles.audioAssetCard : ''} ${isCardMenuOpen ? styles.assetCardMenuHostOpen : ''}`}
         style={{ '--card-aspect': aspectRatio } as CSSProperties}
       >
-        {isAudioCard ? (
+        {isAudioCard || isVideoCard ? (
           <div className={styles.thumbnailButton} title={asset.name}>
             {thumbnail}
           </div>
@@ -356,6 +365,7 @@ export function SpaceBoard({
               <Button className={styles.assetName} onClick={() => onAssetClick(asset)} variant="ghost" size="sm">
                 {asset.name}
               </Button>
+              {openAssetAction}
               {forgeTrayAction}
               {cardActionTrigger}
             </div>
@@ -371,6 +381,7 @@ export function SpaceBoard({
               <Button className={styles.audioAssetName} onClick={() => onAssetClick(asset)} variant="ghost" size="sm">
                 {asset.name}
               </Button>
+              {openAssetAction}
               {forgeTrayAction}
               {cardActionTrigger}
             </div>
