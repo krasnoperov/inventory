@@ -768,6 +768,39 @@ test('asset details inspector stays separate from ForgeTray on mobile', async ({
   await screenshot(page, 'asset-details-inspector-outside-dock-mobile', { fullPage: true });
 });
 
+test('asset composition detail docks inside the details inspector', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await mountComponent(page, 'AssetGenerationDock', {
+    asset: asset(),
+    assetCollectionCount: 1,
+    assetTypeDisabled: false,
+    onAssetTypeChange: '__record__:type',
+    selectedVariant: fullVariant(),
+    selectedVariantIndex: 0,
+    selectedVariantCollectionCount: 1,
+    variantCount: 3,
+    showCompositionDetail: true,
+  });
+
+  const inspector = page.getByRole('region', { name: 'Asset details inspector' });
+  const compositionDetail = page.getByRole('complementary', { name: 'Composition detail' });
+  const compositionContainer = page.locator('[class*="compositionPanelContainer"]');
+  const stage = page.locator('[class*="canvasStage"]');
+  await expect(inspector).toBeVisible();
+  await expect(compositionDetail).toBeVisible();
+  await expect(compositionContainer).not.toHaveCSS('position', 'absolute');
+
+  const detailInsideInspector = await page.evaluate(() => {
+    const inspectorNode = document.querySelector('[aria-label="Asset details inspector"]');
+    const detailNode = document.querySelector('[aria-label="Composition detail"]');
+    return Boolean(inspectorNode && detailNode && inspectorNode.contains(detailNode));
+  });
+  expect(detailInsideInspector).toBe(true);
+  await expectNoOverlap(compositionDetail, stage);
+
+  await screenshot(page, 'asset-details-composition-detail-docked', { fullPage: true });
+});
+
 test('asset details closed mobile layout keeps the canvas stage in the primary row', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 760 });
   await mountComponent(page, 'AssetGenerationDockClosedCanvas', {});
