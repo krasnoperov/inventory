@@ -80,8 +80,8 @@
 }
 
 .action.danger:hover:not(:disabled) {
-  color: var(--button-primary-text);
-  background: var(--color-error);
+  color: var(--color-error);
+  background: var(--color-danger-bg);
 }
 
 .action:focus-visible {
