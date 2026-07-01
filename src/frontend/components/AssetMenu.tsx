@@ -60,11 +60,13 @@ export function AssetMenu({
       if (adjustedX + rect.width > viewportWidth - 8) {
         adjustedX = position.x - rect.width;
       }
+      adjustedX = Math.max(8, Math.min(adjustedX, viewportWidth - rect.width - 8));
 
       // Keep within vertical bounds
       if (adjustedY + rect.height > viewportHeight - 8) {
         adjustedY = viewportHeight - rect.height - 8;
       }
+      adjustedY = Math.max(8, Math.min(adjustedY, viewportHeight - rect.height - 8));
 
       menuRef.current.style.left = `${adjustedX}px`;
       menuRef.current.style.top = `${adjustedY}px`;

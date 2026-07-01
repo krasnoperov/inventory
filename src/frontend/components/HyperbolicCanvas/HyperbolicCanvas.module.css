@@ -98,15 +98,17 @@
   flex-direction: column;
   gap: 1px;
   line-height: 1.2;
+  min-width: 0;
 }
 
 .name {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 8.5rem;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .type {

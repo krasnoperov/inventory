@@ -99,7 +99,7 @@
   gap: 0.2rem;
   min-height: 1.25rem;
   min-width: 0;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 .badge {
@@ -261,6 +261,7 @@
   cursor: pointer;
   transition: border-color 0.2s ease;
   min-width: 80px;
+  max-width: 9.5rem;
 }
 
 .graphNode:hover {
@@ -286,10 +287,11 @@
   font-weight: 500;
   color: var(--color-text);
   text-align: center;
-  max-width: 80px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 9rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .currentBadge {
