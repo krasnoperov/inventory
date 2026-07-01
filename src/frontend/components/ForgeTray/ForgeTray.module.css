@@ -1,8 +1,8 @@
 /* ForgeTray */
 .tray {
   position: fixed;
-  bottom: 1rem;
-  right: 1rem;
+  bottom: 0;
+  right: 0;
   z-index: 500;
 
   /* Console-style control surfaces — borderless, grouped in faint tracks (theme-aware) */
@@ -14,28 +14,27 @@
   --ctl-h: 2.375rem;
   --mono: ui-monospace, "SF Mono", "Geist Mono", Menlo, monospace;
 
-  /* Solid app surface */
+  /* Docked app surface */
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--forge-bar-shadow);
+  border-right: none;
+  border-bottom: none;
+  border-radius: 0;
+  box-shadow: none;
 
-  width: min(520px, calc(100vw - 2rem));
+  width: min(520px, 100vw);
 
-  transition:
-    border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Drag-over state for file drop */
 .tray.dragOver {
   border-color: var(--color-primary);
-  box-shadow: var(--focus-ring), var(--shadow-floating);
+  box-shadow: var(--focus-ring);
 }
 
-.tray.dragOver .inputArea {
-  background: var(--color-status-processing-bg);
-  border-color: var(--color-primary);
+.tray:has(.promptTextarea:focus) {
+  border-left-color: var(--color-primary);
 }
 
 .tray.embedded {
@@ -43,7 +42,9 @@
   right: auto;
   bottom: auto;
   width: 100%;
-  border-radius: var(--radius-md);
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
   box-shadow: none;
 }
 
@@ -61,16 +62,10 @@
   flex-direction: column;
   gap: 0;
   padding: 0;
-  border-radius: var(--radius-lg);
-  background: var(--forge-input-bg);
-  border: 1px solid var(--forge-bar-border-inner);
-  margin: 0.375rem;
-  transition: box-shadow 0.2s ease;
-}
-
-/* Glow only when the prompt itself is focused — not when clicking controls */
-.inputArea:has(.promptTextarea:focus) {
-  box-shadow: var(--forge-input-focus-glow);
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  margin: 0;
 }
 
 /* Auto-expanding Prompt Textarea */
@@ -276,8 +271,8 @@
 /* Responsive behavior */
 @media (max-width: 768px) {
   .tray {
-    left: 0.5rem;
-    right: 0.5rem;
+    left: 0;
+    right: 0;
     width: auto;
   }
 
@@ -288,7 +283,7 @@
 
 @media (max-width: 480px) {
   .tray {
-    border-radius: 16px 16px 0 0;
+    border-radius: 0;
     left: 0;
     right: 0;
     bottom: 0;
@@ -298,8 +293,8 @@
   }
 
   .inputArea {
-    margin: 0.375rem;
-    border-radius: 12px;
+    margin: 0;
+    border-radius: 0;
   }
 
   .buttonLabel {

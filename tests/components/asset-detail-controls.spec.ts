@@ -653,7 +653,7 @@ test('asset details dock keeps heavy details outside ForgeTray', async ({ page }
   await expect(page.getByLabel('Prompt')).toBeVisible();
   const embeddedTray = page.locator('[class*="tray"]').first();
   await expect(embeddedTray).toHaveCSS('box-shadow', 'none');
-  await expect(embeddedTray).toHaveCSS('border-radius', '8px');
+  await expect(embeddedTray).toHaveCSS('border-radius', '0px');
 
   const detailsBeforePrompt = await page.evaluate(() => {
     const details = document.querySelector('[aria-label="Details scoped space summary"]');
@@ -717,7 +717,7 @@ test('asset details inspector stays separate from ForgeTray on mobile', async ({
   await expect(page.getByLabel('Prompt')).toBeVisible();
   const embeddedTray = page.locator('[class*="tray"]').first();
   await expect(embeddedTray).toHaveCSS('box-shadow', 'none');
-  await expect(embeddedTray).toHaveCSS('border-radius', '8px');
+  await expect(embeddedTray).toHaveCSS('border-radius', '0px');
   const mobileDockGap = await page.evaluate(() => {
     const details = document.querySelector('[aria-label="Details scoped space summary"]');
     const tray = document.querySelector('[class*="tray"]');
