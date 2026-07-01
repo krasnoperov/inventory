@@ -447,15 +447,13 @@ test('asset collection membership hides empty Details-only structure until place
   await screenshot(page, 'collection-membership-empty-hidden-details', { fullPage: true });
 });
 
-test('asset details strip makes video facts and details disclosure visible', async ({ page }) => {
+test('asset details strip makes video facts visible without dock disclosure chrome', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 420 });
   await mountComponent(page, 'AssetDetailsStrip', {
     asset: asset(),
     assetCollectionCount: 1,
     assetTypeDisabled: false,
-    fullDetailsOpen: false,
     onAssetTypeChange: '__record__:type',
-    onToggleFullDetails: '__record__:toggleFullDetails',
     selectedVariant: fullVariant(),
     selectedVariantIndex: 0,
     selectedVariantCollectionCount: 1,
@@ -483,16 +481,13 @@ test('asset details strip makes video facts and details disclosure visible', asy
     return factCells.map((cell) => getComputedStyle(cell).backgroundColor);
   });
   expect(new Set(factsChrome)).toEqual(new Set(['rgba(0, 0, 0, 0)']));
-  await expect(page.getByRole('button', { name: 'Expand asset scope details' })).toContainText('Scope');
-  await expect(page.getByRole('button', { name: 'Expand asset scope details' })).toHaveCSS('text-transform', 'none');
-
-  await page.getByRole('button', { name: 'Expand asset scope details' }).click();
+  await expect(page.getByRole('button', { name: /asset scope details/i })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Scope' })).toHaveCount(0);
   await screenshot(page, 'asset-details-strip-video', { fullPage: true });
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
   expect(calls).toEqual(expect.arrayContaining([
     { eventName: 'type', args: ['environment'] },
-    { eventName: 'toggleFullDetails', args: [] },
   ]));
 });
 
@@ -505,8 +500,6 @@ test('asset details strip also exposes image facts without a hidden click target
       media_kind: 'image',
     }),
     assetCollectionCount: 0,
-    fullDetailsOpen: true,
-    onToggleFullDetails: '__record__:toggleFullDetails',
     selectedVariant: fullVariant({
       media_kind: 'image',
       media_key: 'images/hero.png',
@@ -525,13 +518,11 @@ test('asset details strip also exposes image facts without a hidden click target
   await expect(page.getByText('Image', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Variants scope')).toContainText('Variant 1/1');
   await expect(page.getByLabel('Variants scope')).toContainText('Image · Completed');
-  await expectNoOverlap(page.getByLabel('Variants scope'), page.getByRole('button', { name: 'Collapse asset scope details' }));
   await expect(page.getByText('Character')).toBeVisible();
   await expect(page.getByText('Image · Completed')).toBeVisible();
   await expect(page.getByText('1024x1024')).toBeVisible();
   await expect(page.getByText('Duration')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Collapse asset scope details' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Collapse asset scope details' })).toContainText('Scope');
+  await expect(page.getByRole('button', { name: /asset scope details/i })).toHaveCount(0);
 });
 
 test('asset details strip keeps variant focus visible without a selected variant', async ({ page }) => {
@@ -543,8 +534,6 @@ test('asset details strip keeps variant focus visible without a selected variant
       media_kind: 'image',
     }),
     assetCollectionCount: 0,
-    fullDetailsOpen: false,
-    onToggleFullDetails: '__record__:toggleFullDetails',
     selectedVariant: null,
     selectedVariantCollectionCount: 0,
     variantCount: 2,
@@ -554,8 +543,7 @@ test('asset details strip keeps variant focus visible without a selected variant
   await expect(page.getByText('Unselected detail')).toBeVisible();
   await expect(page.getByLabel('Variants scope')).toContainText('2 variants');
   await expect(page.getByLabel('Variants scope')).toContainText('None');
-  await expectNoOverlap(page.getByLabel('Asset scope', { exact: true }), page.getByRole('button', { name: 'Expand asset scope details' }));
-  await expectNoOverlap(page.getByLabel('Variants scope'), page.getByRole('button', { name: 'Expand asset scope details' }));
+  await expect(page.getByRole('button', { name: /asset scope details/i })).toHaveCount(0);
   await screenshot(page, 'asset-details-strip-no-variant', { fullPage: true });
 });
 
@@ -588,8 +576,6 @@ test('asset details strip names audio details explicitly', async ({ page }) => {
       media_kind: 'audio',
     }),
     assetCollectionCount: 0,
-    fullDetailsOpen: true,
-    onToggleFullDetails: '__record__:toggleFullDetails',
     selectedVariant: fullVariant({
       media_kind: 'audio',
       media_key: 'audio/narration.mp3',
@@ -609,19 +595,16 @@ test('asset details strip names audio details explicitly', async ({ page }) => {
   await expect(page.getByLabel('Variants scope')).toContainText('Audio · Completed');
   await expect(page.getByText('Audio · Completed')).toBeVisible();
   await expect(page.getByText('42s')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Collapse asset scope details' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Collapse asset scope details' })).toContainText('Scope');
+  await expect(page.getByRole('button', { name: /asset scope details/i })).toHaveCount(0);
 });
 
-test('asset details dock renders the real expanded stack above ForgeTray', async ({ page }) => {
+test('asset details dock keeps heavy details outside ForgeTray', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 720 });
   await mountComponent(page, 'AssetGenerationDock', {
     asset: asset(),
     assetCollectionCount: 1,
     assetTypeDisabled: false,
-    fullDetailsOpen: true,
     onAssetTypeChange: '__record__:type',
-    onToggleFullDetails: '__record__:toggleFullDetails',
     selectedVariant: fullVariant(),
     selectedVariantIndex: 0,
     selectedVariantCollectionCount: 1,
@@ -630,30 +613,36 @@ test('asset details dock renders the real expanded stack above ForgeTray', async
 
   await expect(page.getByRole('region', { name: 'Asset generation controls' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Collapse asset scope details' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Expanded asset details' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Collection membership' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Manual relations' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Composition usage' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Collection membership' }).getByText('Collections', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Manage collections' }).locator('svg')).toHaveCSS('width', '16px');
-  const collectionRows = page.getByRole('region', { name: 'Collection membership' }).locator('[class*="collectionSummaryRow"]');
+  await expect(page.getByRole('button', { name: /asset scope details/i })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Expanded asset details' })).toHaveCount(0);
+  const dock = page.getByRole('region', { name: 'Asset generation controls' });
+  await expect(dock).not.toContainText('Collection membership');
+  await expect(dock).not.toContainText('Manual relations');
+  const inspector = page.getByRole('region', { name: 'Asset details inspector' });
+  await expect(inspector).toBeVisible();
+  await expect(inspector.getByRole('region', { name: 'Collection membership' })).toBeVisible();
+  await expect(inspector.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
+  await expect(inspector.getByRole('region', { name: 'Manual relations' })).toBeVisible();
+  await expect(inspector.getByRole('region', { name: 'Composition usage' })).toBeVisible();
+  await expect(inspector.getByRole('region', { name: 'Collection membership' }).getByText('Collections', { exact: true })).toBeVisible();
+  await expect(inspector.getByRole('button', { name: 'Manage collections' }).locator('svg')).toHaveCSS('width', '16px');
+  const collectionRows = inspector.getByRole('region', { name: 'Collection membership' }).locator('[class*="collectionSummaryRow"]');
   await expect(collectionRows.first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(collectionRows.first()).toHaveCSS('border-top-width', '0px');
   await expect(collectionRows.first()).toHaveCSS('border-left-width', '0px');
-  await expect(page.getByRole('region', { name: 'Style reference usage' }).getByRole('heading', { name: /Style/ })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Manual relations' }).getByText('Relations')).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Manual relations' }).getByText('Outgoing')).toHaveCount(0);
-  await expect(page.getByRole('region', { name: 'Manual relations' }).getByText('Incoming')).toHaveCount(0);
-  await expect(page.getByRole('region', { name: 'Composition usage' }).getByRole('heading', { name: /Compositions/ })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Scene Bar composition/ })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Pinned variant scene/ })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Composition usage' })).toHaveCSS('border-top-width', '0px');
-  await expect(page.getByRole('region', { name: 'Composition usage' })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(inspector.getByRole('region', { name: 'Style reference usage' }).getByRole('heading', { name: /Style/ })).toBeVisible();
+  await expect(inspector.getByRole('region', { name: 'Manual relations' }).getByText('Relations')).toBeVisible();
+  await expect(inspector.getByRole('region', { name: 'Manual relations' }).getByText('Outgoing')).toHaveCount(0);
+  await expect(inspector.getByRole('region', { name: 'Manual relations' }).getByText('Incoming')).toHaveCount(0);
+  await expect(inspector.getByRole('region', { name: 'Composition usage' }).getByRole('heading', { name: /Compositions/ })).toBeVisible();
+  await expect(inspector.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Scene Bar composition/ })).toBeVisible();
+  await expect(inspector.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Pinned variant scene/ })).toBeVisible();
+  await expect(inspector.getByRole('region', { name: 'Composition usage' })).toHaveCSS('border-top-width', '0px');
+  await expect(inspector.getByRole('region', { name: 'Composition usage' })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   const compositionBeforeRelations = await page.evaluate(() => {
-    const composition = document.querySelector('[aria-label="Composition usage"]');
-    const relations = document.querySelector('[aria-label="Manual relations"]');
+    const inspector = document.querySelector('[aria-label="Asset details inspector"]');
+    const composition = inspector?.querySelector('[aria-label="Composition usage"]');
+    const relations = inspector?.querySelector('[aria-label="Manual relations"]');
     return Boolean(composition && relations && composition.compareDocumentPosition(relations) & Node.DOCUMENT_POSITION_FOLLOWING);
   });
   expect(compositionBeforeRelations).toBe(true);
@@ -669,7 +658,7 @@ test('asset details dock renders the real expanded stack above ForgeTray', async
   });
   expect(detailsBeforePrompt).toBe(true);
   const dockGap = await page.evaluate(() => {
-    const details = document.querySelector('[aria-label="Expanded asset details"]');
+    const details = document.querySelector('[aria-label="Details scoped space summary"]');
     const prompt = document.querySelector('[aria-label="Prompt"]');
     if (!details || !prompt) return null;
     return prompt.getBoundingClientRect().top - details.getBoundingClientRect().bottom;
@@ -680,30 +669,28 @@ test('asset details dock renders the real expanded stack above ForgeTray', async
   await expect.poll(() => visibleRatioInViewport(page.getByLabel('Prompt'))).toBeGreaterThanOrEqual(0.95);
 
   const stackMetrics = await page.evaluate(() => {
-    const expanded = document.querySelector('[aria-label="Expanded asset details"]');
-    const relations = document.querySelector('[aria-label="Manual relations"]');
+    const inspector = document.querySelector('[aria-label="Asset details inspector"]');
+    const relations = inspector?.querySelector('[aria-label="Manual relations"]');
     return {
-      expandedCanScroll: expanded ? expanded.scrollHeight > expanded.clientHeight : false,
+      inspectorCanScroll: inspector ? inspector.scrollHeight > inspector.clientHeight : false,
       relationsHasInnerScroll: relations ? relations.scrollHeight > relations.clientHeight : true,
     };
   });
   expect(stackMetrics).toEqual({
-    expandedCanScroll: false,
+    inspectorCanScroll: false,
     relationsHasInnerScroll: false,
   });
 
-  await screenshot(page, 'asset-details-stack-desktop', { fullPage: true });
+  await screenshot(page, 'asset-details-inspector-outside-dock-desktop', { fullPage: true });
 });
 
-test('asset details dock keeps the real expanded stack usable on mobile', async ({ page }) => {
+test('asset details inspector stays separate from ForgeTray on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 760 });
   await mountComponent(page, 'AssetGenerationDock', {
     asset: asset(),
     assetCollectionCount: 1,
     assetTypeDisabled: false,
-    fullDetailsOpen: true,
     onAssetTypeChange: '__record__:type',
-    onToggleFullDetails: '__record__:toggleFullDetails',
     selectedVariant: fullVariant(),
     selectedVariantIndex: 0,
     selectedVariantCollectionCount: 1,
@@ -712,17 +699,19 @@ test('asset details dock keeps the real expanded stack usable on mobile', async 
 
   await expect(page.getByRole('region', { name: 'Asset generation controls' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Collection membership' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Manual relations' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Composition usage' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Scene Bar composition/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /asset scope details/i })).toHaveCount(0);
+  const inspector = page.getByRole('region', { name: 'Asset details inspector' });
+  await expect(inspector.getByRole('region', { name: 'Collection membership' })).toBeVisible();
+  await expect(inspector.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
+  await expect(inspector.getByRole('region', { name: 'Manual relations' })).toBeVisible();
+  await expect(inspector.getByRole('region', { name: 'Composition usage' })).toBeVisible();
+  await expect(inspector.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Scene Bar composition/ })).toBeVisible();
   await expect(page.getByLabel('Prompt')).toBeVisible();
   const embeddedTray = page.locator('[class*="tray"]').first();
   await expect(embeddedTray).toHaveCSS('box-shadow', 'none');
   await expect(embeddedTray).toHaveCSS('border-radius', '8px');
   const mobileDockGap = await page.evaluate(() => {
-    const details = document.querySelector('[aria-label="Expanded asset details"]');
+    const details = document.querySelector('[aria-label="Details scoped space summary"]');
     const tray = document.querySelector('[class*="tray"]');
     if (!details || !tray) return null;
     return tray.getBoundingClientRect().top - details.getBoundingClientRect().bottom;
@@ -732,7 +721,7 @@ test('asset details dock keeps the real expanded stack usable on mobile', async 
   await expect.poll(() => visibleHeightInViewport(page.getByLabel('Prompt'))).toBeGreaterThanOrEqual(56);
   await expect.poll(() => visibleRatioInViewport(page.getByLabel('Prompt'))).toBeGreaterThanOrEqual(0.95);
 
-  await screenshot(page, 'asset-details-stack-mobile', { fullPage: true });
+  await screenshot(page, 'asset-details-inspector-outside-dock-mobile', { fullPage: true });
 });
 
 test('asset variant inspector stays clear of the generation dock', async ({ page }) => {
@@ -745,25 +734,25 @@ test('asset variant inspector stays clear of the generation dock', async ({ page
   await expect(dock).toBeVisible();
   await expectNoOverlap(inspector, dock);
 
-  const geometry = await page.evaluate(() => {
-    const panel = document.querySelector('[aria-label="Variant details"]');
-    const generationDock = document.querySelector('[aria-label="Asset generation controls"]');
-    const panelBox = panel?.getBoundingClientRect();
-    const dockBox = generationDock?.getBoundingClientRect();
-    return panelBox && dockBox
-      ? {
-          panelRight: panelBox.right,
-          dockLeft: dockBox.left,
-          panelTop: panelBox.top,
-          panelBottom: panelBox.bottom,
-          viewportHeight: window.innerHeight,
-        }
-      : null;
-  });
-  expect(geometry).not.toBeNull();
-  expect(geometry!.panelRight).toBeLessThanOrEqual(geometry!.dockLeft - 4);
-  expect(geometry!.panelTop).toBeGreaterThanOrEqual(16);
-  expect(geometry!.panelBottom).toBeLessThanOrEqual(geometry!.viewportHeight - 16);
+	  const geometry = await page.evaluate(() => {
+	    const panel = document.querySelector('[aria-label="Variant details"]');
+	    const panelBox = panel?.getBoundingClientRect();
+	    return panelBox
+	      ? {
+	          panelLeft: panelBox.left,
+	          panelRight: panelBox.right,
+	          panelTop: panelBox.top,
+	          panelBottom: panelBox.bottom,
+	          viewportWidth: window.innerWidth,
+	          viewportHeight: window.innerHeight,
+	        }
+	      : null;
+	  });
+	  expect(geometry).not.toBeNull();
+	  expect(geometry!.panelLeft).toBeGreaterThanOrEqual(16);
+	  expect(geometry!.panelRight).toBeLessThanOrEqual(geometry!.viewportWidth - 16);
+	  expect(geometry!.panelTop).toBeGreaterThanOrEqual(16);
+	  expect(geometry!.panelBottom).toBeLessThanOrEqual(geometry!.viewportHeight - 16);
 
   await screenshot(page, 'asset-details-variant-inspector-clear-of-dock', { fullPage: true });
 });
@@ -805,8 +794,8 @@ test('asset detail overlays use flat chrome', async ({ page }) => {
   await page.setViewportSize({ width: 760, height: 460 });
   await mountComponent(page, 'AssetDetailOverlayChrome', {});
 
-  await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('Details Space');
-  await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('Asset scope');
+  await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('Details');
+  await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('Asset');
   await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('2 variants');
   await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('Crystal Gate');
   await expect(page.getByRole('region', { name: 'Tile grid overlay' })).toHaveCSS('box-shadow', 'none');
