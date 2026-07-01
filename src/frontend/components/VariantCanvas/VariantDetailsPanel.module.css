@@ -92,6 +92,14 @@
   background: var(--color-star-bg);
 }
 
+.moreButton {
+  --ui-menu-trigger-height: 30px;
+  --ui-menu-trigger-width: 30px;
+
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+
 .starIcon {
   display: block;
   flex: none;
@@ -100,16 +108,6 @@
 
 .starIconCutout {
   fill: var(--color-surface);
-}
-
-.actionButton.setActive:hover {
-  border-color: var(--color-success);
-  color: var(--color-success);
-}
-
-.actionButton.delete:hover {
-  border-color: var(--color-error);
-  color: var(--color-error);
 }
 
 .meta {

@@ -78,10 +78,18 @@ test('variant details panel uses shared action controls', async ({ page }) => {
     'border-color, background-color, color',
   );
   await expect(page.getByRole('button', { name: 'Add to Tray' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Create relation' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Select variant for collection placement' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Use as main variant' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Delete variant' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'More variant actions' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create relation' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Select variant for collection placement' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Use as main variant' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Delete variant' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'More variant actions' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Create relation' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Add to collection' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Use as main variant' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Delete variant' })).toBeVisible();
+  await screenshot(page, 'variant-details-panel-action-menu', { fullPage: true });
 
   await expect(page.getByRole('heading', { name: 'Prompt' })).toHaveCSS('text-transform', 'none');
   await expect(page.getByRole('heading', { name: 'Description' })).toHaveCSS('letter-spacing', 'normal');
@@ -93,10 +101,14 @@ test('variant details panel uses shared action controls', async ({ page }) => {
 
   await starButton.click();
   await page.getByRole('button', { name: 'Add to Tray' }).click();
-  await page.getByRole('button', { name: 'Create relation' }).click();
-  await page.getByRole('button', { name: 'Select variant for collection placement' }).click();
-  await page.getByRole('button', { name: 'Use as main variant' }).click();
-  await page.getByRole('button', { name: 'Delete variant' }).click();
+  await page.getByRole('button', { name: 'More variant actions' }).click();
+  await page.getByRole('menuitem', { name: 'Create relation' }).click();
+  await page.getByRole('button', { name: 'More variant actions' }).click();
+  await page.getByRole('menuitem', { name: 'Add to collection' }).click();
+  await page.getByRole('button', { name: 'More variant actions' }).click();
+  await page.getByRole('menuitem', { name: 'Use as main variant' }).click();
+  await page.getByRole('button', { name: 'More variant actions' }).click();
+  await page.getByRole('menuitem', { name: 'Delete variant' }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
   expect(calls.map((call) => call.eventName)).toEqual([

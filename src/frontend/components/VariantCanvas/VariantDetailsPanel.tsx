@@ -29,7 +29,7 @@ import { formatBytes } from '../../lib/format';
 import { ImageLightbox } from '../ImageLightbox';
 import { CompositionPlacementControl } from '../CompositionPlacementControl';
 import { getAudioCardMetadata } from '../assetCardMetadata';
-import { Button, IconButton } from '../../ui';
+import { Button, IconButton, UiMenu, type MenuItem } from '../../ui';
 import type { CompositionShortcut } from '../../productionShortcuts';
 import { buildAncestryTrail } from './variantLineage';
 import styles from './VariantDetailsPanel.module.css';
@@ -80,6 +80,54 @@ function StarIcon({ filled }: { filled: boolean }) {
           d="M12 6.58l-1.51 3.06-3.38.49 2.45 2.39-.58 3.36L12 14.29l3.02 1.59-.58-3.36 2.45-2.39-3.38-.49L12 6.58z"
         />
       )}
+    </svg>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" aria-hidden="true">
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="19" cy="12" r="1" />
+      <circle cx="5" cy="12" r="1" />
+    </svg>
+  );
+}
+
+function RelationIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" aria-hidden="true">
+      <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11 4.93" />
+      <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L13 19.07" />
+    </svg>
+  );
+}
+
+function CollectionIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" aria-hidden="true">
+      <path d="M4 6h16" />
+      <path d="M4 12h10" />
+      <path d="M4 18h7" />
+      <path d="M18 15v6" />
+      <path d="M15 18h6" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" aria-hidden="true">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
     </svg>
   );
 }
@@ -209,6 +257,59 @@ export function VariantDetailsPanel({
     if (isVariantReady(variant)) onSetActive?.(variant.id);
   }, [variant, onSetActive]);
 
+  const secondaryActions = useMemo<MenuItem[]>(() => {
+    const actions: MenuItem[] = [];
+    if (onCreateRelation) {
+      actions.push({
+        id: 'relation',
+        label: 'Create relation',
+        textValue: 'Create relation',
+        icon: <RelationIcon />,
+        onSelect: handleCreateRelationClick,
+      });
+    }
+    if (onAddVariantToCollection) {
+      actions.push({
+        id: 'collection',
+        label: 'Add to collection',
+        textValue: 'Add to collection',
+        icon: <CollectionIcon />,
+        onSelect: handleAddVariantToCollectionClick,
+      });
+    }
+    if (!isActive && onSetActive) {
+      actions.push({
+        id: 'active',
+        label: 'Use as main variant',
+        textValue: 'Use as main variant',
+        icon: <CheckIcon />,
+        onSelect: handleSetActive,
+      });
+    }
+    if (onDeleteVariant && variantCount > 1) {
+      actions.push({
+        id: 'delete',
+        label: 'Delete variant',
+        textValue: 'Delete variant',
+        icon: <TrashIcon />,
+        danger: true,
+        onSelect: handleDeleteClick,
+      });
+    }
+    return actions;
+  }, [
+    handleAddVariantToCollectionClick,
+    handleCreateRelationClick,
+    handleDeleteClick,
+    handleSetActive,
+    isActive,
+    onAddVariantToCollection,
+    onCreateRelation,
+    onDeleteVariant,
+    onSetActive,
+    variantCount,
+  ]);
+
   return createPortal(
     <aside className={styles.panel} aria-label="Variant details">
       <IconButton className={styles.closeButton} onClick={onClose} title="Close" aria-label="Close variant details" variant="ghost" size="sm">
@@ -256,57 +357,14 @@ export function VariantDetailsPanel({
               </svg>
             </IconButton>
           )}
-          {onCreateRelation && (
-            <IconButton className={styles.actionButton} onClick={handleCreateRelationClick} title="Create relation" aria-label="Create relation" variant="ghost">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11 4.93" />
-                <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L13 19.07" />
-              </svg>
-            </IconButton>
-          )}
-          {onAddVariantToCollection && (
-            <IconButton
-              className={styles.actionButton}
-              onClick={handleAddVariantToCollectionClick}
-              title="Select variant for collection placement"
-              aria-label="Select variant for collection placement"
-              variant="ghost"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                <path d="M4 6h16" />
-                <path d="M4 12h10" />
-                <path d="M4 18h7" />
-                <path d="M18 15v6" />
-                <path d="M15 18h6" />
-              </svg>
-            </IconButton>
-          )}
-          {!isActive && onSetActive && (
-            <IconButton
-              className={`${styles.actionButton} ${styles.setActive}`}
-              onClick={handleSetActive}
-              title="Use as main variant"
-              aria-label="Use as main variant"
-              variant="ghost"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </IconButton>
-          )}
-          {onDeleteVariant && variantCount > 1 && (
-            <IconButton
-              className={`${styles.actionButton} ${styles.delete}`}
-              onClick={handleDeleteClick}
-              title="Delete"
-              aria-label="Delete variant"
-              variant="ghost"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-              </svg>
-            </IconButton>
+          {secondaryActions.length > 0 && (
+            <UiMenu
+              className={styles.moreButton}
+              label="More variant actions"
+              title="More"
+              trigger={<MoreIcon />}
+              items={secondaryActions}
+            />
           )}
         </div>
 
