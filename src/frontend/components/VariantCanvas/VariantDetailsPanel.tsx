@@ -29,6 +29,7 @@ import { formatBytes } from '../../lib/format';
 import { ImageLightbox } from '../ImageLightbox';
 import { CompositionPlacementControl } from '../CompositionPlacementControl';
 import { getAudioCardMetadata } from '../assetCardMetadata';
+import { ForgeTrayActionButton } from '../ForgeTrayActionButton';
 import { Button, IconButton, UiMenu, type MenuItem } from '../../ui';
 import type { CompositionShortcut } from '../../productionShortcuts';
 import { buildAncestryTrail } from './variantLineage';
@@ -363,11 +364,12 @@ export function VariantDetailsPanel({
             </svg>
           </a>
           {onAddToTray && isVariantForgeTrayReady(variant) && (
-            <IconButton className={styles.actionButton} onClick={handleAddToTray} title="Add to Tray" aria-label="Add to Tray" variant="ghost">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </IconButton>
+            <ForgeTrayActionButton
+              className={styles.actionButton}
+              size="panel"
+              onClick={handleAddToTray}
+              subjectName={asset.name}
+            />
           )}
           {secondaryActions.length > 0 && (
             <UiMenu

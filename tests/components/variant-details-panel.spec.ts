@@ -81,7 +81,7 @@ test('variant details panel uses shared action controls', async ({ page }) => {
     'transition-property',
     'border-color, background-color, color',
   );
-  await expect(page.getByRole('button', { name: 'Add to Tray' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add Crystal Gate to Forge Tray' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'More variant actions' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Create relation' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Select variant for collection placement' })).toHaveCount(0);
@@ -104,7 +104,7 @@ test('variant details panel uses shared action controls', async ({ page }) => {
   await screenshot(page, 'variant-details-panel-actions', { fullPage: true });
 
   await starButton.click();
-  await page.getByRole('button', { name: 'Add to Tray' }).click();
+  await page.getByRole('button', { name: 'Add Crystal Gate to Forge Tray' }).click();
   await page.getByRole('button', { name: 'More variant actions' }).click();
   await page.getByRole('menuitem', { name: 'Create relation' }).click();
   await page.getByRole('button', { name: 'More variant actions' }).click();

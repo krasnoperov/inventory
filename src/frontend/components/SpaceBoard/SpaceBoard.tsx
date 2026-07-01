@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties, type Poi
 import { Thumbnail } from '../Thumbnail';
 import { CompositionPlacementControl } from '../CompositionPlacementControl';
 import { getAudioCardMetadata } from '../assetCardMetadata';
+import { ForgeTrayActionButton } from '../ForgeTrayActionButton';
 import { Button, ColorInput, IconButton, TextInput, UiSelect, type SelectOption } from '../../ui';
 import type {
   Asset,
@@ -284,7 +285,6 @@ export function SpaceBoard({
       (fact): fact is string => Boolean(fact),
     );
     const isInForgeTray = Boolean(displayVariant && isVariantInForgeTray?.(displayVariant.id));
-    const forgeTrayLabel = isInForgeTray ? `${asset.name} is in Forge Tray` : `Add ${asset.name} to Forge Tray`;
     const showAudioSummary = isAudioCard;
     const showCardMenuActions =
       canEdit ||
@@ -292,26 +292,11 @@ export function SpaceBoard({
       onPlaceInComposition ||
       Boolean(onRegenerateVariant && displayVariant && isVariantAudioReady(displayVariant));
     const forgeTrayAction = onAddToTray && displayVariant && isVariantForgeTrayReady(displayVariant) ? (
-      <IconButton
-        className={`${styles.cardTrayButton} ${isInForgeTray ? styles.cardTrayButtonAdded : ''}`}
-        disabled={isInForgeTray}
+      <ForgeTrayActionButton
+        added={isInForgeTray}
         onClick={() => onAddToTray(displayVariant, asset)}
-        title={forgeTrayLabel}
-        aria-label={forgeTrayLabel}
-        variant="ghost"
-        size="sm"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-          {isInForgeTray ? (
-            <path d="m5 12 4 4L19 6" />
-          ) : (
-            <>
-              <path d="M12 5v14" />
-              <path d="M5 12h14" />
-            </>
-          )}
-        </svg>
-      </IconButton>
+        subjectName={asset.name}
+      />
     ) : null;
     const thumbnail = (
       <Thumbnail

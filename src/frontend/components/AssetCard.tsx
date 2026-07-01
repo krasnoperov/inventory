@@ -3,8 +3,9 @@ import { type Asset, type SpaceSubject, type Variant, isVariantAudioReady, isVar
 import { formatMediaKind } from '../mediaKind';
 import { AssetMenu } from './AssetMenu';
 import { getAudioCardMetadata } from './assetCardMetadata';
+import { ForgeTrayActionButton } from './ForgeTrayActionButton';
 import { Thumbnail } from './Thumbnail';
-import { Button, IconButton } from '../ui';
+import { Button } from '../ui';
 import styles from './AssetCard.module.css';
 
 export interface AssetCardProps {
@@ -55,8 +56,7 @@ export function AssetCard(props: AssetCardProps) {
   }, [asset, onAssetClick]);
 
   // Handle Add to Tray button click
-  const handleAddToTray = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleAddToTray = useCallback(() => {
     if (!isInForgeTray && primaryVariant && isVariantForgeTrayReady(primaryVariant)) {
       onAddToTray?.(primaryVariant, asset);
     }
@@ -173,25 +173,12 @@ export function AssetCard(props: AssetCardProps) {
           )}
         </div>
         {onAddToTray && primaryVariant && isVariantForgeTrayReady(primaryVariant) && (
-          <IconButton
-            className={`${styles.addButton} ${isInForgeTray ? styles.addButtonAdded : ''}`}
+          <ForgeTrayActionButton
+            size="card"
+            added={isInForgeTray}
             onClick={handleAddToTray}
-            disabled={isInForgeTray}
-            title={isInForgeTray ? 'In Forge Tray' : 'Add to Forge Tray'}
-            aria-label={isInForgeTray ? 'In Forge Tray' : 'Add to Forge Tray'}
-            variant="ghost"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-              {isInForgeTray ? (
-                <path d="m5 12 4 4L19 6" />
-              ) : (
-                <>
-                  <path d="M12 5v14" />
-                  <path d="M5 12h14" />
-                </>
-              )}
-            </svg>
-          </IconButton>
+            subjectName={asset.name}
+          />
         )}
       </div>
 

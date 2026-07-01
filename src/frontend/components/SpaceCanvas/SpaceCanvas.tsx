@@ -16,7 +16,8 @@ import {
   type NodeProps,
 } from '@xyflow/react';
 import { Thumbnail } from '../Thumbnail';
-import { Button, IconButton } from '../../ui';
+import { Button } from '../../ui';
+import { ForgeTrayActionButton } from '../ForgeTrayActionButton';
 import {
   isVariantForgeTrayReady,
   type Asset,
@@ -109,9 +110,6 @@ const ROW_FILLERS = Array.from({ length: 8 });
 
 function FrameAssetCard({ card, data }: { card: FrameCard; data: FrameData }) {
   const isInForgeTray = Boolean(card.variant && data.isVariantInForgeTray?.(card.variant.id));
-  const trayLabel = isInForgeTray
-    ? `${card.asset.name} is in Forge Tray`
-    : `Add ${card.asset.name} to Forge Tray`;
 
   return (
     <article
@@ -139,28 +137,13 @@ function FrameAssetCard({ card, data }: { card: FrameCard; data: FrameData }) {
             {card.asset.name}
           </Button>
           {data.onAddToTray && card.variant && isVariantForgeTrayReady(card.variant) && (
-            <IconButton
-              className={`${styles.trayButton} ${isInForgeTray ? styles.trayButtonAdded : ''}`}
-              disabled={isInForgeTray}
+            <ForgeTrayActionButton
+              added={isInForgeTray}
               onClick={() => {
                 if (card.variant) data.onAddToTray?.(card.variant, card.asset);
               }}
-              title={trayLabel}
-              aria-label={trayLabel}
-              variant="ghost"
-              size="sm"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                {isInForgeTray ? (
-                  <path d="m5 12 4 4L19 6" />
-                ) : (
-                  <>
-                    <path d="M12 5v14" />
-                    <path d="M5 12h14" />
-                  </>
-                )}
-              </svg>
-            </IconButton>
+              subjectName={card.asset.name}
+            />
           )}
         </div>
         <div className={boardStyles.assetMeta}>

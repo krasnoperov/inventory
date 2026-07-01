@@ -232,40 +232,6 @@
   -webkit-box-orient: vertical;
 }
 
-/* Add to Tray Button */
-.addButton {
-  --ui-button-height: var(--thumb-action-size);
-  --ui-button-pad-x: 0;
-  --ctl-hover: var(--color-primary);
-
-  width: var(--thumb-action-size);
-  border: var(--thumb-action-border);
-  background: var(--thumb-action-bg);
-  color: var(--color-text-muted);
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  box-shadow: none;
-}
-
-.addButton:hover:not(:disabled) {
-  border-color: var(--color-primary);
-  background: var(--color-primary);
-  color: var(--button-primary-text);
-}
-
-.addButtonAdded {
-  border-color: var(--color-success);
-  background: var(--color-success-bg);
-  color: var(--color-success);
-}
-
-.addButtonAdded:disabled {
-  border-color: var(--color-success);
-  background: var(--color-success-bg);
-  color: var(--color-success);
-  opacity: 1;
-}
-
 /* Responsive */
 @media (max-width: 768px) {
   .infoRow {
@@ -282,11 +248,5 @@
 
   .audioPrompt {
     -webkit-line-clamp: 3;
-  }
-
-  .addButton {
-    --ui-button-height: 24px;
-
-    width: 24px;
   }
 }

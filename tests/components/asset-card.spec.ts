@@ -181,7 +181,7 @@ test('asset card add action uses shared icon button outside media', async ({ pag
     onAddToTray: '__record__:tray',
   });
 
-  const addToTray = page.getByRole('button', { name: 'Add to Forge Tray' });
+  const addToTray = page.getByRole('button', { name: 'Add Crystal Gate With An Extremely Long Decorative Production Name to Forge Tray' });
   await expect(addToTray).toBeVisible();
   await expect(addToTray).toHaveCSS('box-shadow', 'none');
   const thumbnailButton = page.getByRole('button', {
@@ -229,12 +229,12 @@ test('asset card shows confirmed Forge Tray state without a media overlay', asyn
     onAddToTray: '__record__:tray',
   });
 
-  const inTray = page.getByRole('button', { name: 'In Forge Tray' });
+  const inTray = page.getByRole('button', { name: 'Crystal Gate is in Forge Tray' });
   await expect(inTray).toBeVisible();
   await expect(inTray).toBeDisabled();
   await expect(inTray).toHaveCSS('color', await resolvedColor(page, 'var(--color-success)'));
   await expect(inTray.locator('svg')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Add to Forge Tray' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add Crystal Gate to Forge Tray' })).toHaveCount(0);
   await expectNoOverlap(inTray, page.getByRole('button', { name: 'Open Crystal Gate' }));
   await screenshot(page, 'asset-card-in-forge-tray', { fullPage: true });
 
