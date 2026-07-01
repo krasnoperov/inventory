@@ -495,6 +495,10 @@ test('collection menus use shared form controls', async ({ page }) => {
     .fill('#654321');
   await selectDropdown(page, 'Asset to add to Cast', 'Forest background');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
+  const emptyCollectionState = page.locator('[class*="emptyCollection"]').first();
+  await expect(emptyCollectionState).toHaveText('No items yet');
+  await expect(emptyCollectionState).toHaveCSS('flex-basis', '100%');
+  await expect(emptyCollectionState).toHaveCSS('border-top-style', 'none');
   await screenshot(page, 'space-board-collection-manage-menu', { fullPage: true });
   await page.keyboard.press('Escape');
   await expect(collectionMenuTrigger).toHaveAttribute('aria-expanded', 'false');

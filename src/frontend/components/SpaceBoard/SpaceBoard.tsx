@@ -665,7 +665,7 @@ export function SpaceBoard({
             const ids = items.map((candidate) => candidate.id);
             return renderAssetCard(asset, item, collection.id, itemIndex, ids);
           })}
-          {items.length === 0 && <div className={styles.emptyCollection}>No items</div>}
+          {items.length === 0 && <div className={styles.emptyCollection}>No items yet</div>}
           {items.length > 0 && renderRowFillers()}
         </div>
       </section>
