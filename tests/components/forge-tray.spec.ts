@@ -779,8 +779,10 @@ test('forge chat actions send messages and apply suggested prompts', async ({ pa
   await expect(page.getByText('Chat with Claude')).toBeVisible();
   await expect(page.getByText('Can you make the scene moodier?')).toHaveCSS(
     'color',
-    await resolvedColor(page, 'var(--button-primary-text)'),
+    await resolvedColor(page, 'var(--color-text)'),
   );
+  await expect(page.getByText('Can you make the scene moodier?')).toHaveCSS('background-color', await resolvedBackground(page, 'var(--color-surface)'));
+  await expect(page.getByText('Can you make the scene moodier?')).toHaveCSS('border-top-color', await resolvedColor(page, 'var(--color-primary)'));
   await expect(page.locator('[class*="suggestedPrompt"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(page.getByText('Suggested Prompt', { exact: true })).toHaveCSS('text-transform', 'none');
   await expect(page.getByText('Suggested Prompt', { exact: true })).toHaveCSS('letter-spacing', 'normal');
