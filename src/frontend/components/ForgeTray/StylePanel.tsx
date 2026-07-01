@@ -56,6 +56,7 @@ export function StylePanel({
   const [collectionId, setCollectionId] = useState(styleReferenceCollections[0]?.id ?? '');
   const [makeDefault, setMakeDefault] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
 
   const sortedPresets = useMemo(
     () => [...stylePresets].sort((a, b) => Number(isDefaultPreset(b)) - Number(isDefaultPreset(a)) || a.name.localeCompare(b.name)),
@@ -181,6 +182,8 @@ export function StylePanel({
               {sortedPresets.map((preset) => {
                 const enabled = isEnabledPreset(preset);
                 const isDefault = isDefaultPreset(preset);
+                const isEditing = editingPresetId === preset.id;
+                const editRegionId = `style-preset-edit-${preset.id}`;
                 return (
                   <article key={preset.id} className={styles.presetCard}>
                     <div className={styles.presetMain}>
@@ -190,32 +193,41 @@ export function StylePanel({
                       </div>
                       {isDefault && <span className={styles.defaultBadge}>Default</span>}
                     </div>
-                    <TextArea
-                      defaultValue={preset.style_prompt}
-                      aria-label={`Style prompt for ${preset.name}`}
-                      rows={2}
-                      compact
-                      fullWidth
-                      onBlur={(event) => {
-                        if (event.target.value !== preset.style_prompt) {
-                          updateStylePreset?.(preset.id, { stylePrompt: event.target.value });
-                        }
-                      }}
-                      disabled={!updateStylePreset}
-                    />
-                    <TextInput
-                      defaultValue={preset.description ?? ''}
-                      aria-label={`Description for ${preset.name}`}
-                      placeholder="Description"
-                      fullWidth
-                      onBlur={(event) => {
-                        const next = event.target.value.trim() || null;
-                        if (next !== (preset.description ?? null)) {
-                          updateStylePreset?.(preset.id, { description: next });
-                        }
-                      }}
-                      disabled={!updateStylePreset}
-                    />
+                    {isEditing ? (
+                      <div id={editRegionId} className={styles.presetEditFields}>
+                        <TextArea
+                          defaultValue={preset.style_prompt}
+                          aria-label={`Style prompt for ${preset.name}`}
+                          rows={2}
+                          compact
+                          fullWidth
+                          onBlur={(event) => {
+                            if (event.target.value !== preset.style_prompt) {
+                              updateStylePreset?.(preset.id, { stylePrompt: event.target.value });
+                            }
+                          }}
+                          disabled={!updateStylePreset}
+                        />
+                        <TextInput
+                          defaultValue={preset.description ?? ''}
+                          aria-label={`Description for ${preset.name}`}
+                          placeholder="Description"
+                          fullWidth
+                          onBlur={(event) => {
+                            const next = event.target.value.trim() || null;
+                            if (next !== (preset.description ?? null)) {
+                              updateStylePreset?.(preset.id, { description: next });
+                            }
+                          }}
+                          disabled={!updateStylePreset}
+                        />
+                      </div>
+                    ) : (
+                      <div className={styles.presetSummary}>
+                        <p>{preset.style_prompt}</p>
+                        {preset.description && <span>{preset.description}</span>}
+                      </div>
+                    )}
                     <div className={styles.presetActions}>
                       <label className={styles.checkRow}>
                         <Checkbox
@@ -225,6 +237,17 @@ export function StylePanel({
                         />
                         <span>Enabled</span>
                       </label>
+                      <Button
+                        onClick={() => setEditingPresetId((current) => current === preset.id ? null : preset.id)}
+                        aria-expanded={isEditing}
+                        aria-controls={editRegionId}
+                        aria-label={`${isEditing ? 'Hide editor for' : 'Edit'} ${preset.name}`}
+                        disabled={!updateStylePreset}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        {isEditing ? 'Hide' : 'Edit'}
+                      </Button>
                       <Button
                         onClick={() => updateStylePreset?.(preset.id, { isDefault: true, enabled: true })}
                         disabled={isDefault || !enabled || !updateStylePreset}
