@@ -157,7 +157,7 @@ export function VariantDetailsPanel({
   onPlaceInComposition,
 }: VariantDetailsPanelProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [showRawMeta, setShowRawMeta] = useState(false);
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   // Fallback image dimensions when the variant has none stored (e.g. uploads).
   const [measuredDims, setMeasuredDims] = useState<{ width: number; height: number } | null>(null);
 
@@ -422,15 +422,6 @@ export function VariantDetailsPanel({
           </section>
         )}
 
-        {/* Key facts - operation · type · provider · model */}
-        {visibleKeyFacts.length > 0 && (
-          <div className={styles.facts}>
-            {visibleKeyFacts.map((fact) => (
-              <span key={fact} className={styles.chip}>{fact}</span>
-            ))}
-          </div>
-        )}
-
         {/* Creation history - full lineage chain, oldest → this variant */}
         {history.length > 0 && (
           <section className={styles.section}>
@@ -462,42 +453,53 @@ export function VariantDetailsPanel({
           </section>
         )}
 
-        {/* Raw metadata - full JSON behind a disclosure */}
-        {(provenanceJson || providerJson || recipeJson) && (
-          <div className={styles.raw}>
+        {/* Technical metadata stays available without making Details feel like a dump. */}
+        {(visibleKeyFacts.length > 0 || provenanceJson || providerJson || recipeJson) && (
+          <div className={styles.technical}>
             <Button
-              className={styles.rawToggle}
-              onClick={() => setShowRawMeta((prev) => !prev)}
-              aria-expanded={showRawMeta}
+              className={styles.technicalToggle}
+              onClick={() => setShowTechnicalDetails((prev) => !prev)}
+              aria-expanded={showTechnicalDetails}
               variant="ghost"
               size="sm"
             >
               <svg
-                className={`${styles.rawChevron} ${showRawMeta ? styles.rawChevronOpen : ''}`}
+                className={`${styles.technicalChevron} ${showTechnicalDetails ? styles.technicalChevronOpen : ''}`}
                 viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"
               >
                 <polyline points="9 18 15 12 9 6" />
               </svg>
-              Raw metadata
+              Technical details
             </Button>
-            {showRawMeta && (
-              <div className={styles.rawBody}>
-                {recipeJson && (
-                  <div className={styles.rawRow}>
-                    <span>Recipe</span>
-                    <pre>{recipeJson}</pre>
+            {showTechnicalDetails && (
+              <div className={styles.technicalBody}>
+                {visibleKeyFacts.length > 0 && (
+                  <div className={styles.facts} aria-label="Technical summary">
+                    {visibleKeyFacts.map((fact) => (
+                      <span key={fact} className={styles.chip}>{fact}</span>
+                    ))}
                   </div>
                 )}
-                {provenanceJson && (
-                  <div className={styles.rawRow}>
-                    <span>Provenance</span>
-                    <pre>{provenanceJson}</pre>
-                  </div>
-                )}
-                {providerJson && (
-                  <div className={styles.rawRow}>
-                    <span>Provider</span>
-                    <pre>{providerJson}</pre>
+                {(recipeJson || provenanceJson || providerJson) && (
+                  <div className={styles.rawBody}>
+                    {recipeJson && (
+                      <div className={styles.rawRow}>
+                        <span>Recipe</span>
+                        <pre>{recipeJson}</pre>
+                      </div>
+                    )}
+                    {provenanceJson && (
+                      <div className={styles.rawRow}>
+                        <span>Provenance</span>
+                        <pre>{provenanceJson}</pre>
+                      </div>
+                    )}
+                    {providerJson && (
+                      <div className={styles.rawRow}>
+                        <span>Provider</span>
+                        <pre>{providerJson}</pre>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
