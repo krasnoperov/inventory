@@ -255,13 +255,11 @@ test('forge tray exposes media type as the first options dropdown', async ({ pag
   await expect(page.getByTitle('Video media')).toHaveCount(0);
   await expect(page.locator('[class*="tray"]').first()).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="tray"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
-  await expect(page.locator('[class*="tray"]').first()).toHaveCSS(
-    'box-shadow',
-    await resolvedShadow(page, 'var(--forge-bar-shadow)'),
-  );
+  await expect(page.locator('[class*="tray"]').first()).toHaveCSS('box-shadow', 'none');
+  await expect(page.locator('[class*="tray"]').first()).toHaveCSS('border-radius', '0px');
   await expect(page.locator('[class*="tray"]').first()).toHaveCSS(
     'transition-property',
-    'border-color, box-shadow',
+    'border-color',
   );
 
   await revealOptions(page);
@@ -1274,6 +1272,8 @@ test('forge tray keeps mode and options on one compact row at narrow widths', as
   await expect(row).toBeVisible();
   await expect(page.getByLabel('Media type')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Generate ×2' })).toBeVisible();
+  await expect(page.locator('[class*="tray"]').first()).toHaveCSS('border-top-left-radius', '0px');
+  await expect(page.locator('[class*="tray"]').first()).toHaveCSS('border-top-right-radius', '0px');
 
   const geometry = await row.evaluate((node) => {
     const rowBox = node.getBoundingClientRect();
