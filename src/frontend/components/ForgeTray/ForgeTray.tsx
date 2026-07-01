@@ -1541,7 +1541,7 @@ export function ForgeTray({
                 onClick={handleSubmit}
                 disabled={!canSubmit || estimate?.allowed === false}
                 title={`${operationLabel} (Cmd+Enter)`}
-                variant="primary"
+                variant="secondary"
               >
                 {isSubmitting ? (
                   <span className={styles.spinner} />
