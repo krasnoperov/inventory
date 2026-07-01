@@ -229,8 +229,8 @@ test('forge tray renders a screenshot matrix for every media mode', async ({ pag
   for (const config of MEDIA_OPERATION_MATRIX) {
     await selectMode(page, config);
 
-    // Name is auto-generated per media group (Image N / Video N / Audio N).
-    await expect(page.getByLabel('Asset name')).toHaveValue(`${groupLabel(config.mode)} 1`);
+    // Empty/options-only tray keeps the generated name out of the control bar.
+    await expect(page.getByLabel('Asset name')).toHaveCount(0);
 
     const buttonLabel = config.mode === 'image' ? 'Generate' : `Generate ${config.shortLabel}`;
     await expect(page.getByRole('button', { name: buttonLabel })).toBeVisible();
@@ -271,6 +271,8 @@ test('forge tray exposes media type as the first options dropdown', async ({ pag
   await screenshot(page, 'forge-tray-mode-select', { fullPage: true });
 
   await selectDropdown(page, 'Media type', 'Video');
+  await expect(page.getByLabel('Asset name')).toHaveCount(0);
+  await page.getByLabel('Prompt').fill('A slow camera move through fog');
   await expect(page.getByLabel('Asset name')).toHaveValue('Video 1');
 });
 
@@ -337,7 +339,9 @@ test('forge tray auto-names by media group and stays editable', async ({ page })
   await expect(page.getByLabel('Asset name')).toHaveCount(0);
   await screenshot(page, 'forge-tray-collapsed-no-name-chip', { fullPage: true });
   await revealOptions(page);
+  await expect(page.getByLabel('Asset name')).toHaveCount(0);
 
+  await page.getByLabel('Prompt').fill('A compact chime');
   const name = page.getByLabel('Asset name');
   await expect(name).toHaveValue('Image 1');
   await expect(name).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
@@ -355,7 +359,6 @@ test('forge tray auto-names by media group and stays editable', async ({ page })
   await page.mouse.click(10, 10);
   await expect(name).toBeVisible();
 
-  await page.getByLabel('Prompt').fill('A compact chime');
   await page.getByRole('button', { name: 'Generate' }).click();
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
   expect(calls).toEqual([
