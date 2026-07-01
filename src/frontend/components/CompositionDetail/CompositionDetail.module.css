@@ -206,10 +206,10 @@
 .usageRow,
 .missingRow {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
+  grid-template-columns: var(--thumb-size-sm) minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.625rem;
-  min-height: 58px;
+  min-height: calc(var(--thumb-size-sm) + 1rem);
   padding: 0.5rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -218,6 +218,7 @@
 
 .missingRow {
   grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 58px;
   color: var(--color-text-muted);
   font-size: 0.8125rem;
 }
@@ -297,6 +298,15 @@
 
 .titleDeleteButton:hover:not(:disabled),
 .titleDeleteButton:focus-visible {
+  color: var(--color-error);
+}
+
+.rowRemoveButton {
+  color: var(--color-text-muted);
+}
+
+.rowRemoveButton:hover:not(:disabled),
+.rowRemoveButton:focus-visible {
   color: var(--color-error);
 }
 
@@ -495,7 +505,7 @@
   }
 
   .usageRow {
-    grid-template-columns: 40px minmax(0, 1fr);
+    grid-template-columns: var(--thumb-size-sm) minmax(0, 1fr);
   }
 
   .rowActions {

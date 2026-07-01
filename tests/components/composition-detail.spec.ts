@@ -181,23 +181,37 @@ test('composition detail adds, replaces, removes, and reorders slot items withou
     ],
   }));
 
+  const initialAnnaRow = page.getByText('Exact variant anna-v1').locator('xpath=ancestor::div[contains(@class, "usageRow")]').first();
+  await expect(initialAnnaRow.getByText('Open', { exact: true })).toHaveCount(0);
+  await expect(initialAnnaRow.getByText('Replace', { exact: true })).toHaveCount(0);
+  await expect(initialAnnaRow.getByText('Remove', { exact: true })).toHaveCount(0);
+  await expect(initialAnnaRow.getByRole('button', { name: 'Open Anna asset' })).toBeVisible();
+  await expect(initialAnnaRow.getByRole('button', { name: 'Replace Anna variant' })).toBeVisible();
+  await expect(initialAnnaRow.getByRole('button', { name: 'Remove Anna from composition' })).toBeVisible();
+  await initialAnnaRow.getByRole('button', { name: 'Open Anna asset' }).click();
+  await expect.poll(() => calls(page)).toContain('open-asset:["anna"]');
+  await screenshot(page, 'composition-detail-row-actions', { fullPage: true });
+  await page.setViewportSize({ width: 620, height: 720 });
+  await expect(initialAnnaRow).toHaveCSS('grid-template-columns', /75px /);
+  await screenshot(page, 'composition-detail-row-actions-mobile', { fullPage: true });
+
   const props = page.getByRole('heading', { name: 'Props' }).locator('xpath=ancestor::section[1]');
   await props.getByRole('button', { name: 'Add Props variant' }).click();
   await page.getByLabel('Search exact variants').fill('Anna');
-  await page.getByRole('button', { name: /Anna/ }).first().click();
+  await page.getByRole('dialog', { name: 'Choose exact variant' }).getByRole('button', { name: /Anna/ }).first().click();
   await expect.poll(() => calls(page)).toContainEqual(expect.stringContaining(
     'create-item:["composition-1",{"role":"prop","assetId":"anna","variantId":"anna-v1"',
   ));
 
   const annaRow = page.getByText('Exact variant anna-v1').locator('xpath=ancestor::div[contains(@class, "usageRow")]').first();
-  await annaRow.getByRole('button', { name: 'Replace' }).click();
+  await annaRow.getByRole('button', { name: 'Replace Anna variant' }).click();
   await page.getByLabel('Search exact variants').fill('Pilar');
-  await page.getByRole('button', { name: /Pilar/ }).click();
+  await page.getByRole('dialog', { name: 'Choose exact variant' }).getByRole('button', { name: /Pilar/ }).click();
   await expect.poll(() => calls(page)).toContainEqual(expect.stringContaining(
     'update-item:["composition-1","item-1",{"assetId":"pilar","variantId":"pilar-v1"}]',
   ));
 
-  await annaRow.getByRole('button', { name: 'Remove' }).click();
+  await annaRow.getByRole('button', { name: 'Remove Anna from composition' }).click();
   await expect.poll(() => calls(page)).toContainEqual(expect.stringContaining(
     'delete-item:["composition-1","item-1"]',
   ));
