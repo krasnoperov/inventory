@@ -279,6 +279,7 @@ export function AssetCollectionsPanel({
   const [managementOpen, setManagementOpen] = useState(false);
   const [assetPlacementOpen, setAssetPlacementOpen] = useState(false);
   const [variantPlacementOpen, setVariantPlacementOpen] = useState(false);
+  const [editingCollectionItemId, setEditingCollectionItemId] = useState<string | null>(null);
   const assetCollectionMemberships = collectionItems.filter((item) => item.subject_type === 'asset');
   const selectedVariantCollectionMemberships = selectedVariant
     ? collectionItems.filter((item) => item.subject_type === 'variant' && item.variant_id === selectedVariant.id)
@@ -307,6 +308,12 @@ export function AssetCollectionsPanel({
     if (variantIndex === -1) return 'Pinned variant';
     return getVariantOptionLabel(variants[variantIndex], variantIndex);
   }, [variants]);
+
+  useEffect(() => {
+    if (editingCollectionItemId && !collectionItems.some((item) => item.id === editingCollectionItemId)) {
+      setEditingCollectionItemId(null);
+    }
+  }, [collectionItems, editingCollectionItemId]);
 
   if (collections.length === 0) return null;
   if (hideWhenEmpty && totalMembershipCount === 0 && !showManagement) return null;
@@ -388,37 +395,67 @@ export function AssetCollectionsPanel({
       {assetCollectionMemberships.map((item) => {
         const collection = collections.find((entry) => entry.id === item.collection_id);
         const collectionName = collection?.name ?? 'collection';
+        const pinnedVariant = getPinnedVariantLabel(item.pinned_variant_id);
+        const isEditing = editingCollectionItemId === item.id;
         return (
-          <div key={item.id} className={styles.collectionMembershipRow}>
-            <span className={styles.collectionMembershipName}>{collection?.name ?? 'Collection'}</span>
-            <TextInput
-              value={item.role}
-              aria-label={`Role in ${collectionName}`}
-              onChange={(event) => onUpdateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
-              fullWidth
-            />
-            <UiSelect
-              value={item.pinned_variant_id ?? ''}
-              options={variantOptions}
-              onValueChange={(nextValue) => onUpdateCollectionItem(item.collection_id, item.id, { pinnedVariantId: nextValue || null })}
-              label={`Pinned variant in ${collectionName}`}
-              fullWidth
-            />
-            <IconButton
-              size="sm"
-              variant="ghost"
-              className={styles.collectionRemoveAction}
-              aria-label={`Remove ${collectionName} from asset collections`}
-              title={`Remove ${collectionName}`}
-              onClick={() => onDeleteCollectionItem(item.collection_id, item.id)}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
-                <path d="M4 7h16" />
-                <path d="M10 11v6M14 11v6" />
-                <path d="M6 7l1 13h10l1-13" />
-                <path d="M9 7V4h6v3" />
-              </svg>
-            </IconButton>
+          <div key={item.id} className={`${styles.collectionMembershipRow} ${isEditing ? styles.collectionMembershipRowEditing : ''}`}>
+            <div className={styles.collectionMembershipSummary}>
+              <span className={styles.collectionMembershipName}>{collection?.name ?? 'Collection'}</span>
+              <span className={styles.collectionSummaryMeta}>Asset</span>
+              {item.role && <span className={styles.collectionSummaryMeta}>{item.role}</span>}
+              {pinnedVariant && <span className={styles.collectionSummaryMeta}>{pinnedVariant}</span>}
+            </div>
+            <div className={styles.collectionMembershipActions}>
+              <IconButton
+                size="sm"
+                variant={isEditing ? 'secondary' : 'ghost'}
+                className={styles.collectionPanelAction}
+                aria-label={`${isEditing ? 'Done editing' : 'Edit'} ${collectionName} asset collection`}
+                title={`${isEditing ? 'Done editing' : 'Edit'} ${collectionName}`}
+                onClick={() => setEditingCollectionItemId(isEditing ? null : item.id)}
+              >
+                {isEditing ? (
+                  <CheckIcon />
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                )}
+              </IconButton>
+              <IconButton
+                size="sm"
+                variant="ghost"
+                className={styles.collectionRemoveAction}
+                aria-label={`Remove ${collectionName} from asset collections`}
+                title={`Remove ${collectionName}`}
+                onClick={() => onDeleteCollectionItem(item.collection_id, item.id)}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
+                  <path d="M4 7h16" />
+                  <path d="M10 11v6M14 11v6" />
+                  <path d="M6 7l1 13h10l1-13" />
+                  <path d="M9 7V4h6v3" />
+                </svg>
+              </IconButton>
+            </div>
+            {isEditing && (
+              <div className={styles.collectionMembershipControls}>
+                <TextInput
+                  value={item.role}
+                  aria-label={`Role in ${collectionName}`}
+                  onChange={(event) => onUpdateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
+                  fullWidth
+                />
+                <UiSelect
+                  value={item.pinned_variant_id ?? ''}
+                  options={variantOptions}
+                  onValueChange={(nextValue) => onUpdateCollectionItem(item.collection_id, item.id, { pinnedVariantId: nextValue || null })}
+                  label={`Pinned variant in ${collectionName}`}
+                  fullWidth
+                />
+              </div>
+            )}
           </div>
         );
       })}
@@ -484,30 +521,58 @@ export function AssetCollectionsPanel({
           {selectedVariantCollectionMemberships.map((item) => {
             const collection = collections.find((entry) => entry.id === item.collection_id);
             const collectionName = collection?.name ?? 'collection';
+            const isEditing = editingCollectionItemId === item.id;
             return (
-              <div key={item.id} className={`${styles.collectionMembershipRow} ${styles.variantCollectionMembershipRow}`}>
-                <span className={styles.collectionMembershipName}>{collection?.name ?? 'Collection'}</span>
-                <TextInput
-                  value={item.role}
-                  aria-label={`Variant role in ${collectionName}`}
-                  onChange={(event) => onUpdateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
-                  fullWidth
-                />
-                <IconButton
-                  size="sm"
-                  variant="ghost"
-                  className={`${styles.collectionRemoveAction} ${styles.variantCollectionRemoveButton}`}
-                  aria-label={`Remove ${collectionName} from variant collections`}
-                  title={`Remove ${collectionName}`}
-                  onClick={() => onDeleteCollectionItem(item.collection_id, item.id)}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
-                    <path d="M4 7h16" />
-                    <path d="M10 11v6M14 11v6" />
-                    <path d="M6 7l1 13h10l1-13" />
-                    <path d="M9 7V4h6v3" />
-                  </svg>
-                </IconButton>
+              <div key={item.id} className={`${styles.collectionMembershipRow} ${isEditing ? styles.collectionMembershipRowEditing : ''}`}>
+                <div className={styles.collectionMembershipSummary}>
+                  <span className={styles.collectionMembershipName}>{collection?.name ?? 'Collection'}</span>
+                  <span className={styles.collectionSummaryMeta}>Variant</span>
+                  {item.role && <span className={styles.collectionSummaryMeta}>{item.role}</span>}
+                </div>
+                <div className={styles.collectionMembershipActions}>
+                  <IconButton
+                    size="sm"
+                    variant={isEditing ? 'secondary' : 'ghost'}
+                    className={styles.collectionPanelAction}
+                    aria-label={`${isEditing ? 'Done editing' : 'Edit'} ${collectionName} variant collection`}
+                    title={`${isEditing ? 'Done editing' : 'Edit'} ${collectionName}`}
+                    onClick={() => setEditingCollectionItemId(isEditing ? null : item.id)}
+                  >
+                    {isEditing ? (
+                      <CheckIcon />
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    )}
+                  </IconButton>
+                  <IconButton
+                    size="sm"
+                    variant="ghost"
+                    className={styles.collectionRemoveAction}
+                    aria-label={`Remove ${collectionName} from variant collections`}
+                    title={`Remove ${collectionName}`}
+                    onClick={() => onDeleteCollectionItem(item.collection_id, item.id)}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
+                      <path d="M4 7h16" />
+                      <path d="M10 11v6M14 11v6" />
+                      <path d="M6 7l1 13h10l1-13" />
+                      <path d="M9 7V4h6v3" />
+                    </svg>
+                  </IconButton>
+                </div>
+                {isEditing && (
+                  <div className={styles.collectionMembershipControls}>
+                    <TextInput
+                      value={item.role}
+                      aria-label={`Variant role in ${collectionName}`}
+                      onChange={(event) => onUpdateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
+                      fullWidth
+                    />
+                  </div>
+                )}
               </div>
             );
           })}
