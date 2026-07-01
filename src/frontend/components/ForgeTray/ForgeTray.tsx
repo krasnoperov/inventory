@@ -403,6 +403,7 @@ export function ForgeTray({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const estimateRequestIdRef = useRef<string | null>(null);
+  const ignoreNextTrayFocusRef = useRef(false);
 
   const handleVideoTierSelect = useCallback((tier: VideoGenerationTier) => {
     setVideoTier(tier);
@@ -897,8 +898,6 @@ export function ForgeTray({
   }, [handleSubmit]);
 
   useEffect(() => {
-    if (!trayFocused) return;
-
     const handleOutsidePress = (event: Event) => {
       const target = event.target instanceof Element ? event.target : null;
       if (!target) {
@@ -918,7 +917,7 @@ export function ForgeTray({
       document.removeEventListener('mousedown', handleOutsidePress, true);
       document.removeEventListener('click', handleOutsidePress, true);
     };
-  }, [trayFocused]);
+  }, []);
 
   // Toggle chat panel
   const handleToggleChat = useCallback(() => {
@@ -1098,11 +1097,14 @@ export function ForgeTray({
   ], [canUseExistingDestination]);
 
   const handleDestinationSelect = useCallback((value: DestinationType) => {
+    ignoreNextTrayFocusRef.current = true;
     if (value === 'existing_asset' && !canUseExistingDestination) {
       setDestinationType('new_asset');
+      setTrayFocused(false);
       return;
     }
     setDestinationType(value);
+    setTrayFocused(false);
   }, [canUseExistingDestination]);
 
   const styleSelectOptions = useMemo<Array<SelectOption<string>>>(() => {
@@ -1168,7 +1170,13 @@ export function ForgeTray({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onFocus={() => setTrayFocused(true)}
+        onFocus={() => {
+          if (ignoreNextTrayFocusRef.current) {
+            ignoreNextTrayFocusRef.current = false;
+            return;
+          }
+          setTrayFocused(true);
+        }}
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
             setTrayFocused(false);

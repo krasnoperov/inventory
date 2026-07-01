@@ -504,6 +504,16 @@
   gap: 0.35rem;
 }
 
+.collectionRemoveAction {
+  --ui-button-height: 2rem;
+  color: var(--color-text-muted);
+}
+
+.collectionRemoveAction:hover:not(:disabled),
+.collectionRemoveAction:focus-visible {
+  color: var(--color-error);
+}
+
 .variantCollectionRemoveButton {
   grid-column: auto;
 }
