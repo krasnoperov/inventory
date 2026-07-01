@@ -158,53 +158,57 @@ export function CollectionPlacementPicker({
 
             return (
               <div key={placement.collectionId} className={styles.placementRow}>
-                <span className={styles.collectionName}>{collection.name}</span>
-                <UiSelect
-                  className={styles.select}
-                  value={selectedRole}
-                  options={ROLE_OPTIONS}
-                  disabled={disabled}
-                  label={`Role for ${collection.name}`}
-                  onValueChange={(role) => {
-                    setPlacement(collection.id, { role: role === 'custom' ? 'custom' : role });
-                  }}
-                />
-                {selectedRole === 'custom' && (
-                  <TextInput
-                    className={styles.input}
-                    value={placement.role && placement.role !== 'custom' ? placement.role : ''}
-                    placeholder="Custom role"
-                    disabled={disabled}
-                    aria-label={`Custom role for ${collection.name}`}
-                    onChange={(event) => setPlacement(collection.id, { role: event.target.value || 'custom' })}
-                    fullWidth
-                  />
-                )}
-                {allowSubjectChoice && (
-                  <UiSelect
-                    className={styles.select}
-                    value={subjectType}
-                    options={SUBJECT_TYPE_OPTIONS}
-                    disabled={disabled}
-                    label={`Collection subject for ${collection.name}`}
-                    onValueChange={(nextSubjectType) => {
-                      setPlacement(collection.id, {
-                        subjectType: nextSubjectType,
-                        pinToCreatedVariant: showPinToCreatedVariant && nextSubjectType === 'asset',
-                      });
-                    }}
-                  />
-                )}
-                {showPinToCreatedVariant && subjectType === 'asset' && (
-                  <label className={styles.pinToggle}>
-                    <Checkbox
-                      checked={placement.pinToCreatedVariant !== false}
+                <div className={styles.placementMain}>
+                  <span className={styles.collectionName}>{collection.name}</span>
+                  <div className={styles.placementControls}>
+                    <UiSelect
+                      className={styles.select}
+                      value={selectedRole}
+                      options={ROLE_OPTIONS}
                       disabled={disabled}
-                      onChange={(event) => setPlacement(collection.id, { pinToCreatedVariant: event.target.checked })}
+                      label={`Role for ${collection.name}`}
+                      onValueChange={(role) => {
+                        setPlacement(collection.id, { role: role === 'custom' ? 'custom' : role });
+                      }}
                     />
-                    <span>Pin variant</span>
-                  </label>
-                )}
+                    {selectedRole === 'custom' && (
+                      <TextInput
+                        className={styles.input}
+                        value={placement.role && placement.role !== 'custom' ? placement.role : ''}
+                        placeholder="Custom role"
+                        disabled={disabled}
+                        aria-label={`Custom role for ${collection.name}`}
+                        onChange={(event) => setPlacement(collection.id, { role: event.target.value || 'custom' })}
+                        fullWidth
+                      />
+                    )}
+                    {allowSubjectChoice && (
+                      <UiSelect
+                        className={`${styles.select} ${styles.subjectSelect}`}
+                        value={subjectType}
+                        options={SUBJECT_TYPE_OPTIONS}
+                        disabled={disabled}
+                        label={`Collection subject for ${collection.name}`}
+                        onValueChange={(nextSubjectType) => {
+                          setPlacement(collection.id, {
+                            subjectType: nextSubjectType,
+                            pinToCreatedVariant: showPinToCreatedVariant && nextSubjectType === 'asset',
+                          });
+                        }}
+                      />
+                    )}
+                    {showPinToCreatedVariant && subjectType === 'asset' && (
+                      <label className={styles.pinToggle}>
+                        <Checkbox
+                          checked={placement.pinToCreatedVariant !== false}
+                          disabled={disabled}
+                          onChange={(event) => setPlacement(collection.id, { pinToCreatedVariant: event.target.checked })}
+                        />
+                        <span>Pin variant</span>
+                      </label>
+                    )}
+                  </div>
+                </div>
                 <IconButton
                   className={styles.removeButton}
                   variant="ghost"

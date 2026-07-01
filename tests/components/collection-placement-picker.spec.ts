@@ -73,12 +73,23 @@ test('collection placement picker updates role subject and pinning', async ({ pa
   });
   await selectDropdown(page, 'Add collection', 'Style refs');
   await page.mouse.move(0, 0);
-  const rowWidth = await page.getByLabel('Remove Cast placement draft').evaluate((button) => {
+  const rowMetrics = await page.getByLabel('Remove Cast placement draft').evaluate((button) => {
     const row = button.closest('div');
-    return row?.getBoundingClientRect().width ?? 0;
+    if (!row) return null;
+    const styles = window.getComputedStyle(row);
+    const rect = row.getBoundingClientRect();
+    return {
+      display: styles.display,
+      borderStyle: styles.borderTopStyle,
+      width: rect.width,
+    };
   });
-  expect(rowWidth).toBeLessThanOrEqual(370);
-  await screenshot(page, 'collection-placement-picker', { fullPage: true });
+  expect(rowMetrics).toMatchObject({
+    display: 'grid',
+    borderStyle: 'solid',
+  });
+  expect(rowMetrics?.width).toBeLessThanOrEqual(480);
+  await screenshot(page, 'collection-placement-picker');
   await page.getByLabel('Remove Cast placement draft').click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -123,4 +134,32 @@ test('collection placement picker updates role subject and pinning', async ({ pa
     eventName: 'change',
     args: [[]],
   });
+});
+
+test('collection placement picker stacks cleanly on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 420 });
+  await mountComponent(page, 'CollectionPlacementPicker', {
+    collections,
+    value: [{
+      collectionId: 'cast',
+      role: 'character',
+      subjectType: 'asset',
+      pinToCreatedVariant: true,
+    }],
+    onChange: '__record__:change',
+    allowSubjectChoice: true,
+    showPinToCreatedVariant: true,
+  });
+
+  await expect(page.getByText('Cast', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Role for Cast')).toBeVisible();
+  await expect(page.getByLabel('Collection subject for Cast')).toBeVisible();
+  await expect(page.getByText('Pin variant')).toBeVisible();
+
+  const metrics = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
+  await screenshot(page, 'collection-placement-picker-mobile');
 });
