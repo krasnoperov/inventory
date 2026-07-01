@@ -106,13 +106,13 @@ export function StylePanel({
         </div>
 
         <div className={styles.body}>
-          <section className={`${styles.section} ${styles.createSection}`}>
-            <div className={styles.sectionHeader}>
-              <div className={styles.sectionTitleStack}>
-                <h3>Create preset</h3>
-                <span>{styleReferenceCollections.length} collections</span>
-              </div>
-              {canCreatePreset && (
+          {canCreatePreset && (
+            <section className={`${styles.section} ${styles.createSection}`}>
+              <div className={styles.sectionHeader}>
+                <div className={styles.sectionTitleStack}>
+                  <h3>Create preset</h3>
+                  <span>{styleReferenceCollections.length} collections</span>
+                </div>
                 <Button
                   className={styles.createToggle}
                   onClick={() => setCreateOpen((open) => !open)}
@@ -123,59 +123,58 @@ export function StylePanel({
                 >
                   {createOpen ? 'Hide' : 'New preset'}
                 </Button>
-              )}
-            </div>
-            {createOpen && canCreatePreset && (
-              <div id="style-preset-create-form" className={styles.formGrid}>
-                <TextInput
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Preset name"
-                  aria-label="Preset name"
-                  fullWidth
-                />
-                <UiSelect
-                  value={selectedCollectionId}
-                  options={collectionOptions}
-                  onValueChange={setCollectionId}
-                  label="Style collection"
-                  disabled={styleReferenceCollections.length === 0}
-                  fullWidth
-                />
-                <TextArea
-                  value={stylePrompt}
-                  onChange={(event) => setStylePrompt(event.target.value)}
-                  placeholder="Style prompt"
-                  aria-label="Style prompt"
-                  rows={3}
-                  fullWidth
-                />
-                <TextInput
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  placeholder="Description"
-                  aria-label="Style description"
-                  fullWidth
-                />
-                <label className={styles.checkRow}>
-                  <Checkbox
-                    checked={makeDefault}
-                    onChange={(event) => setMakeDefault(event.target.checked)}
-                  />
-                  <span>Set as space default</span>
-                </label>
-                <Button
-                  className={styles.createAction}
-                  onClick={handleCreatePreset}
-                  disabled={!name.trim() || !selectedCollectionId || !createStylePreset}
-                  variant="secondary"
-                  size="sm"
-                >
-                  Create preset
-                </Button>
               </div>
-            )}
-          </section>
+              {createOpen && (
+                <div id="style-preset-create-form" className={styles.formGrid}>
+                  <TextInput
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Preset name"
+                    aria-label="Preset name"
+                    fullWidth
+                  />
+                  <UiSelect
+                    value={selectedCollectionId}
+                    options={collectionOptions}
+                    onValueChange={setCollectionId}
+                    label="Style collection"
+                    fullWidth
+                  />
+                  <TextArea
+                    value={stylePrompt}
+                    onChange={(event) => setStylePrompt(event.target.value)}
+                    placeholder="Style prompt"
+                    aria-label="Style prompt"
+                    rows={3}
+                    fullWidth
+                  />
+                  <TextInput
+                    value={description}
+                    onChange={(event) => setDescription(event.target.value)}
+                    placeholder="Description"
+                    aria-label="Style description"
+                    fullWidth
+                  />
+                  <label className={styles.checkRow}>
+                    <Checkbox
+                      checked={makeDefault}
+                      onChange={(event) => setMakeDefault(event.target.checked)}
+                    />
+                    <span>Set as space default</span>
+                  </label>
+                  <Button
+                    className={styles.createAction}
+                    onClick={handleCreatePreset}
+                    disabled={!name.trim() || !selectedCollectionId || !createStylePreset}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    Create preset
+                  </Button>
+                </div>
+              )}
+            </section>
+          )}
 
           <section className={styles.section}>
             <div className={styles.sectionHeader}>
@@ -233,45 +232,46 @@ export function StylePanel({
                       </div>
                     )}
                     <div className={styles.presetActions}>
-                      {!isDefault && (
+                      {!isDefault && updateStylePreset && (
                         <label className={styles.checkRow}>
                           <Checkbox
                             checked={enabled}
-                            disabled={!updateStylePreset}
                             onChange={(event) => updateStylePreset?.(preset.id, { enabled: event.target.checked })}
                           />
                           <span>Enabled</span>
                         </label>
                       )}
-                      <Button
-                        onClick={() => setEditingPresetId((current) => current === preset.id ? null : preset.id)}
-                        aria-expanded={isEditing}
-                        aria-controls={editRegionId}
-                        aria-label={`${isEditing ? 'Hide editor for' : 'Edit'} ${preset.name}`}
-                        disabled={!updateStylePreset}
-                        variant="secondary"
-                        size="sm"
-                      >
-                        {isEditing ? 'Hide' : 'Edit'}
-                      </Button>
-                      {!isDefault && (
+                      {updateStylePreset && (
+                        <Button
+                          onClick={() => setEditingPresetId((current) => current === preset.id ? null : preset.id)}
+                          aria-expanded={isEditing}
+                          aria-controls={editRegionId}
+                          aria-label={`${isEditing ? 'Hide editor for' : 'Edit'} ${preset.name}`}
+                          variant="secondary"
+                          size="sm"
+                        >
+                          {isEditing ? 'Hide' : 'Edit'}
+                        </Button>
+                      )}
+                      {!isDefault && updateStylePreset && (
                         <Button
                           onClick={() => updateStylePreset?.(preset.id, { isDefault: true, enabled: true })}
-                          disabled={!enabled || !updateStylePreset}
+                          disabled={!enabled}
                           variant="secondary"
                           size="sm"
                         >
                           Set default
                         </Button>
                       )}
-                      <Button
-                        onClick={() => deleteStylePreset?.(preset.id)}
-                        disabled={!deleteStylePreset}
-                        variant="danger"
-                        size="sm"
-                      >
-                        Delete
-                      </Button>
+                      {deleteStylePreset && (
+                        <Button
+                          onClick={() => deleteStylePreset?.(preset.id)}
+                          variant="danger"
+                          size="sm"
+                        >
+                          Delete
+                        </Button>
+                      )}
                     </div>
                   </article>
                 );
