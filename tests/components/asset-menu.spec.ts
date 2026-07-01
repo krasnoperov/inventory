@@ -46,7 +46,7 @@ test('asset context menu actions use shared button styling', async ({ page }) =>
   await expect(deleteAction).toHaveCSS('transform', 'none');
   await expect(deleteAction).toHaveCSS(
     'background-color',
-    await resolvedBackground(page, 'var(--color-error)'),
+    await resolvedBackground(page, 'var(--color-danger-bg)'),
   );
   await screenshot(page, 'asset-menu-shared-buttons', { fullPage: true });
 
