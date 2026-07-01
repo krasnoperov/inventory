@@ -6,6 +6,7 @@ import { HeaderNav } from '../components/HeaderNav';
 import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { DOCS, getDefaultDoc, getDocBySlug } from '../content/docs-manifest';
+import { ButtonLink } from '../ui';
 import styles from './DocsPage.module.css';
 
 type DocsPageProps = {
@@ -25,7 +26,7 @@ export default function DocsPage({ slug }: DocsPageProps) {
           user ? (
             <HeaderNav userName={user.name} userEmail={user.email} />
           ) : (
-            <Link to="/login" className={styles.authButton}>Sign In</Link>
+            <ButtonLink to="/login" variant="primary">Sign In</ButtonLink>
           )
         }
       />

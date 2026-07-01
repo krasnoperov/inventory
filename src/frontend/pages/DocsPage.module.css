@@ -17,22 +17,6 @@
   color: var(--color-primary);
 }
 
-.authButton {
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-md);
-  background: var(--button-primary-bg);
-  color: var(--button-primary-text);
-  text-decoration: none;
-  font-weight: 600;
-  box-shadow: none;
-  transition: background-color 0.2s ease;
-}
-
-.authButton:hover {
-  background: var(--button-primary-bg-hover);
-  transform: none;
-}
-
 .main {
   width: min(1180px, calc(100% - 2rem));
   margin: 0 auto;
