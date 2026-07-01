@@ -271,6 +271,19 @@ test('relations panel shows incoming reverse links and clears relations separate
   await expect(page.getByText('Map for')).toBeVisible();
   await expect(page.getByText(/->/)).toHaveCount(0);
   await expect(page.getByText('derived')).toHaveCount(0);
+  const panelChrome = await page.getByRole('region', { name: 'Manual relations' }).evaluate((node) => {
+    const styles = getComputedStyle(node);
+    return {
+      backgroundColor: styles.backgroundColor,
+      borderTopWidth: styles.borderTopWidth,
+      width: node.getBoundingClientRect().width,
+    };
+  });
+  expect(panelChrome).toEqual({
+    backgroundColor: 'rgba(0, 0, 0, 0)',
+    borderTopWidth: '0px',
+    width: 520,
+  });
   await expect(page.getByRole('button', { name: 'Edit relation' })).toHaveCount(2);
   await expect(page.getByRole('button', { name: 'Clear relation' })).toHaveCount(2);
   await page.mouse.move(0, 0);
