@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { columnCountForLayout, MAX_COLUMNS } from './canvasLayout';
+import { columnCountForLayout, estimateFrameHeight, MAX_COLUMNS } from './canvasLayout';
 
 describe('columnCountForLayout', () => {
   test('a single frame is always one column', () => {
@@ -25,5 +25,15 @@ describe('columnCountForLayout', () => {
 
   test('caps at MAX_COLUMNS for huge spaces', () => {
     assert.equal(columnCountForLayout(200000, 3, 500), MAX_COLUMNS);
+  });
+});
+
+describe('estimateFrameHeight', () => {
+  test('empty frames reserve only header height', () => {
+    const empty = estimateFrameHeight(0);
+    const oneCard = estimateFrameHeight(1);
+
+    assert.ok(empty > 0);
+    assert.ok(empty < oneCard, `expected empty(${empty}) < oneCard(${oneCard})`);
   });
 });

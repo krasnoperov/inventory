@@ -196,9 +196,7 @@ function FrameNodeView({ data }: NodeProps<FrameNode>) {
             ))}
           </div>
         </div>
-      ) : (
-        <div className={styles.frameEmpty}>No items</div>
-      )}
+      ) : null}
     </div>
   );
 }
