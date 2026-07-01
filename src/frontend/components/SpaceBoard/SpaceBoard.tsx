@@ -247,41 +247,6 @@ export function SpaceBoard({
     });
   };
 
-  const markAssetAsStyleReference = (assetId: string) => {
-    let collection = orderedCollections.find((candidate) => candidate.kind === 'style_refs');
-    let collectionId = collection?.id;
-    if (!collectionId) {
-      collectionId = crypto.randomUUID();
-      createCollection({
-        id: collectionId,
-        name: 'Style References',
-        kind: 'style_refs',
-        color: COLLECTION_KIND_COLORS.style_refs,
-        sortIndex: orderedCollections.length,
-      });
-      collection = {
-        id: collectionId,
-        name: 'Style References',
-        kind: 'style_refs',
-        color: COLLECTION_KIND_COLORS.style_refs,
-        description: null,
-        sort_index: orderedCollections.length,
-        created_at: Date.now(),
-        updated_at: Date.now(),
-      };
-    }
-    const items = collection ? getCollectionItems(collection.id, collectionItems) : [];
-    const asset = assets.find((candidate) => candidate.id === assetId);
-    addCollectionItem({
-      collectionId,
-      subjectType: 'asset',
-      assetId,
-      role: 'style_ref',
-      pinnedVariantId: getPinnedVariantIdForAssetCollection(collection, asset),
-      sortIndex: items.length,
-    });
-  };
-
   const renderAssetCard = (
     asset: Asset,
     item: CollectionItem | null,
@@ -450,9 +415,6 @@ export function SpaceBoard({
                   onClick={() => targetCollectionId && addAssetToCollection(targetCollectionId, asset.id, getCollectionRole(targetCollectionId, item?.role ?? 'custom'))}
                 >
                   Add asset
-                </Button>
-                <Button className={styles.menuButton} onClick={() => markAssetAsStyleReference(asset.id)}>
-                  Mark style ref
                 </Button>
               </>
             )}
