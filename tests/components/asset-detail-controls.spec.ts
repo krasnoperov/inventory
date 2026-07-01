@@ -180,7 +180,7 @@ test('asset detail controls use shared selects and collection buttons', async ({
   await selectDropdown(page, 'Asset type', 'Environment');
   await selectDropdown(page, 'Pinned variant in Cast', 'Variant 2 star');
   await page.getByLabel('Role in Cast').fill('lead');
-  await page.getByRole('button', { name: 'Remove' }).first().click();
+  await page.getByRole('button', { name: 'Remove Cast from asset collections' }).click();
   await page.getByRole('button', { name: 'Add asset placement' }).click();
   await page.getByRole('button', { name: 'Add variant placement' }).click();
 
@@ -226,7 +226,8 @@ test('asset collection membership is compact until management is requested', asy
   await expect(page.getByRole('button', { name: 'Manage collections' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Manage collections' })).not.toContainText('Manage');
   await expect(page.getByLabel('Role in Cast')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(0);
+  await expect(page.getByText('Remove', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Remove Cast from asset collections' })).toHaveCount(0);
   await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Add selected variant to collections', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add asset to collection' })).toHaveCount(0);
@@ -236,7 +237,9 @@ test('asset collection membership is compact until management is requested', asy
 
   await page.getByRole('button', { name: 'Manage collections' }).click();
   await expect(page.getByLabel('Role in Cast')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Remove' }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove Cast from asset collections' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove Style refs from selected variant collections' })).toBeVisible();
+  await expect(page.getByText('Remove', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add asset to collection' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add variant to collection' })).toBeVisible();
   await page.getByRole('button', { name: 'Add asset to collection' }).click();

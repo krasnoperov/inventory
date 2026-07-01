@@ -343,13 +343,21 @@ export function AssetCollectionsPanel({
               label={`Pinned variant in ${collectionName}`}
               fullWidth
             />
-            <Button
+            <IconButton
               size="sm"
-              variant="danger"
+              variant="ghost"
+              className={styles.collectionRemoveAction}
+              aria-label={`Remove ${collectionName} from asset collections`}
+              title={`Remove ${collectionName}`}
               onClick={() => onDeleteCollectionItem(item.collection_id, item.id)}
             >
-              Remove
-            </Button>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
+                <path d="M4 7h16" />
+                <path d="M10 11v6M14 11v6" />
+                <path d="M6 7l1 13h10l1-13" />
+                <path d="M9 7V4h6v3" />
+              </svg>
+            </IconButton>
           </div>
         );
       })}
@@ -420,14 +428,21 @@ export function AssetCollectionsPanel({
                   onChange={(event) => onUpdateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
                   fullWidth
                 />
-                <Button
+                <IconButton
                   size="sm"
-                  variant="danger"
-                  className={styles.variantCollectionRemoveButton}
+                  variant="ghost"
+                  className={`${styles.collectionRemoveAction} ${styles.variantCollectionRemoveButton}`}
+                  aria-label={`Remove ${collectionName} from selected variant collections`}
+                  title={`Remove ${collectionName}`}
                   onClick={() => onDeleteCollectionItem(item.collection_id, item.id)}
                 >
-                  Remove
-                </Button>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
+                    <path d="M4 7h16" />
+                    <path d="M10 11v6M14 11v6" />
+                    <path d="M6 7l1 13h10l1-13" />
+                    <path d="M9 7V4h6v3" />
+                  </svg>
+                </IconButton>
               </div>
             );
           })}
