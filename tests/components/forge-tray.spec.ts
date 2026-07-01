@@ -745,21 +745,31 @@ test('forge tray control bar keeps compact icon actions interactive', async ({ p
     buffer: Buffer.from('fake image'),
   });
   await expect(page.getByText('Create New Asset')).toBeVisible();
-  await expect(page.getByRole('dialog', { name: 'Create New Asset' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Create New Asset' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Create New Asset' })).toBeVisible();
   await expect(page.getByText('Name the asset before upload.')).toBeVisible();
-  await expect(page.locator('[class*="uploadPromptOverlay"]')).toHaveCSS('backdrop-filter', 'none');
-  await expect(page.locator('[class*="uploadPromptOverlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(page.locator('[class*="uploadPromptModal"]')).toHaveCSS('box-shadow', 'none');
-  await expect(page.locator('[class*="uploadPromptModal"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
-  await expect(page.locator('[class*="uploadPromptModal"]')).toHaveCSS('border-radius', '8px');
-  const uploadPromptDockGap = await page.evaluate(() => {
-    const prompt = document.querySelector('[class*="uploadPromptModal"]');
+  await expect(page.locator('[class*="uploadPromptOverlay"]')).toHaveCount(0);
+  const uploadPromptPanel = page.locator('[class*="uploadPromptPanel"]');
+  await expect(uploadPromptPanel).toHaveCSS('position', 'static');
+  await expect(uploadPromptPanel).toHaveCSS('box-shadow', 'none');
+  await expect(uploadPromptPanel).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(uploadPromptPanel).toHaveCSS('border-radius', '8px');
+  const uploadPromptGeometry = await page.evaluate(() => {
+    const prompt = document.querySelector('[class*="uploadPromptPanel"]');
     const tray = document.querySelector('[class*="tray"]');
-    if (!prompt || !tray) return null;
-    return tray.getBoundingClientRect().top - prompt.getBoundingClientRect().bottom;
+    const controlBar = document.querySelector('[class*="controlBar"]');
+    if (!prompt || !tray || !controlBar) return null;
+    const promptBox = prompt.getBoundingClientRect();
+    const trayBox = tray.getBoundingClientRect();
+    const controlBox = controlBar.getBoundingClientRect();
+    return {
+      insideTray: promptBox.left >= trayBox.left && promptBox.right <= trayBox.right && promptBox.bottom <= trayBox.bottom,
+      belowControls: promptBox.top >= controlBox.bottom,
+    };
   });
-  expect(uploadPromptDockGap).not.toBeNull();
-  expect(uploadPromptDockGap!).toBeGreaterThanOrEqual(8);
+  expect(uploadPromptGeometry).not.toBeNull();
+  expect(uploadPromptGeometry!.insideTray).toBe(true);
+  expect(uploadPromptGeometry!.belowControls).toBe(true);
   await expect(page.getByRole('button', { name: 'Create Asset' })).toBeEnabled();
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-upload-prompt', { fullPage: true });

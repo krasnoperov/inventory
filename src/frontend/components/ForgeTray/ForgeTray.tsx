@@ -1579,6 +1579,47 @@ export function ForgeTray({
             </div>
           </div>
 
+          {showUploadPrompt && (
+            <section
+              className={styles.uploadPromptPanel}
+              aria-labelledby="forge-upload-prompt-title"
+            >
+              <div className={styles.uploadPromptHeader}>
+                <h3 className={styles.uploadPromptTitle} id="forge-upload-prompt-title">Create New Asset</h3>
+                <p className={styles.uploadPromptDescription}>Name the asset before upload.</p>
+              </div>
+              <div className={styles.uploadPromptBody}>
+                <TextInput
+                  className={styles.uploadPromptInput}
+                  value={uploadAssetName}
+                  onChange={(e) => setUploadAssetName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleUploadPromptSubmit();
+                    if (e.key === 'Escape') handleUploadPromptCancel();
+                  }}
+                  placeholder="Asset name"
+                  autoFocus
+                  fullWidth
+                />
+                <div className={styles.uploadPromptActions}>
+                  <Button
+                    onClick={handleUploadPromptCancel}
+                    variant="secondary"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleUploadPromptSubmit}
+                    disabled={!uploadAssetName.trim() || isUploading}
+                    variant="primary"
+                  >
+                    {isUploading ? 'Uploading' : 'Create Asset'}
+                  </Button>
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Forge error message */}
           {forgeError && (
             <div className={styles.forgeError}>
@@ -1677,50 +1718,6 @@ export function ForgeTray({
         style={{ display: 'none' }}
       />
 
-      {/* Upload prompt modal for creating new asset */}
-      {showUploadPrompt && (
-        <div className={styles.uploadPromptOverlay}>
-          <div
-            className={styles.uploadPromptModal}
-            role="dialog"
-            aria-labelledby="forge-upload-prompt-title"
-          >
-            <div className={styles.uploadPromptHeader}>
-              <h3 className={styles.uploadPromptTitle} id="forge-upload-prompt-title">Create New Asset</h3>
-              <p className={styles.uploadPromptDescription}>Name the asset before upload.</p>
-            </div>
-            <div className={styles.uploadPromptBody}>
-              <TextInput
-                className={styles.uploadPromptInput}
-                value={uploadAssetName}
-                onChange={(e) => setUploadAssetName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleUploadPromptSubmit();
-                  if (e.key === 'Escape') handleUploadPromptCancel();
-                }}
-                placeholder="Asset name"
-                autoFocus
-                fullWidth
-              />
-              <div className={styles.uploadPromptActions}>
-                <Button
-                  onClick={handleUploadPromptCancel}
-                  variant="secondary"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleUploadPromptSubmit}
-                  disabled={!uploadAssetName.trim() || isUploading}
-                  variant="primary"
-                >
-                  {isUploading ? 'Uploading' : 'Create Asset'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
