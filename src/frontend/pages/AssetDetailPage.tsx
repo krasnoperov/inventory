@@ -156,6 +156,10 @@ function formatSelectedVariant(variant: Variant | null) {
   return `${formatMediaKind(variant.media_kind)} · ${titleizeStatus(variant.status)}`;
 }
 
+function formatVariantCount(count: number) {
+  return `${count} ${count === 1 ? 'variant' : 'variants'}`;
+}
+
 const ASSET_TYPE_OPTIONS: Array<SelectOption<string>> = PREDEFINED_ASSET_TYPES.map((type) => ({
   value: type,
   label: titleizeAssetType(type),
@@ -530,13 +534,15 @@ export function AssetDetailsStrip({
   const duration = formatDuration(selectedVariant?.media_duration_ms);
   const collectionCount = assetCollectionCount + selectedVariantCollectionCount;
   const mediaKindLabel = formatMediaKind(asset.media_kind);
+  const variantScope = `${formatVariantCount(variantCount)} · ${formatSelectedVariant(selectedVariant)}`;
   const detailsActionText = 'Details';
   const detailsActionLabel = `${fullDetailsOpen ? 'Hide' : 'Show'} ${mediaKindLabel.toLowerCase()} details`;
 
   return (
     <section className={styles.assetDetailsStrip} aria-label="Asset details">
-      <div className={styles.assetDetailsIdentity}>
+      <div className={styles.assetDetailsIdentity} aria-label="Asset scope">
         <div className={styles.assetDetailsEyebrow}>
+          <span>Scope</span>
           <span>Asset</span>
           <span>{formatMediaKind(asset.media_kind)}</span>
         </div>
@@ -545,9 +551,9 @@ export function AssetDetailsStrip({
         </div>
       </div>
 
-      <div className={styles.variantFocus} aria-label="Variant focus">
-        <span className={styles.variantFocusLabel}>Variant focus</span>
-        <span className={styles.variantFocusValue}>{formatSelectedVariant(selectedVariant)}</span>
+      <div className={styles.variantFocus} aria-label="Variant canvas scope">
+        <span className={styles.variantFocusLabel}>Variant canvas</span>
+        <span className={styles.variantFocusValue}>{variantScope}</span>
       </div>
 
       <dl className={styles.assetDetailsFacts}>
@@ -567,8 +573,8 @@ export function AssetDetailsStrip({
           </dd>
         </div>
         <div>
-          <dt>Variants</dt>
-          <dd>{variantCount}</dd>
+          <dt>Collections</dt>
+          <dd>{collectionCount}</dd>
         </div>
         {dimensions && (
           <div>
@@ -582,10 +588,6 @@ export function AssetDetailsStrip({
             <dd>{duration}</dd>
           </div>
         )}
-        <div>
-          <dt>Collections</dt>
-          <dd>{collectionCount}</dd>
-        </div>
       </dl>
 
       <Button

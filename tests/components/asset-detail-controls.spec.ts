@@ -373,8 +373,10 @@ test('asset details strip makes video facts and details disclosure visible', asy
   await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toHaveCSS('border-left-width', '0px');
   await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toHaveCSS('border-radius', '0px');
   await expect(page.getByText('Hero reveal video')).toBeVisible();
+  await expect(page.getByLabel('Asset scope')).toContainText('Scope');
   await expect(page.getByText('Asset', { exact: true })).toHaveCSS('text-transform', 'none');
-  await expect(page.getByLabel('Variant focus')).toContainText('Variant focus');
+  await expect(page.getByLabel('Variant canvas scope')).toContainText('Variant canvas');
+  await expect(page.getByLabel('Variant canvas scope')).toContainText('3 variants');
   await expect(page.getByText('Video', { exact: true })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Asset type' })).toBeVisible();
   await selectDropdown(page, 'Asset type', 'Environment');
@@ -425,8 +427,9 @@ test('asset details strip also exposes image facts without a hidden click target
   await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
   await expect(page.getByText('Hero portrait')).toBeVisible();
   await expect(page.getByText('Image', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('Variant focus')).toContainText('Image · Completed');
-  await expectNoOverlap(page.getByLabel('Variant focus'), page.getByRole('button', { name: 'Hide image details' }));
+  await expect(page.getByLabel('Variant canvas scope')).toContainText('1 variant');
+  await expect(page.getByLabel('Variant canvas scope')).toContainText('Image · Completed');
+  await expectNoOverlap(page.getByLabel('Variant canvas scope'), page.getByRole('button', { name: 'Hide image details' }));
   await expect(page.getByText('Character')).toBeVisible();
   await expect(page.getByText('Image · Completed')).toBeVisible();
   await expect(page.getByText('1024x1024')).toBeVisible();
@@ -453,9 +456,10 @@ test('asset details strip keeps variant focus visible without a selected variant
 
   await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
   await expect(page.getByText('Unselected detail')).toBeVisible();
-  await expect(page.getByLabel('Variant focus')).toContainText('None');
-  await expect(page.getByText('Variants')).toBeVisible();
-  await expect(page.getByText('2')).toBeVisible();
+  await expect(page.getByLabel('Variant canvas scope')).toContainText('2 variants');
+  await expect(page.getByLabel('Variant canvas scope')).toContainText('None');
+  await expectNoOverlap(page.getByLabel('Asset scope'), page.getByRole('button', { name: 'Show image details' }));
+  await expectNoOverlap(page.getByLabel('Variant canvas scope'), page.getByRole('button', { name: 'Show image details' }));
   await screenshot(page, 'asset-details-strip-no-variant', { fullPage: true });
 });
 
@@ -484,7 +488,8 @@ test('asset details strip names audio details explicitly', async ({ page }) => {
 
   await expect(page.getByText('Narration pass')).toBeVisible();
   await expect(page.getByText('Audio', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('Variant focus')).toContainText('Audio · Completed');
+  await expect(page.getByLabel('Variant canvas scope')).toContainText('1 variant');
+  await expect(page.getByLabel('Variant canvas scope')).toContainText('Audio · Completed');
   await expect(page.getByText('Audio · Completed')).toBeVisible();
   await expect(page.getByText('42s')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Hide audio details' })).toBeVisible();
