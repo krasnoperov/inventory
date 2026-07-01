@@ -1657,37 +1657,45 @@ export function ForgeTray({
       {/* Upload prompt modal for creating new asset */}
       {showUploadPrompt && (
         <div className={styles.uploadPromptOverlay} onClick={handleUploadPromptCancel}>
-          <div className={styles.uploadPromptModal} onClick={(e) => e.stopPropagation()}>
-            <h3 className={styles.uploadPromptTitle}>Create New Asset</h3>
-            <p className={styles.uploadPromptDescription}>
-              Enter a name for the new asset that will be created from your uploaded media file.
-            </p>
-            <TextInput
-              className={styles.uploadPromptInput}
-              value={uploadAssetName}
-              onChange={(e) => setUploadAssetName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleUploadPromptSubmit();
-                if (e.key === 'Escape') handleUploadPromptCancel();
-              }}
-              placeholder="Asset name"
-              autoFocus
-              fullWidth
-            />
-            <div className={styles.uploadPromptActions}>
-              <Button
-                onClick={handleUploadPromptCancel}
-                variant="secondary"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleUploadPromptSubmit}
-                disabled={!uploadAssetName.trim() || isUploading}
-                variant="primary"
-              >
-                {isUploading ? 'Uploading...' : 'Create Asset'}
-              </Button>
+          <div
+            className={styles.uploadPromptModal}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="forge-upload-prompt-title"
+          >
+            <div className={styles.uploadPromptHeader}>
+              <h3 className={styles.uploadPromptTitle} id="forge-upload-prompt-title">Create New Asset</h3>
+              <p className={styles.uploadPromptDescription}>Name the asset before upload.</p>
+            </div>
+            <div className={styles.uploadPromptBody}>
+              <TextInput
+                className={styles.uploadPromptInput}
+                value={uploadAssetName}
+                onChange={(e) => setUploadAssetName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleUploadPromptSubmit();
+                  if (e.key === 'Escape') handleUploadPromptCancel();
+                }}
+                placeholder="Asset name"
+                autoFocus
+                fullWidth
+              />
+              <div className={styles.uploadPromptActions}>
+                <Button
+                  onClick={handleUploadPromptCancel}
+                  variant="secondary"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleUploadPromptSubmit}
+                  disabled={!uploadAssetName.trim() || isUploading}
+                  variant="primary"
+                >
+                  {isUploading ? 'Uploading...' : 'Create Asset'}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
