@@ -308,6 +308,11 @@ test('asset details strip makes video facts and details disclosure visible', asy
   await expect(page.getByText('Video · Completed')).toBeVisible();
   await expect(page.getByText('1920x1080')).toBeVisible();
   await expect(page.getByText('8.0s')).toBeVisible();
+  const factsChrome = await page.getByRole('region', { name: 'Asset details', exact: true }).evaluate((node) => {
+    const factCells = [...node.querySelectorAll('dl > div')];
+    return factCells.map((cell) => getComputedStyle(cell).backgroundColor);
+  });
+  expect(new Set(factsChrome)).toEqual(new Set(['rgba(0, 0, 0, 0)']));
   await expect(page.getByRole('button', { name: 'Show video details' })).toContainText('Details');
   await expect(page.getByRole('button', { name: 'Show video details' })).toHaveCSS('text-transform', 'none');
 
