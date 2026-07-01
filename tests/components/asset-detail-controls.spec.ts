@@ -368,6 +368,80 @@ test('asset collection placement shortcut opens selected variant picker', async 
   ]));
 });
 
+test('asset collection membership keeps reusable empty state by default', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 360 });
+  await mountComponent(page, 'AssetDetailControls', {
+    value: 'character',
+    disabled: false,
+    collections,
+    collectionItems: [],
+    variants,
+    selectedVariant,
+    assetPlacementDrafts: [],
+    variantPlacementDrafts: [],
+    onChange: '__record__:type',
+    onApplyAssetPlacements: '__record__:applyAsset',
+    onApplyVariantPlacements: '__record__:applyVariant',
+    onAssetPlacementDraftsChange: '__record__:assetDrafts',
+    onDeleteCollectionItem: '__record__:deleteItem',
+    onUpdateCollectionItem: '__record__:updateItem',
+    onVariantPlacementDraftsChange: '__record__:variantDrafts',
+  });
+
+  await expect(page.getByRole('region', { name: 'Collection membership' })).toBeVisible();
+  await expect(page.getByText('No collection membership')).toBeVisible();
+});
+
+test('asset collection membership hides empty Details-only structure until placement opens', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 360 });
+  await mountComponent(page, 'AssetDetailControls', {
+    value: 'character',
+    disabled: false,
+    collections,
+    collectionItems: [],
+    hideWhenEmpty: true,
+    variants,
+    selectedVariant,
+    assetPlacementDrafts: [],
+    variantPlacementDrafts: [],
+    onChange: '__record__:type',
+    onApplyAssetPlacements: '__record__:applyAsset',
+    onApplyVariantPlacements: '__record__:applyVariant',
+    onAssetPlacementDraftsChange: '__record__:assetDrafts',
+    onDeleteCollectionItem: '__record__:deleteItem',
+    onUpdateCollectionItem: '__record__:updateItem',
+    onVariantPlacementDraftsChange: '__record__:variantDrafts',
+  });
+
+  await expect(page.getByRole('region', { name: 'Collection membership' })).toHaveCount(0);
+  await expect(page.getByText('No collection membership')).toHaveCount(0);
+
+  await mountComponent(page, 'AssetDetailControls', {
+    value: 'character',
+    disabled: false,
+    collections,
+    collectionItems: [],
+    hideWhenEmpty: true,
+    variants,
+    selectedVariant,
+    assetPlacementDrafts: [],
+    variantPlacementControlsOpen: true,
+    variantPlacementDrafts: [],
+    onChange: '__record__:type',
+    onApplyAssetPlacements: '__record__:applyAsset',
+    onApplyVariantPlacements: '__record__:applyVariant',
+    onAssetPlacementDraftsChange: '__record__:assetDrafts',
+    onDeleteCollectionItem: '__record__:deleteItem',
+    onUpdateCollectionItem: '__record__:updateItem',
+    onVariantPlacementControlsOpenChange: '__record__:variantPlacementOpen',
+    onVariantPlacementDraftsChange: '__record__:variantDrafts',
+  });
+
+  await expect(page.getByRole('region', { name: 'Collection membership' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Add selected variant to collection' })).toBeVisible();
+  await screenshot(page, 'collection-membership-empty-hidden-details', { fullPage: true });
+});
+
 test('asset details strip makes video facts and details disclosure visible', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 420 });
   await mountComponent(page, 'AssetDetailsStrip', {
