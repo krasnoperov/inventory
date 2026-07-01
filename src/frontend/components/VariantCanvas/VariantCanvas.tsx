@@ -665,6 +665,7 @@ function VariantCanvasInner({
           spaceId={spaceId}
           avoidGenerationDock={avoidGenerationDock}
           isActive={expandedVariant.id === asset.active_variant_id}
+          variantIndex={variants.findIndex((variant) => variant.id === expandedVariant.id)}
           variantCount={variants.length}
           lineage={lineage}
           allVariants={allVariants}

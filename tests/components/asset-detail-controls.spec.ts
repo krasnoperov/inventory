@@ -452,6 +452,7 @@ test('asset details strip makes video facts and details disclosure visible', asy
     onAssetTypeChange: '__record__:type',
     onToggleFullDetails: '__record__:toggleFullDetails',
     selectedVariant: fullVariant(),
+    selectedVariantIndex: 0,
     selectedVariantCollectionCount: 1,
     variantCount: 3,
   });
@@ -465,7 +466,7 @@ test('asset details strip makes video facts and details disclosure visible', asy
   await expect(page.getByLabel('Asset scope')).toContainText('Details');
   await expect(page.getByText('Asset', { exact: true })).toHaveCSS('text-transform', 'none');
   await expect(page.getByLabel('Variants scope')).toContainText('Variants');
-  await expect(page.getByLabel('Variants scope')).toContainText('3 variants');
+  await expect(page.getByLabel('Variants scope')).toContainText('Variant 1/3');
   await expect(page.getByText('Video', { exact: true })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Asset type' })).toBeVisible();
   await selectDropdown(page, 'Asset type', 'Environment');
@@ -509,6 +510,7 @@ test('asset details strip also exposes image facts without a hidden click target
       media_height: 1024,
       media_duration_ms: null,
     }),
+    selectedVariantIndex: 0,
     selectedVariantCollectionCount: 0,
     variantCount: 1,
   });
@@ -516,7 +518,7 @@ test('asset details strip also exposes image facts without a hidden click target
   await expect(page.getByRole('region', { name: 'Details canvas scope', exact: true })).toBeVisible();
   await expect(page.getByText('Hero portrait')).toBeVisible();
   await expect(page.getByText('Image', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('Variants scope')).toContainText('1 variant');
+  await expect(page.getByLabel('Variants scope')).toContainText('Variant 1/1');
   await expect(page.getByLabel('Variants scope')).toContainText('Image · Completed');
   await expectNoOverlap(page.getByLabel('Variants scope'), page.getByRole('button', { name: 'Hide image details' }));
   await expect(page.getByText('Character')).toBeVisible();
@@ -571,13 +573,14 @@ test('asset details strip names audio details explicitly', async ({ page }) => {
       media_height: null,
       media_duration_ms: 42000,
     }),
+    selectedVariantIndex: 0,
     selectedVariantCollectionCount: 0,
     variantCount: 1,
   });
 
   await expect(page.getByText('Narration pass')).toBeVisible();
   await expect(page.getByText('Audio', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('Variants scope')).toContainText('1 variant');
+  await expect(page.getByLabel('Variants scope')).toContainText('Variant 1/1');
   await expect(page.getByLabel('Variants scope')).toContainText('Audio · Completed');
   await expect(page.getByText('Audio · Completed')).toBeVisible();
   await expect(page.getByText('42s')).toBeVisible();
@@ -595,6 +598,7 @@ test('asset details dock renders the real expanded stack above ForgeTray', async
     onAssetTypeChange: '__record__:type',
     onToggleFullDetails: '__record__:toggleFullDetails',
     selectedVariant: fullVariant(),
+    selectedVariantIndex: 0,
     selectedVariantCollectionCount: 1,
     variantCount: 3,
   });
@@ -676,6 +680,7 @@ test('asset details dock keeps the real expanded stack usable on mobile', async 
     onAssetTypeChange: '__record__:type',
     onToggleFullDetails: '__record__:toggleFullDetails',
     selectedVariant: fullVariant(),
+    selectedVariantIndex: 0,
     selectedVariantCollectionCount: 1,
     variantCount: 3,
   });
