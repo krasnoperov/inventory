@@ -300,6 +300,10 @@ test('asset details strip makes video facts and details disclosure visible', asy
   });
 
   await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toHaveCSS('border-top-width', '1px');
+  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toHaveCSS('border-left-width', '0px');
+  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toHaveCSS('border-radius', '0px');
   await expect(page.getByText('Hero reveal video')).toBeVisible();
   await expect(page.getByText('Asset details', { exact: true })).toHaveCSS('text-transform', 'none');
   await expect(page.getByText('Video', { exact: true })).toBeVisible();
