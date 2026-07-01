@@ -210,6 +210,8 @@ test('asset detail controls use shared selects and collection buttons', async ({
   await expect(page.getByRole('combobox', { name: 'Asset type' })).toBeVisible();
   await expect(page.getByText('Collections', { exact: true })).toBeVisible();
   await selectDropdown(page, 'Asset type', 'Environment');
+  await expect(page.getByLabel('Role in Cast')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Edit Cast asset collection' }).click();
   await selectDropdown(page, 'Pinned variant in Cast', 'Variant 2 star');
   await page.getByLabel('Role in Cast').fill('lead');
   await page.getByRole('button', { name: 'Remove Cast from asset collections' }).click();
@@ -270,7 +272,11 @@ test('asset collection membership is compact until management is requested', asy
   await screenshot(page, 'collection-membership-compact');
 
   await page.getByRole('button', { name: 'Manage collections' }).click();
-  await expect(page.getByLabel('Role in Cast')).toBeVisible();
+  await expect(page.getByLabel('Role in Cast')).toHaveCount(0);
+  await expect(page.getByLabel('Pinned variant in Cast')).toHaveCount(0);
+  await expect(page.getByLabel('Variant role in Style refs')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Edit Cast asset collection' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit Style refs variant collection' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove Cast from asset collections' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove Style refs from variant collections' })).toBeVisible();
   await expect(page.getByText('Remove', { exact: true })).toHaveCount(0);
@@ -281,24 +287,30 @@ test('asset collection membership is compact until management is requested', asy
   await expect(page.getByText('Add asset to collection', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Add selected variant', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Done', { exact: true })).toHaveCount(0);
-  const expandedRowMetrics = await page.getByLabel('Role in Cast').evaluate((input) => {
-    const row = input.closest('div');
-    if (!row) return null;
-    const styles = window.getComputedStyle(row);
-    const rect = row.getBoundingClientRect();
+  await screenshot(page, 'collection-membership-management');
+
+  await page.getByRole('button', { name: 'Edit Cast asset collection' }).click();
+  await expect(page.getByLabel('Role in Cast')).toBeVisible();
+  await expect(page.getByLabel('Pinned variant in Cast')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Done editing Cast asset collection' })).toBeVisible();
+  const editingControlsMetrics = await page.getByLabel('Role in Cast').evaluate((input) => {
+    const controls = input.closest('[class*="collectionMembershipControls"]');
+    const row = input.closest('[class*="collectionMembershipRow"]');
+    if (!controls || !row) return null;
+    const controlsStyles = window.getComputedStyle(controls);
+    const rowStyles = window.getComputedStyle(row);
+    const rowRect = row.getBoundingClientRect();
     return {
-      borderStyle: styles.borderTopStyle,
-      display: styles.display,
-      height: rect.height,
-      width: rect.width,
+      controlsDisplay: controlsStyles.display,
+      rowBorderStyle: rowStyles.borderTopStyle,
+      rowWidth: rowRect.width,
     };
   });
-  expect(expandedRowMetrics).toMatchObject({
-    borderStyle: 'solid',
-    display: 'grid',
+  expect(editingControlsMetrics).toMatchObject({
+    controlsDisplay: 'grid',
+    rowBorderStyle: 'solid',
   });
-  expect(expandedRowMetrics?.height).toBeLessThanOrEqual(44);
-  await screenshot(page, 'collection-membership-management');
+  await screenshot(page, 'collection-membership-management-editing');
   await page.getByRole('button', { name: 'Add asset to collection' }).click();
   await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Add asset to collection' })).toBeVisible();
@@ -328,8 +340,12 @@ test('asset collection management stacks without overflow on mobile', async ({ p
   });
 
   await page.getByRole('button', { name: 'Manage collections' }).click();
+  await expect(page.getByLabel('Role in Cast')).toHaveCount(0);
+  await expect(page.getByLabel('Variant role in Style refs')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Edit Cast asset collection' }).click();
   await expect(page.getByLabel('Role in Cast')).toBeVisible();
   await expect(page.getByLabel('Pinned variant in Cast')).toBeVisible();
+  await page.getByRole('button', { name: 'Edit Style refs variant collection' }).click();
   await expect(page.getByLabel('Variant role in Style refs')).toBeVisible();
 
   const metrics = await page.evaluate(() => ({
