@@ -351,16 +351,13 @@
 
 @media (max-width: 768px) {
   .backdrop {
-    padding: 0;
+    padding: 0.5rem 0.5rem calc(var(--forge-sheet-bottom-offset, 10rem) + 0.5rem);
     z-index: 650;
   }
 
   .modal {
     width: 100%;
     max-width: none;
-    max-height: min(58vh, calc(100vh - var(--forge-sheet-bottom-offset, 10rem)));
-    border-radius: var(--workspace-panel-radius) var(--workspace-panel-radius) 0 0;
-    border-inline: 0;
-    border-bottom: 0;
+    max-height: min(58vh, calc(100vh - var(--forge-sheet-bottom-offset, 10rem) - 1rem));
   }
 }
