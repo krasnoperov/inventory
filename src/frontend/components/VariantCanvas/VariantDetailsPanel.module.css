@@ -1,75 +1,36 @@
-/* Variant inspector dock. The panel can be portaled, but its default contract
-   is a canvas-level dock that reserves space instead of covering selected media. */
+/* Variant inspector dock. Parent workspace layouts reserve space for this
+   panel; it must not position itself over selected media or Forge Tray. */
 .panel {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  bottom: 1rem;
-  width: 340px;
-  max-width: calc(100vw - 2rem);
+  position: static;
+  width: auto;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  max-height: 100vh;
   display: flex;
   flex-direction: column;
   background: var(--workspace-panel-bg);
   border: 1px solid var(--workspace-panel-border);
   border-radius: var(--workspace-panel-radius);
   box-shadow: var(--workspace-panel-shadow);
-  z-index: 1000;
   animation: variantDetailsFadeIn 0.16s ease-out;
 }
 
 .panelAvoidGenerationDock {
-  --generation-dock-width: min(520px, calc(100vw - 2rem));
-
-  right: calc(var(--generation-dock-width) + 1.75rem);
-  bottom: auto;
-  max-height: calc(100vh - 2rem);
-}
-
-.panelCanvasDock {
-  position: static;
-  top: auto;
-  right: auto;
-  bottom: auto;
-  left: auto;
-  width: auto;
-  max-width: none;
-  height: 100%;
-  max-height: none;
-  min-height: 0;
+  max-height: 100%;
 }
 
 @media (max-width: 920px) and (min-width: 769px) {
-  .panelAvoidGenerationDock {
-    left: 1rem;
-    right: auto;
-    width: min(340px, calc(100vw - var(--generation-dock-width) - 2.75rem));
-  }
-
-  .panelCanvasDock {
+  .panel {
     width: auto;
   }
 }
 
 @media (max-width: 768px) {
+  .panel,
   .panelAvoidGenerationDock {
-    position: fixed;
-    top: 1rem;
-    left: 1rem;
-    right: 1rem;
     width: auto;
-    max-height: min(18vh, 9rem);
-  }
-
-  .panelCanvasDock.panelAvoidGenerationDock {
-    position: static;
-    top: auto;
-    right: auto;
-    bottom: auto;
-    left: auto;
-    width: auto;
-    max-width: none;
-    height: 100%;
-    max-height: none;
+    max-height: 100%;
   }
 }
 
