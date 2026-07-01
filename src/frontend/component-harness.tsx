@@ -458,6 +458,9 @@ function AssetDetailsContextPreview(props: Record<string, unknown>) {
 
 function AssetGenerationDockPreview(props: Record<string, unknown>) {
   const selectedVariant = stackVariants.find((variant) => variant.id === 'hero-variant') ?? null;
+  const selectedVariantIndex = selectedVariant
+    ? stackVariants.filter((variant) => variant.asset_id === 'hero').findIndex((variant) => variant.id === selectedVariant.id)
+    : undefined;
 
   return (
     <AssetGenerationDockHarness
@@ -468,6 +471,7 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
           assetCollectionCount={1}
           fullDetailsOpen
           selectedVariant={selectedVariant}
+          selectedVariantIndex={selectedVariantIndex}
           selectedVariantCollectionCount={1}
           variantCount={stackVariants.filter((variant) => variant.asset_id === 'hero').length}
         >
@@ -529,6 +533,7 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
 
 function AssetGenerationDockWithVariantInspectorPreview(props: Record<string, unknown>) {
   const selectedVariant = stackVariants.find((variant) => variant.id === 'hero-variant') ?? stackVariants[0];
+  const selectedVariantIndex = stackVariants.filter((variant) => variant.asset_id === 'hero').findIndex((variant) => variant.id === selectedVariant.id);
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'var(--color-bg)' }}>
@@ -538,6 +543,7 @@ function AssetGenerationDockWithVariantInspectorPreview(props: Record<string, un
         spaceId="space-1"
         avoidGenerationDock
         isActive
+        variantIndex={selectedVariantIndex}
         variantCount={2}
         lineage={[]}
         allVariants={stackVariants}

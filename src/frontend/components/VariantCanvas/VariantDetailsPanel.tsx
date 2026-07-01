@@ -42,6 +42,8 @@ export interface VariantDetailsPanelProps {
   /** Shift the viewport inspector away from the asset generation dock. */
   avoidGenerationDock?: boolean;
   isActive?: boolean;
+  /** Zero-based position of this variant inside the scoped asset canvas. */
+  variantIndex?: number;
   /** Total variants on the canvas (delete is disabled when only one remains). */
   variantCount?: number;
   lineage: Lineage[];
@@ -66,6 +68,20 @@ const RELATION_LABELS: Record<Lineage['relation_type'], string> = {
   refined: 'Refined from',
   forked: 'Forked from',
 };
+
+function titleizeStatus(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1).replace('-', ' ');
+}
+
+function formatVariantScopeLabel(index: number | undefined, count: number) {
+  if (typeof index === 'number' && index >= 0 && count > 0) {
+    return `Variant ${index + 1}/${count}`;
+  }
+  if (count > 0) {
+    return `${count} ${count === 1 ? 'variant' : 'variants'}`;
+  }
+  return 'Variant';
+}
 
 function StarIcon({ filled }: { filled: boolean }) {
   return (
@@ -141,6 +157,7 @@ export function VariantDetailsPanel({
   spaceId,
   avoidGenerationDock = false,
   isActive,
+  variantIndex,
   variantCount = 0,
   lineage,
   allVariants,
@@ -213,6 +230,13 @@ export function VariantDetailsPanel({
   const dimHeight = variant.media_height ?? measuredDims?.height ?? null;
   const dimensionsLabel = dimWidth && dimHeight ? `${dimWidth}×${dimHeight}` : null;
   const sizeLabel = formatBytes(variant.media_size_bytes);
+  const variantScopeLabel = formatVariantScopeLabel(variantIndex, variantCount);
+  const headerSubtitle = [
+    'Details',
+    variantScopeLabel,
+    formatMediaKind(variant.media_kind),
+    titleizeStatus(variant.status),
+  ].filter(Boolean).join(' · ');
 
   const canViewFullSize = isVariantImageReady(variant);
   const fullSizeUrl = canViewFullSize ? getVariantMediaUrl(variant, spaceId) : undefined;
@@ -322,7 +346,7 @@ export function VariantDetailsPanel({
       <div className={styles.header}>
         <div className={styles.titleBlock}>
           <h2>{asset.name}</h2>
-          <p>{variant.id.slice(0, 8)} · {variant.status}</p>
+          <p>{headerSubtitle}</p>
         </div>
         <IconButton className={styles.closeButton} onClick={onClose} title="Close" aria-label="Close variant details" variant="ghost" size="sm">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">

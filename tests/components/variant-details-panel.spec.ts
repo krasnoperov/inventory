@@ -50,6 +50,7 @@ test('variant details panel uses shared action controls', async ({ page }) => {
     variant,
     spaceId: 'space-1',
     isActive: false,
+    variantIndex: 0,
     variantCount: 2,
     lineage: [],
     allVariants: [variant],
@@ -68,7 +69,8 @@ test('variant details panel uses shared action controls', async ({ page }) => {
   await expect(page.getByRole('complementary', { name: 'Variant details' })).toHaveCSS('transform', 'none');
   await expect(page.getByRole('complementary', { name: 'Variant details' })).not.toHaveCSS('animation-name', /slideIn/);
   await expect(page.getByRole('heading', { name: 'Crystal Gate' })).toBeVisible();
-  await expect(page.getByText('variant-')).toBeVisible();
+  await expect(page.getByText('Details · Variant 1/2 · Image · Completed')).toBeVisible();
+  await expect(page.getByText('variant-')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Close variant details' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Close variant details' })).toHaveCSS('position', 'static');
   await expect(page.getByRole('button', { name: 'View full size' })).toBeVisible();
@@ -136,6 +138,7 @@ test('variant details panel keeps mobile inspector within viewport', async ({ pa
     variant,
     spaceId: 'space-1',
     isActive: true,
+    variantIndex: 0,
     variantCount: 1,
     lineage: [],
     allVariants: [variant],

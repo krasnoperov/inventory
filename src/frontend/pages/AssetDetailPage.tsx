@@ -122,6 +122,7 @@ interface AssetDetailsStripProps {
   onAssetTypeChange?: (value: string) => void;
   onToggleFullDetails: () => void;
   selectedVariant: Variant | null;
+  selectedVariantIndex?: number;
   selectedVariantCollectionCount: number;
   variantCount: number;
 }
@@ -153,9 +154,16 @@ function formatDuration(ms: number | null | undefined) {
   return seconds >= 10 ? `${Math.round(seconds)}s` : `${seconds.toFixed(1)}s`;
 }
 
-function formatSelectedVariant(variant: Variant | null) {
+function formatVariantOrdinal(index: number | undefined, count: number) {
+  if (typeof index === 'number' && index >= 0 && count > 0) {
+    return `Variant ${index + 1}/${count}`;
+  }
+  return 'Selected variant';
+}
+
+function formatSelectedVariant(variant: Variant | null, index: number | undefined, count: number) {
   if (!variant) return 'None';
-  return `${formatMediaKind(variant.media_kind)} · ${titleizeStatus(variant.status)}`;
+  return `${formatVariantOrdinal(index, count)} · ${formatMediaKind(variant.media_kind)} · ${titleizeStatus(variant.status)}`;
 }
 
 function formatVariantCount(count: number) {
@@ -531,6 +539,7 @@ export function AssetDetailsStrip({
   onAssetTypeChange,
   onToggleFullDetails,
   selectedVariant,
+  selectedVariantIndex,
   selectedVariantCollectionCount,
   variantCount,
 }: AssetDetailsStripProps) {
@@ -538,7 +547,9 @@ export function AssetDetailsStrip({
   const duration = formatDuration(selectedVariant?.media_duration_ms);
   const collectionCount = assetCollectionCount + selectedVariantCollectionCount;
   const mediaKindLabel = formatMediaKind(asset.media_kind);
-  const variantScope = `${formatVariantCount(variantCount)} · ${formatSelectedVariant(selectedVariant)}`;
+  const variantScope = selectedVariant
+    ? formatSelectedVariant(selectedVariant, selectedVariantIndex, variantCount)
+    : `${formatVariantCount(variantCount)} · None`;
   const detailsActionText = 'Details';
   const detailsActionLabel = `${fullDetailsOpen ? 'Hide' : 'Show'} ${mediaKindLabel.toLowerCase()} details`;
 
@@ -889,6 +900,9 @@ export default function AssetDetailPage() {
     if (!selectedVariantId) return null;
     return variants.find(v => v.id === selectedVariantId) || null;
   }, [selectedVariantId, variants]);
+  const selectedVariantIndex = selectedVariant
+    ? variants.findIndex((variant) => variant.id === selectedVariant.id)
+    : undefined;
   const assetCollectionMemberships = useMemo(() => {
     if (!assetId) return [];
     return collectionItems.filter((item) => item.subject_type === 'asset' && item.asset_id === assetId);
@@ -1558,6 +1572,7 @@ export default function AssetDetailPage() {
             onAssetTypeChange={handleTypeChange}
             onToggleFullDetails={() => setShowInspector((open) => !open)}
             selectedVariant={selectedVariant}
+            selectedVariantIndex={selectedVariantIndex}
             selectedVariantCollectionCount={selectedVariantCollectionMemberships.length}
             variantCount={variants.length}
           >
