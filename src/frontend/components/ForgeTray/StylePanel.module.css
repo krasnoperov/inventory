@@ -1,5 +1,5 @@
 /* Docked sheet host: positions the panel without blocking the workspace. */
-.backdrop {
+.sheetHost {
   position: fixed;
   inset: 0;
   display: flex;

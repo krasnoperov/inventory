@@ -598,7 +598,7 @@ test('forge tray video picker enforces the three-reference budget', async ({ pag
   await screenshot(page, 'forge-tray-video-references', { fullPage: true });
 });
 
-test('forge tray opens Style and Chat as separate full sheets', async ({ page }) => {
+test('forge tray opens Style and Chat as separate docked sheets', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
   const longStylePrompt = [
     'Loose watercolor adventure game art with readable silhouettes, warm market washes, sunlit plaster edges, and hand-painted texture.',
@@ -629,8 +629,8 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
 
   await selectDropdown(page, 'Style selector', 'Manage styles');
   await expect(page.getByText('Style Library')).toBeVisible();
-  await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
-  await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('[class*="sheetHost"]')).toHaveCSS('backdrop-filter', 'none');
+  await expect(page.locator('[class*="sheetHost"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   const stylePanel = page.locator('[class*="stylePanel"]').first();
   await expect(stylePanel).toHaveCSS('box-shadow', 'none');
   await expect(stylePanel).toHaveCSS('transform', 'none');
@@ -673,8 +673,8 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   await page.getByTitle('Chat with Claude about your prompt').click();
   await expect(page.getByText('Style Library')).toHaveCount(0);
   await expect(page.getByText('Chat with Claude')).toBeVisible();
-  await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
-  await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('[class*="sheetHost"]')).toHaveCSS('backdrop-filter', 'none');
+  await expect(page.locator('[class*="sheetHost"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   const chatPanel = page.locator('[class*="chatPanel"]').first();
   await expect(chatPanel).toHaveCSS('box-shadow', 'none');
   await expect(chatPanel).toHaveCSS('transform', 'none');
@@ -729,9 +729,9 @@ test('forge tray control bar keeps compact icon actions interactive', async ({ p
 
   await addReferenceButton.click();
   await expect(page.getByText('Image references')).toBeVisible();
-  await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
-  await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(page.locator('[class*="modal"]').first()).toHaveCSS('border-radius', '8px');
+  await expect(page.locator('[class*="sheetHost"]')).toHaveCSS('backdrop-filter', 'none');
+  await expect(page.locator('[class*="sheetHost"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('[class*="sheetPanel"]').first()).toHaveCSS('border-radius', '8px');
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-reference-picker-sheet', { fullPage: true });
   await page.getByRole('button', { name: /Close/i }).click();
@@ -1389,16 +1389,16 @@ test('forge tray picker disables references incompatible with the selected media
   ].join(' '));
   await page.getByTitle('Add reference').click();
   await expect(page.getByText('Image references')).toBeVisible();
-  await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
-  await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  const assetPickerModal = page.locator('[class*="modal"]').first();
-  await expect(assetPickerModal).toHaveCSS('box-shadow', 'none');
-  await expect(assetPickerModal).toHaveCSS('transform', 'none');
+  await expect(page.locator('[class*="sheetHost"]')).toHaveCSS('backdrop-filter', 'none');
+  await expect(page.locator('[class*="sheetHost"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  const assetPickerPanel = page.locator('[class*="sheetPanel"]').first();
+  await expect(assetPickerPanel).toHaveCSS('box-shadow', 'none');
+  await expect(assetPickerPanel).toHaveCSS('transform', 'none');
   await expect.poll(
-    () => assetPickerModal.evaluate((node) => getComputedStyle(node).animationName),
+    () => assetPickerPanel.evaluate((node) => getComputedStyle(node).animationName),
   ).not.toContain('slideUp');
   const pickerDockGap = await page.evaluate(() => {
-    const picker = document.querySelector('[class*="modal"]');
+    const picker = document.querySelector('[class*="sheetPanel"]');
     const tray = document.querySelector('[class*="tray"]');
     if (!picker || !tray) return null;
     return tray.getBoundingClientRect().top - picker.getBoundingClientRect().bottom;

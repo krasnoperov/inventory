@@ -326,7 +326,7 @@ export function StylePanel({
   }
 
   return (
-    <div className={styles.backdrop}>
+    <div className={styles.sheetHost}>
       {panel}
     </div>
   );

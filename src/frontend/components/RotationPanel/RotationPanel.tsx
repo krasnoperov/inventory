@@ -115,7 +115,7 @@ export function RotationPanel({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
 
-  const handleBackdropClick = useCallback(
+  const handleSheetHostClick = useCallback(
     (e: React.MouseEvent) => {
       if (e.target === e.currentTarget) onClose();
     },
@@ -140,8 +140,8 @@ export function RotationPanel({
   if (activeSet) {
     const views = rotationViews.filter((rv) => rv.rotation_set_id === activeSet.id);
     return (
-      <div className={styles.backdrop} onClick={handleBackdropClick}>
-        <div className={styles.modal}>
+      <div className={styles.sheetHost} onClick={handleSheetHostClick}>
+        <div className={styles.sheetPanel}>
           <div className={styles.header}>
             <h2 className={styles.title}>Rotation in Progress</h2>
             <IconButton onClick={onClose} aria-label="Close rotation panel" title="Close" variant="ghost" size="sm">
@@ -206,8 +206,8 @@ export function RotationPanel({
     }).length;
 
     return (
-      <div className={styles.backdrop} onClick={handleBackdropClick}>
-        <div className={styles.modal}>
+      <div className={styles.sheetHost} onClick={handleSheetHostClick}>
+        <div className={styles.sheetPanel}>
           <div className={styles.header}>
             <h2 className={styles.title}>Rotation Failed</h2>
             <IconButton onClick={onClose} aria-label="Close rotation panel" title="Close" variant="ghost" size="sm">
@@ -257,8 +257,8 @@ export function RotationPanel({
       selectedRating === 'approved' || selectedRating === 'rejected' ? selectedRating : null;
 
     return (
-      <div className={styles.backdrop} onClick={handleBackdropClick}>
-        <div className={styles.modal}>
+      <div className={styles.sheetHost} onClick={handleSheetHostClick}>
+        <div className={styles.sheetPanel}>
           <div className={styles.header}>
             <h2 className={styles.title}>Rotation Complete</h2>
             <IconButton onClick={onClose} aria-label="Close rotation panel" title="Close" variant="ghost" size="sm">
@@ -331,8 +331,8 @@ export function RotationPanel({
 
   // Setup view
   return (
-    <div className={styles.backdrop} onClick={handleBackdropClick}>
-      <div className={styles.modal}>
+    <div className={styles.sheetHost} onClick={handleSheetHostClick}>
+      <div className={styles.sheetPanel}>
         <div className={styles.header}>
           <h2 className={styles.title}>Generate Rotation Set</h2>
           <IconButton onClick={onClose} aria-label="Close rotation panel" title="Close" variant="ghost" size="sm">

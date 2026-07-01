@@ -1,5 +1,5 @@
 /* Docked sheet host: positions the panel without blocking the workspace. */
-.backdrop {
+.sheetHost {
   position: fixed;
   inset: 0;
   display: flex;
@@ -16,7 +16,7 @@
   to { opacity: 1; }
 }
 
-.modal {
+.sheetPanel {
   background: var(--workspace-panel-bg);
   border-radius: var(--workspace-panel-radius);
   border: 1px solid var(--workspace-panel-border);
@@ -291,12 +291,12 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-  .backdrop {
+  .sheetHost {
     padding: 0;
     z-index: 650;
   }
 
-  .modal {
+  .sheetPanel {
     width: 100%;
     max-width: none;
     max-height: min(58vh, calc(100vh - var(--forge-sheet-bottom-offset, 10rem)));

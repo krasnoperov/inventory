@@ -376,6 +376,27 @@ test('asset-scoped variant details do not cover a clicked audio node', async ({ 
   await mockMedia(page);
   await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
   await sizeCanvasHarness(page);
+  await page.addStyleTag({
+    content: `
+      [data-canvas-scope="asset-details"] {
+        --variant-details-generation-dock-clearance: 10rem;
+      }
+
+      [data-testid="reserved-generation-dock"] {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 10rem;
+        pointer-events: none;
+      }
+    `,
+  });
+  await page.evaluate(() => {
+    const dock = document.createElement('div');
+    dock.setAttribute('data-testid', 'reserved-generation-dock');
+    document.body.appendChild(dock);
+  });
   const audioAsset = {
     ...asset('audio', 'Shorts outro living room production speech with readable title'),
     type: 'speech',
@@ -418,12 +439,14 @@ test('asset-scoped variant details do not cover a clicked audio node', async ({ 
   const detailsPanel = page.getByRole('complementary', { name: 'Variant details' });
   await expect(detailsPanel).toBeVisible();
 
-  const geometry = await page.evaluate(() => {
+  const readGeometry = () => page.evaluate(() => {
     const node = document.querySelector('.react-flow__node');
     const panel = document.querySelector('[aria-label="Variant details"]');
-    if (!node || !panel) return null;
+    const reservedDock = document.querySelector('[data-testid="reserved-generation-dock"]');
+    if (!node || !panel || !reservedDock) return null;
     const nodeBox = node.getBoundingClientRect();
     const panelBox = panel.getBoundingClientRect();
+    const reservedDockBox = reservedDock.getBoundingClientRect();
     const overlaps = !(
       nodeBox.right <= panelBox.left ||
       panelBox.right <= nodeBox.left ||
@@ -436,14 +459,21 @@ test('asset-scoped variant details do not cover a clicked audio node', async ({ 
       panelTop: panelBox.top,
       panelRadius: getComputedStyle(panel).borderRadius,
       panelBottom: panelBox.bottom,
+      reservedDockTop: reservedDockBox.top,
       viewportHeight: window.innerHeight,
     };
   });
+  await expect.poll(async () => {
+    const geometry = await readGeometry();
+    return geometry?.overlaps ?? true;
+  }).toBe(false);
+  const geometry = await readGeometry();
   expect(geometry).not.toBeNull();
   expect(geometry!.overlaps).toBe(false);
   expect(geometry!.panelTop).toBeGreaterThanOrEqual(geometry!.nodeBottom);
   expect(geometry!.panelRadius).toBe('8px');
-  expect(geometry!.panelBottom).toBeLessThanOrEqual(geometry!.viewportHeight - 16);
+  expect(geometry!.panelBottom).toBeLessThanOrEqual(geometry!.reservedDockTop - 16);
+  expect(geometry!.reservedDockTop).toBeLessThan(geometry!.viewportHeight);
 
   await screenshot(page, 'variant-canvas-audio-details-clear-of-node', { fullPage: true });
 });

@@ -585,7 +585,7 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
         {variantInspector ? (
           <div className={`${variantCanvasStyles.canvas} ${variantCanvasStyles.assetScoped} ${variantCanvasStyles.detailsOpen} ${variantCanvasStyles.ready}`}>
             <div className={variantCanvasStyles.flowPane} />
-            <div className={variantCanvasStyles.detailsDock}>
+            <div className={`${variantCanvasStyles.detailsDock} ${variantCanvasStyles.detailsDockReady}`}>
               {variantInspector}
             </div>
           </div>

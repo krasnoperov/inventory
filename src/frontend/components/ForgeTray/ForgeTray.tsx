@@ -1665,7 +1665,7 @@ export function ForgeTray({
         </div>
       </div>
 
-      {/* StylePanel - full sheet overlay */}
+      {/* StylePanel - docked sheet */}
       {showStylePanel && mediaModeConfig.supportsStyle && spaceId && (
         <StylePanel
           spaceId={spaceId}
@@ -1681,7 +1681,7 @@ export function ForgeTray({
         />
       )}
 
-      {/* ForgeChat - full sheet overlay */}
+      {/* ForgeChat - docked sheet */}
       {showChat && sendChatMessage && requestChatHistory && clearChatSession && (
         <ForgeChat
           currentPrompt={prompt}

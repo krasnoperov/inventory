@@ -102,7 +102,7 @@ export function TileSetPanel({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
 
-  const handleBackdropClick = useCallback(
+  const handleSheetHostClick = useCallback(
     (e: React.MouseEvent) => {
       if (e.target === e.currentTarget) onClose();
     },
@@ -125,8 +125,8 @@ export function TileSetPanel({
   if (activeSet) {
     const positions = tilePositions.filter((tp) => tp.tile_set_id === activeSet.id);
     return (
-      <div className={styles.backdrop} onClick={handleBackdropClick}>
-        <div className={styles.modal}>
+      <div className={styles.sheetHost} onClick={handleSheetHostClick}>
+        <div className={styles.sheetPanel}>
           <div className={styles.header}>
             <h2 className={styles.title}>Tile Set in Progress</h2>
             <IconButton onClick={onClose} aria-label="Close tile set panel" title="Close" variant="ghost" size="sm">
@@ -200,8 +200,8 @@ export function TileSetPanel({
     }).length;
 
     return (
-      <div className={styles.backdrop} onClick={handleBackdropClick}>
-        <div className={styles.modal}>
+      <div className={styles.sheetHost} onClick={handleSheetHostClick}>
+        <div className={styles.sheetPanel}>
           <div className={styles.header}>
             <h2 className={styles.title}>Tile Set Failed</h2>
             <IconButton onClick={onClose} aria-label="Close tile set panel" title="Close" variant="ghost" size="sm">
@@ -241,8 +241,8 @@ export function TileSetPanel({
 
   // Setup view
   return (
-    <div className={styles.backdrop} onClick={handleBackdropClick}>
-      <div className={styles.modal}>
+    <div className={styles.sheetHost} onClick={handleSheetHostClick}>
+      <div className={styles.sheetPanel}>
         <div className={styles.header}>
           <h2 className={styles.title}>Create Tile Set</h2>
           <IconButton onClick={onClose} aria-label="Close tile set panel" title="Close" variant="ghost" size="sm">
