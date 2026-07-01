@@ -128,6 +128,8 @@ test('tile set panel uses shared fields without changing submit payload', async 
   const tileSetModal = page.locator('[class*="modal"]').first();
   await expect(tileSetModal).toHaveCSS('box-shadow', 'none');
   await expect(tileSetModal).toHaveCSS('transform', 'none');
+  await expect(tileSetModal).toHaveCSS('border-radius', '8px');
+  await expect(page.getByText('Tile Type')).toHaveCSS('text-transform', 'none');
   await expect.poll(
     () => tileSetModal.evaluate((node) => getComputedStyle(node).animationName),
   ).not.toContain('slideUp');
@@ -175,6 +177,8 @@ test('rotation panel uses shared fields without changing submit payload', async 
   const rotationModal = page.locator('[class*="modal"]').first();
   await expect(rotationModal).toHaveCSS('box-shadow', 'none');
   await expect(rotationModal).toHaveCSS('transform', 'none');
+  await expect(rotationModal).toHaveCSS('border-radius', '8px');
+  await expect(page.getByText('Configuration')).toHaveCSS('text-transform', 'none');
   await expect.poll(
     () => rotationModal.evaluate((node) => getComputedStyle(node).animationName),
   ).not.toContain('slideUp');

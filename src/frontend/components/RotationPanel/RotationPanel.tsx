@@ -373,7 +373,6 @@ export function RotationPanel({
           <div className={styles.inputGroup}>
             <span className={styles.sectionLabel}>Subject Description</span>
             <TextInput
-              className={styles.textInput}
               value={subjectDescription}
               onChange={(e) => setSubjectDescription(e.target.value)}
               placeholder="e.g. a pixel art warrior character"

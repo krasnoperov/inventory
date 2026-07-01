@@ -279,11 +279,11 @@ export function TileSetPanel({
           <div className={styles.inputGroup}>
             <span className={styles.sectionLabel}>Theme / Description</span>
             <TextArea
-              className={styles.textArea}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="e.g. lush green forest floor with mossy stones and fallen leaves"
               rows={3}
+              compact
               fullWidth
             />
             <span className={styles.inputHint}>
