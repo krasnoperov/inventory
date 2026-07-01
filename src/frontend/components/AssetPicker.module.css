@@ -46,6 +46,7 @@
   --ctl-hover: var(--color-bg);
 
   gap: 0.75rem;
+  align-items: flex-start;
   justify-content: flex-start;
   width: 100%;
   padding-block: 0.625rem;
@@ -103,9 +104,10 @@
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-overflow: clip;
 }
 
 .optionType {
@@ -113,9 +115,10 @@
   font-size: 0.75rem;
   color: var(--color-text-muted);
   text-transform: capitalize;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-overflow: clip;
 }
 
 .optionMeta {

@@ -600,6 +600,10 @@ test('forge tray video picker enforces the three-reference budget', async ({ pag
 
 test('forge tray opens Style and Chat as separate full sheets', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
+  const longStylePrompt = [
+    'Loose watercolor adventure game art with readable silhouettes, warm market washes, sunlit plaster edges, and hand-painted texture.',
+    'Preserve the production handoff details so the art team can understand the style without opening an editor.',
+  ].join(' ');
 
   await mountComponent(page, 'ForgeTray', {
     allAssets: [],
@@ -610,7 +614,7 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
     sendChatMessage: '__noop__',
     requestChatHistory: '__noop__',
     clearChatSession: '__noop__',
-    stylePresets: [russafaPreset],
+    stylePresets: [{ ...russafaPreset, style_prompt: longStylePrompt }],
     createStylePreset: '__record__:style-create',
     collections: [styleCollection],
     collectionItems: [styleCollectionItem],
@@ -651,8 +655,12 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   await expect(page.getByLabel('Set as space default', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel(`Style prompt for ${russafaPreset.name}`, { exact: true })).toHaveCount(0);
   await expect(page.getByLabel(`Description for ${russafaPreset.name}`, { exact: true })).toHaveCount(0);
-  await expect(page.getByText(russafaPreset.style_prompt)).toBeVisible();
-  await expect(page.getByText(russafaPreset.description)).toBeVisible();
+  await expect(page.getByText(longStylePrompt)).toBeVisible();
+  await expect(page.getByText(russafaPreset.description, { exact: true })).toBeVisible();
+  const presetPrompt = page.locator('[class*="presetSummary"] p').first();
+  await expect(presetPrompt).toHaveCSS('display', 'block');
+  await expect(presetPrompt).toHaveCSS('-webkit-line-clamp', 'none');
+  await expect.poll(async () => (await presetPrompt.boundingBox())?.height ?? 0).toBeGreaterThan(48);
   await expect(page.getByLabel('Enabled', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Set default' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: `Edit ${russafaPreset.name}` })).toHaveCount(0);

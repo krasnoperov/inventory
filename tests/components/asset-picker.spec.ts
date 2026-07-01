@@ -82,16 +82,26 @@ test('asset picker uses shared search field and filters selectable assets', asyn
       asset('hero', 'Hero Character', 'character'),
       asset('forest', 'Forest Gate', 'environment'),
       asset('voice', 'Narrator Voice', 'speech', 'audio'),
+      asset(
+        'handoff',
+        'Storyboard reference asset with readable production handoff title',
+        'environment reference with production handoff labels',
+      ),
     ],
-    variants: [variant('hero'), variant('forest'), variant('voice')],
-    selectedAssetId: 'forest',
+    variants: [variant('hero'), variant('forest'), variant('voice'), variant('handoff')],
+    selectedAssetId: 'handoff',
     onSelect: '__record__:select-asset',
   });
 
   await expect(page.getByLabel('Search assets')).toBeVisible();
-  const selectedOption = page.getByRole('button', { name: /Forest Gate/ });
+  const selectedOption = page.getByRole('button', { name: /Storyboard reference asset/ });
   await expect(selectedOption).toBeVisible();
   await expect(selectedOption).toContainText('Selected');
+  await expect(selectedOption.locator('[class*="optionName"]')).toHaveCSS('white-space', 'normal');
+  await expect(selectedOption.locator('[class*="optionName"]')).toHaveCSS('text-overflow', 'clip');
+  await expect(selectedOption.locator('[class*="optionType"]')).toHaveCSS('white-space', 'normal');
+  await expect(selectedOption.locator('[class*="optionType"]')).toHaveCSS('text-overflow', 'clip');
+  await expect.poll(async () => (await selectedOption.boundingBox())?.height ?? 0).toBeGreaterThan(72);
   await expect(page.locator('[class*="checkmark"]')).toHaveCount(0);
   await expect(selectedOption).toHaveCSS(
     'background-color',
