@@ -30,6 +30,15 @@
   animation: fadeIn 0.15s ease;
 }
 
+.stylePanel.rail {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  box-shadow: none;
+  animation: none;
+}
+
 /* Header */
 .header {
   display: flex;

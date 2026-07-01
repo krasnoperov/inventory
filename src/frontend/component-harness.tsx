@@ -34,6 +34,7 @@ import { TopLoadingBar } from './components/TopLoadingBar';
 import { UsageIndicatorView } from './components/UsageIndicator/UsageIndicator';
 import { VariantCanvas } from './components/VariantCanvas';
 import { VariantDetailsPanel } from './components/VariantCanvas/VariantDetailsPanel';
+import { StylePanel } from './components/ForgeTray/StylePanel';
 import { BillingPlanActions, UsageBar } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
 import { WorkspaceChrome } from './components/WorkspaceChrome';
@@ -1116,11 +1117,16 @@ function LandingDualChromePreview() {
 }
 
 function SpacePageOverlayChromePreview(props: Record<string, unknown>) {
-  const showCompositionRail = props.showCompositionRail === true;
+  const sidePanel = typeof props.sidePanel === 'string'
+    ? props.sidePanel
+    : props.showCompositionRail === true
+      ? 'composition'
+      : '';
+  const showSideRail = sidePanel === 'composition' || sidePanel === 'sharing' || sidePanel === 'style';
   return (
     <div className={spacePageStyles.page}>
       <div className={spacePageStyles.canvasContainer}>
-        <div className={`${spacePageStyles.canvasWorkspace} ${showCompositionRail ? spacePageStyles.canvasWorkspaceWithInspector : ''}`}>
+        <div className={`${spacePageStyles.canvasWorkspace} ${showSideRail ? spacePageStyles.canvasWorkspaceWithInspector : ''}`}>
           <div className={spacePageStyles.canvasStage}>
         <CanvasToolbar ariaLabel="Space controls">
           <CanvasToolbarTitle>
@@ -1152,8 +1158,8 @@ function SpacePageOverlayChromePreview(props: Record<string, unknown>) {
         </div>
           </div>
 
-          {showCompositionRail && (
-            <div className={spacePageStyles.compositionPanelContainer}>
+          {sidePanel === 'composition' && (
+            <div className={spacePageStyles.spaceSidePanelContainer}>
               <CompositionDetail
                 spaceId="space-1"
                 layout="dock"
@@ -1176,6 +1182,45 @@ function SpacePageOverlayChromePreview(props: Record<string, unknown>) {
                 onReorderItems={() => undefined}
                 onOpenAsset={() => undefined}
                 onClose={() => undefined}
+              />
+            </div>
+          )}
+          {sidePanel === 'sharing' && (
+            <div className={spacePageStyles.spaceSidePanelContainer}>
+              <SpaceSharingPanel
+                currentUserRole="owner"
+                layout="rail"
+                sharing={{
+                  success: true,
+                  members: [
+                    {
+                      user_id: 'user-owner',
+                      role: 'owner',
+                      joined_at: stackBaseTime,
+                      user: { id: 'user-owner', email: 'owner@example.com', name: 'Owner With A Long Readable Name' },
+                    },
+                    {
+                      user_id: 'user-editor',
+                      role: 'editor',
+                      joined_at: stackBaseTime,
+                      user: { id: 'user-editor', email: 'long.editor.address@example.com', name: 'Collaborator With A Long Readable Production Name' },
+                    },
+                  ],
+                  pendingAccessRequests: [],
+                  pendingInvitations: [],
+                }}
+                onClose={() => undefined}
+              />
+            </div>
+          )}
+          {sidePanel === 'style' && (
+            <div className={spacePageStyles.spaceSidePanelContainer}>
+              <StylePanel
+                spaceId="space-1"
+                layout="rail"
+                onClose={() => undefined}
+                stylePresets={[stackStylePreset]}
+                styleReferenceCollections={stackCollections.filter((collection) => collection.kind === 'style_refs')}
               />
             </div>
           )}
