@@ -661,6 +661,7 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   });
   expect(chatDockGap).not.toBeNull();
   expect(chatDockGap!).toBeGreaterThanOrEqual(8);
+  await expect(page.getByRole('button', { name: 'Send message' })).toHaveCSS('background-color', await resolvedBackground(page, 'var(--color-surface)'));
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-chat-sheet', { fullPage: true });
 });
