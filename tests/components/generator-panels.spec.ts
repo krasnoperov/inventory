@@ -34,6 +34,45 @@ async function expectTransparentBackdrop(page: Page) {
   await expect(backdrop).toHaveCSS('backdrop-filter', 'none');
 }
 
+async function expectDockedGeneratorSheet(page: Page, panel: Locator) {
+  const backdrop = page.locator('[class*="backdrop"]').first();
+  await expect(backdrop).toHaveCSS('pointer-events', 'none');
+  await expect(panel).toHaveCSS('pointer-events', 'auto');
+  await expect(panel).toHaveCSS('background-color', await resolvedBackground(page, 'var(--workspace-panel-bg)'));
+
+  const geometry = await panel.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    return {
+      rightGap: window.innerWidth - rect.right,
+      bottomGap: window.innerHeight - rect.bottom,
+      width: rect.width,
+      viewportWidth: window.innerWidth,
+    };
+  });
+  expect(geometry.rightGap).toBeGreaterThanOrEqual(15);
+  expect(geometry.rightGap).toBeLessThanOrEqual(17);
+  expect(geometry.bottomGap).toBeGreaterThanOrEqual(200);
+  expect(geometry.width).toBeLessThanOrEqual(Math.min(520, geometry.viewportWidth - 32));
+}
+
+async function expectMobileGeneratorSheetAboveTray(page: Page, panel: Locator) {
+  const backdrop = page.locator('[class*="backdrop"]').first();
+  await expect(backdrop).toHaveCSS('pointer-events', 'none');
+  await expect(panel).toHaveCSS('pointer-events', 'auto');
+
+  const geometry = await panel.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    return {
+      leftGap: rect.left,
+      rightGap: window.innerWidth - rect.right,
+      bottomGap: window.innerHeight - rect.bottom,
+    };
+  });
+  expect(geometry.leftGap).toBeGreaterThanOrEqual(7);
+  expect(geometry.rightGap).toBeGreaterThanOrEqual(7);
+  expect(geometry.bottomGap).toBeGreaterThanOrEqual(160);
+}
+
 async function resolvedBackground(page: Page, value: string) {
   return page.evaluate((backgroundValue) => {
     const probe = document.createElement('div');
@@ -129,6 +168,7 @@ test('tile set panel uses shared fields without changing submit payload', async 
   await expect(tileSetModal).toHaveCSS('box-shadow', 'none');
   await expect(tileSetModal).toHaveCSS('transform', 'none');
   await expect(tileSetModal).toHaveCSS('border-radius', '8px');
+  await expectDockedGeneratorSheet(page, tileSetModal);
   await expect(page.getByText('Tile Type')).toHaveCSS('text-transform', 'none');
   await expect.poll(
     () => tileSetModal.evaluate((node) => getComputedStyle(node).animationName),
@@ -178,6 +218,9 @@ test('rotation panel uses shared fields without changing submit payload', async 
   await expect(rotationModal).toHaveCSS('box-shadow', 'none');
   await expect(rotationModal).toHaveCSS('transform', 'none');
   await expect(rotationModal).toHaveCSS('border-radius', '8px');
+  await expectDockedGeneratorSheet(page, rotationModal);
+  await expect(page.locator('[class*="sourceName"]')).toHaveCSS('white-space', 'normal');
+  await expect(page.locator('[class*="sourceName"]')).toHaveCSS('text-overflow', 'clip');
   await expect(page.getByText('Configuration')).toHaveCSS('text-transform', 'none');
   await expect.poll(
     () => rotationModal.evaluate((node) => getComputedStyle(node).animationName),
@@ -278,6 +321,35 @@ test('rotation panel keeps rating controls in footer chrome', async ({ page }) =
     eventName: 'rateRotation',
     args: ['rotation-east', 'rejected'],
   }));
+});
+
+test('generator panels stay above mobile ForgeTray offset', async ({ page }) => {
+  await mockImages(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await mountComponent(page, 'TileSetPanel', {
+    tileSets: [],
+    tilePositions: [],
+    variants: [sourceVariant],
+    hasDefaultStyle: true,
+    onSubmit: '__record__:submitTileSet',
+    onCancel: '__record__:cancelTileSet',
+    onClose: '__record__:closeTileSet',
+  });
+  await expectMobileGeneratorSheetAboveTray(page, page.locator('[class*="modal"]').first());
+
+  await mountComponent(page, 'RotationPanel', {
+    sourceVariant,
+    sourceAsset,
+    rotationSets: [],
+    rotationViews: [],
+    variants: [sourceVariant],
+    hasDefaultStyle: true,
+    onSubmit: '__record__:submitRotation',
+    onCancel: '__record__:cancelRotation',
+    onClose: '__record__:closeRotation',
+  });
+  await expectMobileGeneratorSheetAboveTray(page, page.locator('[class*="modal"]').first());
 });
 
 test('generator panels use tokenized completed progress surfaces', async ({ page }) => {
