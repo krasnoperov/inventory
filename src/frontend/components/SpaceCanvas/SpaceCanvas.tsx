@@ -394,7 +394,7 @@ function SpaceCanvasInner({
       }
       requestAnimationFrame(() => setIsReady(true));
     });
-  }, [nodesInitialized, nodes.length, fitView, setViewport]);
+  }, [nodesInitialized, nodes, fitView, setViewport]);
 
   // Each card's centre as a flow-space offset from its frame's origin. This is
   // stable while a frame is dragged (only the frame's position moves), so the
