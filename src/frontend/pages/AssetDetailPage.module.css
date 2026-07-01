@@ -215,7 +215,7 @@
 
 .assetDetailsStrip {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(9.5rem, auto) auto;
+  grid-template-columns: minmax(0, 0.85fr) minmax(13.5rem, 1.15fr) auto;
   align-items: center;
   gap: 0.45rem 0.65rem;
   padding: 0.6rem 0.6rem 0.55rem;
@@ -229,6 +229,8 @@
   display: grid;
   gap: 0.18rem;
   min-width: 0;
+  padding-inline-start: 0.55rem;
+  border-left: 3px solid var(--color-text-muted);
 }
 
 .assetDetailsEyebrow {
@@ -272,7 +274,7 @@
   display: grid;
   gap: 0.14rem;
   padding-inline-start: 0.65rem;
-  border-left: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
 }
 
 .variantFocusLabel {
@@ -303,6 +305,7 @@
   gap: 0.28rem 0.7rem;
   min-width: 0;
   margin: 0;
+  padding-inline-start: calc(0.55rem + 3px);
 }
 
 .assetDetailsFacts div {
