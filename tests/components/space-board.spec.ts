@@ -272,7 +272,7 @@ test('media triggers open image assets without changing thumbnail chrome', async
 
   const imageThumbnailTrigger = page.locator('button[class*="thumbnailButton"][title="Hero sprite"]');
   await expect(imageThumbnailTrigger).toBeVisible();
-  await expect(page.locator('section[class*="collection"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(page.locator('section[class*="collection"]').first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect.poll(() => page.locator('section[class*="collection"]').first().evaluate(
     (element) => getComputedStyle(element, '::before').backgroundImage,
   )).toBe('none');
@@ -358,7 +358,7 @@ test('audio collection cards surface playback and compact metadata', async ({ pa
   });
 
   await expect(page.getByRole('button', { name: 'Play' })).toHaveCount(2);
-  await expect(page.locator('section[class*="collection"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(page.locator('section[class*="collection"]').first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.getByRole('button', { name: 'Merchant greeting', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Legacy ambience', exact: true })).toBeVisible();
   await expect(page.locator('[title="Rachel"]')).toBeVisible();
@@ -486,6 +486,7 @@ test('collection menus use shared form controls', async ({ page }) => {
   await expect(createTrigger).toHaveAttribute('aria-expanded', 'false');
   await expect(page.locator('[class*="createPanel"]')).toHaveCount(0);
   await expect(page.locator('[class*="collectionMenuPanel"]').first()).toHaveCSS('box-shadow', 'none');
+  await expect(page.locator('[class*="collectionMenuPanel"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await page.getByRole('textbox', { name: 'Collection name' }).first().fill('Cast updated');
   await selectDropdown(page, 'Collection kind', 'Scenes');
   await page

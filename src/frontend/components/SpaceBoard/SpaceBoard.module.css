@@ -157,10 +157,10 @@
   isolation: isolate;
   --collection-color: var(--color-text-muted);
   min-width: 0;
-  padding: 0.9rem 1.1rem 1.15rem;
+  padding: 0.75rem 1rem 1.05rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: var(--color-surface);
+  background: transparent;
 }
 
 .collection:has(.assetCardMenuHostOpen),
