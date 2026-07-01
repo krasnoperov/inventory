@@ -98,81 +98,83 @@ export function StylePanel({
       <div className={styles.stylePanel} onClick={(event) => event.stopPropagation()}>
         <div className={styles.header}>
           <span className={styles.title}>Style Library</span>
-          <IconButton onClick={onClose} title="Close" aria-label="Close" variant="ghost" size="sm">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </IconButton>
+          <div className={styles.headerActions}>
+            {canCreatePreset && (
+              <Button
+                className={styles.createToggle}
+                onClick={() => setCreateOpen((open) => !open)}
+                aria-expanded={createOpen}
+                aria-controls="style-preset-create-form"
+                variant="secondary"
+                size="sm"
+              >
+                {createOpen ? 'Hide create' : 'New preset'}
+              </Button>
+            )}
+            <IconButton onClick={onClose} title="Close" aria-label="Close" variant="ghost" size="sm">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </IconButton>
+          </div>
         </div>
 
         <div className={styles.body}>
-          {canCreatePreset && (
+          {canCreatePreset && createOpen && (
             <section className={`${styles.section} ${styles.createSection}`}>
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionTitleStack}>
                   <h3>Create preset</h3>
                   <span>{styleReferenceCollections.length} collections</span>
                 </div>
+              </div>
+              <div id="style-preset-create-form" className={styles.formGrid}>
+                <TextInput
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Preset name"
+                  aria-label="Preset name"
+                  fullWidth
+                />
+                <UiSelect
+                  value={selectedCollectionId}
+                  options={collectionOptions}
+                  onValueChange={setCollectionId}
+                  label="Style collection"
+                  fullWidth
+                />
+                <TextArea
+                  value={stylePrompt}
+                  onChange={(event) => setStylePrompt(event.target.value)}
+                  placeholder="Style prompt"
+                  aria-label="Style prompt"
+                  rows={3}
+                  fullWidth
+                />
+                <TextInput
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Description"
+                  aria-label="Style description"
+                  fullWidth
+                />
+                <label className={styles.checkRow}>
+                  <Checkbox
+                    checked={makeDefault}
+                    onChange={(event) => setMakeDefault(event.target.checked)}
+                  />
+                  <span>Set as space default</span>
+                </label>
                 <Button
-                  className={styles.createToggle}
-                  onClick={() => setCreateOpen((open) => !open)}
-                  aria-expanded={createOpen}
-                  aria-controls="style-preset-create-form"
+                  className={styles.createAction}
+                  onClick={handleCreatePreset}
+                  disabled={!name.trim() || !selectedCollectionId || !createStylePreset}
                   variant="secondary"
                   size="sm"
                 >
-                  {createOpen ? 'Hide' : 'New preset'}
+                  Create preset
                 </Button>
               </div>
-              {createOpen && (
-                <div id="style-preset-create-form" className={styles.formGrid}>
-                  <TextInput
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    placeholder="Preset name"
-                    aria-label="Preset name"
-                    fullWidth
-                  />
-                  <UiSelect
-                    value={selectedCollectionId}
-                    options={collectionOptions}
-                    onValueChange={setCollectionId}
-                    label="Style collection"
-                    fullWidth
-                  />
-                  <TextArea
-                    value={stylePrompt}
-                    onChange={(event) => setStylePrompt(event.target.value)}
-                    placeholder="Style prompt"
-                    aria-label="Style prompt"
-                    rows={3}
-                    fullWidth
-                  />
-                  <TextInput
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
-                    placeholder="Description"
-                    aria-label="Style description"
-                    fullWidth
-                  />
-                  <label className={styles.checkRow}>
-                    <Checkbox
-                      checked={makeDefault}
-                      onChange={(event) => setMakeDefault(event.target.checked)}
-                    />
-                    <span>Set as space default</span>
-                  </label>
-                  <Button
-                    className={styles.createAction}
-                    onClick={handleCreatePreset}
-                    disabled={!name.trim() || !selectedCollectionId || !createStylePreset}
-                    variant="secondary"
-                    size="sm"
-                  >
-                    Create preset
-                  </Button>
-                </div>
-              )}
             </section>
           )}
 
