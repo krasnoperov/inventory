@@ -101,7 +101,8 @@ test('relation dialog creates a manual relation with searchable variant target',
   await page.getByPlaceholder('Search assets and variants').fill('atlas-searchable');
   await expect(page.getByText('Atlas Sheet variant')).toBeVisible();
   await page.getByText('Atlas Sheet variant').click();
-  await expect(page.getByRole('button', { name: 'Mark as thumbnail for Atlas Sheet variant atlas-se' })).toBeVisible();
+  await expect(page.getByLabel('Relation shortcuts')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Mark as thumbnail for/ })).toHaveCount(0);
   await page.mouse.move(0, 0);
   await screenshot(page, 'relation-dialog-create-compact', { fullPage: true });
   await page.getByRole('button', { name: 'Details' }).click();
@@ -124,35 +125,6 @@ test('relation dialog creates a manual relation with searchable variant target',
       context: 'catalog grid',
       notes: 'Use the trimmed 64px sprite.',
     },
-  });
-});
-
-test('edit-menu relation shortcut creates a common relation without filling the full form', async ({ page }) => {
-  await mockMedia(page);
-  await mountComponent(page, 'RelationEditorDialog', {
-    mode: 'create',
-    assets,
-    variants,
-    sourceSubject: { subjectType: 'variant', variantId: 'map-variant' },
-    onCancel: '__noop__',
-    onCreate: '__record__:create-relation',
-    onUpdate: '__record__:update-relation',
-  });
-
-  await page.getByPlaceholder('Search assets and variants').fill('hero');
-  await page.getByRole('button', { name: 'Hero Character character /' }).click();
-  await page.getByRole('button', { name: 'Mark as thumbnail for Hero Character' }).click();
-
-  const details = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
-  expect(details).toHaveLength(1);
-  expect(details[0]).toMatchObject({
-    eventName: 'create-relation',
-    args: [{
-      subject: { subjectType: 'variant', variantId: 'map-variant' },
-      object: { subjectType: 'asset', assetId: 'hero' },
-      relationType: 'thumbnail_for',
-      context: null,
-    }],
   });
 });
 

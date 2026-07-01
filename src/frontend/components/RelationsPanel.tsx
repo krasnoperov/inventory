@@ -9,7 +9,6 @@ import {
   type Variant,
 } from '../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../mediaKind';
-import { buildImmediateRelationLabel, COMMON_RELATION_SHORTCUT_TYPES } from '../productionShortcuts';
 import { Button, IconButton, TextArea, TextInput, UiSelect, type SelectOption } from '../ui';
 import { Thumbnail } from './Thumbnail';
 import styles from './RelationsPanel.module.css';
@@ -57,21 +56,6 @@ function buildRelationContext(label: string, context: string, notes: string): Sp
   if (context.trim()) next.context = context.trim();
   if (notes.trim()) next.notes = notes.trim();
   return Object.keys(next).length > 0 ? next : null;
-}
-
-function getRelationShortcutLabel(type: SpaceRelationType): string {
-  switch (type) {
-    case 'thumbnail_for':
-      return 'Thumbnail';
-    case 'map_for':
-      return 'Map';
-    case 'background_for':
-      return 'Background';
-    case 'style_reference_for':
-      return 'Style ref';
-    default:
-      return getRelationTypeLabel(type);
-  }
 }
 
 function subjectKey(subject: SpaceSubject): string {
@@ -445,32 +429,6 @@ export function RelationEditorDialog({
               })}
               {options.length === 0 && <div className={styles.emptyTarget}>No matching targets</div>}
             </div>
-          </div>
-        )}
-
-        {mode === 'create' && targetSubject && (
-          <div className={styles.quickRelations} aria-label="Relation shortcuts">
-            {COMMON_RELATION_SHORTCUT_TYPES.map((shortcut) => {
-              const fullLabel = buildImmediateRelationLabel(shortcut.type, getSubjectLabel(targetSubject, assets, variants));
-              return (
-                <Button
-                  key={shortcut.type}
-                  className={styles.quickRelationButton}
-                  onClick={() => onCreate({
-                    subject: sourceSubject,
-                    object: targetSubject,
-                    relationType: shortcut.type,
-                    context: null,
-                  })}
-                  variant="secondary"
-                  size="sm"
-                  title={fullLabel}
-                  aria-label={fullLabel}
-                >
-                  {getRelationShortcutLabel(shortcut.type)}
-                </Button>
-              );
-            })}
           </div>
         )}
 

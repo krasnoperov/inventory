@@ -2,7 +2,6 @@ import type {
   Asset,
   CompositionItem,
   CompositionItemRole,
-  SpaceRelationType,
   SpaceSubject,
   Variant,
 } from './hooks/useSpaceWebSocket';
@@ -21,13 +20,6 @@ const SLOT_OPTIONS: Array<{ role: CompositionItemRole; noun: string; phrase: str
   { role: 'overlay', noun: 'overlay', phrase: 'Add as overlay' },
   { role: 'map', noun: 'map', phrase: 'Use as map' },
   { role: 'thumbnail', noun: 'thumbnail', phrase: 'Use as thumbnail' },
-];
-
-export const COMMON_RELATION_SHORTCUT_TYPES: Array<{ type: SpaceRelationType; phrase: string }> = [
-  { type: 'thumbnail_for', phrase: 'Mark as thumbnail for' },
-  { type: 'map_for', phrase: 'Mark as map for' },
-  { type: 'background_for', phrase: 'Use as background in' },
-  { type: 'style_reference_for', phrase: 'Use as style reference for' },
 ];
 
 /** Role a finished variant can take when placed into a composition. */
@@ -73,11 +65,6 @@ export function resolveCompositionPlacementShortcut(
   return existing
     ? { kind: 'slot', compositionId, role, itemId: existing.id }
     : { kind: 'slot', compositionId, role };
-}
-
-export function buildImmediateRelationLabel(relationType: SpaceRelationType, targetLabel: string): string {
-  const match = COMMON_RELATION_SHORTCUT_TYPES.find((entry) => entry.type === relationType);
-  return `${match?.phrase ?? 'Relate to'} ${targetLabel}`;
 }
 
 export function getSubjectLabel(subject: SpaceSubject, assets: Asset[], variants: Variant[]): string {
