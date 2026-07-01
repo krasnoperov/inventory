@@ -21,6 +21,7 @@ import { PublicThemeToggle } from './components/PublicThemeToggle';
 import { RelationEditorDialog, RelationsPanel } from './components/RelationsPanel';
 import { RelationsCanvas } from './components/RelationsCanvas/RelationsCanvas';
 import { RotationPanel } from './components/RotationPanel/RotationPanel';
+import { SpacesOverview } from './components/SpacesOverview';
 import { SpaceBoard } from './components/SpaceBoard';
 import { SpaceCanvas } from './components/SpaceCanvas';
 import { SpaceSharingPanel } from './components/SpaceSharingPanel';
@@ -42,7 +43,6 @@ import { AdminSpendView } from './pages/AdminSpendPage';
 import { AuthorizationDecisionActions } from './pages/AuthorizationApprovalPage';
 import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsStrip, AssetGenerationDock, AssetTitleInlineEditor, AssetTypeSelect } from './pages/AssetDetailPage';
 import assetDetailStyles from './pages/AssetDetailPage.module.css';
-import dashboardStyles from './pages/DashboardPage.module.css';
 import DocsPage from './pages/DocsPage';
 import landingStyles from './pages/LandingPage.module.css';
 import { GoogleLoginButton } from './pages/LoginPage';
@@ -794,22 +794,17 @@ function FormContainerPreview() {
 
 function DashboardHoverChromePreview() {
   return (
-    <div className={dashboardStyles.container} style={{ padding: '2rem', maxWidth: '680px' }}>
-      <div className={dashboardStyles.header}>
-        <h1 className={dashboardStyles.title}>Spaces</h1>
+    <div style={{ padding: '2rem', maxWidth: '680px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', marginBottom: '2rem' }}>
+        <h1 style={{ margin: 0, fontSize: '2rem' }}>Spaces</h1>
         <ButtonLink to="/profile" variant="primary">Profile</ButtonLink>
       </div>
-      <div className={dashboardStyles.spacesList}>
-        <a className={dashboardStyles.spaceCard} href="/spaces/preview">
-          <div className={dashboardStyles.spaceCardHeader}>
-            <h3 className={dashboardStyles.spaceName}>Gameplay board</h3>
-            <span className={`${dashboardStyles.roleBadge} ${dashboardStyles.roleBadgeOwner}`}>owner</span>
-          </div>
-          <div className={dashboardStyles.spaceCardFooter}>
-            <span className={dashboardStyles.spaceDate}>Created Jun 30, 2026</span>
-          </div>
-        </a>
-      </div>
+      <SpacesOverview
+        spaces={[{ id: 'preview', name: 'Gameplay board', owner_id: 'user-1', role: 'owner', created_at: Date.UTC(2026, 5, 30) }]}
+        isLoading={false}
+        emptyDescription="Create your first space to start organizing your inventory."
+        onCreateSpace={() => undefined}
+      />
     </div>
   );
 }
@@ -861,18 +856,32 @@ function LandingCardHoverChromePreview() {
             <p className={landingStyles.featureDescription}>Teams can scan media state and move into details intentionally.</p>
           </article>
         </section>
-        <section className={landingStyles.spacesList} style={{ marginTop: '1.5rem' }}>
-          <a className={landingStyles.spaceCard} href="/spaces/preview">
-            <div className={landingStyles.spaceCardHeader}>
-              <h3 className={landingStyles.spaceName}>Market scene board</h3>
-              <span className={`${landingStyles.roleBadge} ${landingStyles.roleBadgeOwner}`}>owner</span>
-            </div>
-            <div className={landingStyles.spaceCardFooter}>
-              <span className={landingStyles.spaceDate}>Updated Jun 30, 2026</span>
-            </div>
-          </a>
+        <section style={{ marginTop: '1.5rem' }}>
+          <SpacesOverview
+            spaces={[{ id: 'preview', name: 'Market scene board', owner_id: 'user-1', role: 'owner', created_at: Date.UTC(2026, 5, 30) }]}
+            isLoading={false}
+            emptyDescription="Create your first space to start organizing your production assets."
+            onCreateSpace={() => undefined}
+          />
         </section>
       </main>
+    </div>
+  );
+}
+
+function SpacesOverviewPreview(props: Record<string, unknown>) {
+  const empty = props.empty === true;
+  return (
+    <div style={{ width: 'min(760px, 100%)', padding: '2rem' }}>
+      <SpacesOverview
+        spaces={empty ? [] : [
+          { id: 'market', name: 'Market scene board', owner_id: 'user-1', role: 'owner', created_at: Date.UTC(2026, 5, 30) },
+          { id: 'encounter', name: 'Encounter props', owner_id: 'user-2', role: 'editor', created_at: Date.UTC(2026, 5, 29) },
+        ]}
+        isLoading={false}
+        emptyDescription="Create your first space to start organizing your production assets."
+        onCreateSpace={() => undefined}
+      />
     </div>
   );
 }
@@ -1026,6 +1035,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   SpacePageOverlayChrome: SpacePageOverlayChromePreview,
   SpaceSharingPanel: SpaceSharingPanel as unknown as ComponentType<Record<string, unknown>>,
   SpaceAccessRequestView: SpaceAccessRequestView as unknown as ComponentType<Record<string, unknown>>,
+  SpacesOverview: SpacesOverviewPreview,
   StyleReferenceUsagePanel: StyleReferenceUsagePanel as unknown as ComponentType<Record<string, unknown>>,
   Thumbnail: Thumbnail as unknown as ComponentType<Record<string, unknown>>,
   TileGrid: TileGrid as unknown as ComponentType<Record<string, unknown>>,
