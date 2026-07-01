@@ -151,11 +151,15 @@ test('audio asset card surfaces playback, model, voice, and prompt', async ({ pa
   await expect(page.getByText('Name')).toHaveCSS('text-transform', 'none');
   await expect(page.getByText('Name')).toHaveCSS('letter-spacing', 'normal');
   await expect(page.locator('[title="Rachel"]')).toBeVisible();
+  await expect(page.locator('[title="Rachel"]')).toHaveCSS('white-space', 'normal');
+  await expect(page.locator('[title="Rachel"]')).toHaveCSS('text-overflow', 'clip');
   await expect(page.getByText('Model')).toBeVisible();
   await expect(page.getByText('eleven_v3')).toBeVisible();
   await expect(page.getByText('Voice')).toBeVisible();
   await expect(page.getByText('Merchant: Rachel, Traveler: Adam')).toBeVisible();
   await expect(page.getByText(/Fresh apples and clean maps/)).toBeVisible();
+  await expect(page.locator('[class*="audioPrompt"]')).toHaveCSS('white-space', 'normal');
+  await expect(page.locator('[class*="audioPrompt"]')).toHaveCSS('-webkit-line-clamp', 'none');
 
   await titleButton.click();
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -193,7 +197,12 @@ test('asset card add action uses shared icon button outside media', async ({ pag
   const titleButton = page.locator('button[class*="titleButton"]');
   await expect(titleButton).toBeVisible();
   const nameLabel = titleButton.locator('[class*="name"]');
-  await expect.poll(() => nameLabel.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true);
+  await expect(nameLabel).toHaveCSS('white-space', 'normal');
+  await expect(nameLabel).toHaveCSS('text-overflow', 'clip');
+  await expect.poll(async () => (await nameLabel.boundingBox())?.height ?? 0).toBeGreaterThan(30);
+  const typeLabel = titleButton.locator('[class*="type"]');
+  await expect(typeLabel).toHaveCSS('white-space', 'normal');
+  await expect(typeLabel).toHaveCSS('text-overflow', 'clip');
   await titleButton.click();
   await thumbnailButton.click();
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);

@@ -174,8 +174,11 @@ test('collection placement picker stacks cleanly on mobile', async ({ page }) =>
 
 test('collection placement picker contains long custom role summaries', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 260 });
+  const longCollections = [
+    collection('cast', 'Cast collection with an unusually long placement name', 'cast'),
+  ];
   await mountComponent(page, 'CollectionPlacementPicker', {
-    collections,
+    collections: longCollections,
     value: [{
       collectionId: 'cast',
       role: 'very-long-custom-production-role-that-should-not-expand-the-row',
@@ -193,7 +196,14 @@ test('collection placement picker contains long custom role summaries', async ({
   }));
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
 
+  const collectionName = page.getByText('Cast collection with an unusually long placement name');
+  await expect(collectionName).toHaveCSS('white-space', 'normal');
+  await expect(collectionName).toHaveCSS('text-overflow', 'clip');
+  await expect.poll(async () => (await collectionName.boundingBox())?.height ?? 0).toBeGreaterThan(18);
+
   const roleChip = page.getByText('very-long-custom-production-role-that-should-not-expand-the-row');
-  await expect(roleChip).toHaveCSS('overflow', 'hidden');
-  await expect(roleChip).toHaveCSS('text-overflow', 'ellipsis');
+  await expect(roleChip).toHaveCSS('white-space', 'normal');
+  await expect(roleChip).toHaveCSS('text-overflow', 'clip');
+  await expect.poll(async () => (await roleChip.boundingBox())?.height ?? 0).toBeGreaterThan(18);
+  await screenshot(page, 'collection-placement-picker-readable-long-summary', { fullPage: true });
 });
