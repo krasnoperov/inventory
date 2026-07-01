@@ -92,23 +92,24 @@ export function AssetPickerModal({
     return result;
   }, [allAssets, searchQuery, typeFilter]);
 
-  // Group assets by type
+  // Get assets currently in tray
+  const assetsInTray = useMemo(() => {
+    return new Set(slots.map(s => s.asset.id));
+  }, [slots]);
+
+  // Group assets by type, excluding items already represented in the In Tray section.
   const groupedAssets = useMemo(() => {
     const groups = new Map<string, Asset[]>();
 
     filteredAssets.forEach(asset => {
+      if (assetsInTray.has(asset.id)) return;
       const group = groups.get(asset.type) || [];
       group.push(asset);
       groups.set(asset.type, group);
     });
 
     return groups;
-  }, [filteredAssets]);
-
-  // Get assets currently in tray
-  const assetsInTray = useMemo(() => {
-    return new Set(slots.map(s => s.asset.id));
-  }, [slots]);
+  }, [assetsInTray, filteredAssets]);
 
   // Toggle asset in tray
   const handleAssetClick = useCallback((asset: Asset) => {

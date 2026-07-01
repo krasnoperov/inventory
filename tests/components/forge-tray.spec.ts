@@ -1262,18 +1262,22 @@ test('forge tray picker disables references incompatible with the selected media
   await screenshot(page, 'forge-tray-asset-picker', { fullPage: true });
 
   await heroImageChoice.click();
-  await expect(heroImageChoice).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText('In Tray (1)', { exact: true })).toHaveCSS('text-transform', 'none');
   await expect(page.getByText('In Tray (1)', { exact: true })).toHaveCSS('letter-spacing', 'normal');
+  await expect(page.getByText('Character (1)', { exact: true })).toHaveCount(0);
+  const inTrayChoice = page.getByRole('button', { name: /Hero Image\s+Character/i });
+  await expect(inTrayChoice).toHaveCount(1);
+  const inTrayThumbnail = inTrayChoice.locator('[class*="thumbnailWrapper"]').first();
   await expectLocatorAfterShadow(
     page,
-    heroImageThumbnail,
+    inTrayThumbnail,
     'var(--selection-ring)',
   );
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-asset-picker-selected-reference', { fullPage: true });
-  await heroImageChoice.click();
-  await expect(heroImageChoice).toHaveAttribute('aria-pressed', 'false');
+  await inTrayChoice.click();
+  await expect(page.getByText('In Tray (1)', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Character (1)', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /Close/i }).click();
 
   await selectMediaGroup(page, 'Video');
