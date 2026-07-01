@@ -509,6 +509,20 @@
   width: 3.75rem;
 }
 
+.selectAudioType {
+  --ui-select-min-width: 5.75rem;
+  --ui-select-max-width: 5.75rem;
+
+  width: 5.75rem;
+}
+
+.selectMusicProvider {
+  --ui-select-min-width: 6.75rem;
+  --ui-select-max-width: 6.75rem;
+
+  width: 6.75rem;
+}
+
 .selectStyle {
   --ui-select-min-width: 5.75rem;
   --ui-select-max-width: 6rem;

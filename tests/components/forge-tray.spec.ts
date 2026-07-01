@@ -527,6 +527,32 @@ test('forge tray video mode exposes Veo options and audio default-on status', as
   await expect(page.getByLabel('Audio')).toHaveCount(0);
 });
 
+test('forge tray audio mode keeps option labels readable', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 760 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+  });
+  await disableAnimations(page);
+
+  await selectMediaGroup(page, 'Audio');
+
+  for (const audioType of ['Speech', 'Dialogue', 'Music', 'SFX']) {
+    await selectDropdown(page, 'Audio type', audioType);
+    await expectDropdownValue(page, 'Audio type', audioType);
+    await expectDropdownValueToFit(page, 'Audio type');
+
+    if (audioType === 'Music') {
+      await expect(page.getByLabel('Music provider')).toBeVisible();
+      await expectDropdownValue(page, 'Music provider', 'ElevenLabs');
+      await expectDropdownValueToFit(page, 'Music provider');
+    }
+  }
+});
+
 test('forge tray video picker enforces the three-reference budget', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 
