@@ -10,6 +10,7 @@ import { useChatStore } from '../stores/chatStore';
 import { useAssetDetailStore, useSelectedVariantId } from '../stores/assetDetailStore';
 import { HeaderNav } from '../components/HeaderNav';
 import { WorkspaceChrome } from '../components/WorkspaceChrome';
+import { CanvasDropHint } from '../components/CanvasDropHint';
 import {
   CanvasToolbar,
   CanvasToolbarBadge,
@@ -1441,9 +1442,11 @@ export default function AssetDetailPage() {
         </div>
 
         {isDetailsDragOver && (
-          <div className={styles.dropHint} role="status">
-            <span>New variant for {asset.name}</span>
-          </div>
+          <CanvasDropHint
+            scope="Details"
+            message="New variant"
+            detail={asset.name}
+          />
         )}
 
         {/* Jobs overlay - bottom left */}

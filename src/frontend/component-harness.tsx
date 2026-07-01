@@ -9,6 +9,7 @@ import { AssetPicker } from './components/AssetPicker';
 import { CollectionPlacementPicker } from './components/CollectionPlacementPicker';
 import { CompositionDetail, CompositionUsageList } from './components/CompositionDetail';
 import { CompositionPlacementControl } from './components/CompositionPlacementControl';
+import { CanvasDropHint } from './components/CanvasDropHint';
 import { CanvasToolbar, CanvasToolbarBadge, CanvasToolbarButton, CanvasToolbarDivider, CanvasToolbarLink, CanvasToolbarTitle } from './components/CanvasToolbar';
 import { CreateSpaceDialog } from './components/CreateSpaceDialog';
 import { ForgeTray } from './components/ForgeTray';
@@ -1002,6 +1003,54 @@ function SpacePageOverlayChromePreview() {
   );
 }
 
+function CanvasDropHintPreview() {
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+      gap: '1rem',
+      width: 'min(840px, calc(100vw - 2rem))',
+      padding: '1rem',
+      background: 'var(--color-bg)',
+    }}>
+      <section
+        aria-label="Space drop target preview"
+        style={{
+          position: 'relative',
+          minHeight: '220px',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-md)',
+          overflow: 'hidden',
+          background: 'var(--color-bg)',
+        }}
+      >
+        <CanvasDropHint
+          scope="Space"
+          message="New asset"
+          detail="Drop a media file onto the canvas"
+        />
+      </section>
+      <section
+        aria-label="Details drop target preview"
+        style={{
+          position: 'relative',
+          minHeight: '220px',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-md)',
+          overflow: 'hidden',
+          background: 'var(--color-bg)',
+        }}
+      >
+        <CanvasDropHint
+          scope="Details"
+          message="New variant"
+          detail="Crystal Gate"
+        />
+      </section>
+    </div>
+  );
+}
+
 function AppPrimaryActionChromePreview() {
   return (
     <div style={{ display: 'grid', gap: '0.75rem', padding: '2rem', width: '320px' }}>
@@ -1038,6 +1087,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AssetMenu: AssetMenu as unknown as ComponentType<Record<string, unknown>>,
   AssetPicker: AssetPicker as unknown as ComponentType<Record<string, unknown>>,
   BillingUsageMeters: BillingUsageMetersPreview,
+  CanvasDropHint: CanvasDropHintPreview,
   CanvasToolbarControls: CanvasToolbarControlsPreview,
   AuthorizationDecisionActions: AuthorizationDecisionActions as unknown as ComponentType<Record<string, unknown>>,
   AppPrimaryActionChrome: AppPrimaryActionChromePreview,
