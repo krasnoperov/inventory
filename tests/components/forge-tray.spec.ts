@@ -814,6 +814,10 @@ test('forge chat actions send messages and apply suggested prompts', async ({ pa
   await screenshot(page, 'forge-tray-chat-token-surfaces', { fullPage: true });
   await descriptionsSummary.click();
   await expect(descriptionsSummary).toHaveAttribute('aria-expanded', 'true');
+  await expect(descriptionsPanel.locator('[class*="descriptionsContent"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(descriptionsPanel.locator('[class*="descriptionsContent"]')).toHaveCSS('border-left-width', '0px');
+  await expect(descriptionsPanel.locator('[class*="descriptionItem"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(descriptionsPanel.locator('[class*="descriptionItem"]')).toHaveCSS('border-radius', '0px');
   const descriptionName = page.locator('[class*="descriptionName"]').filter({ hasText: 'Crystal gate' });
   await expect(descriptionName).toHaveCSS('text-transform', 'none');
   await expect(descriptionName).toHaveCSS('letter-spacing', 'normal');
