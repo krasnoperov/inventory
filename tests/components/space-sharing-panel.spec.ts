@@ -89,6 +89,10 @@ test('owner sharing panel exposes request, invite, member, and invitation contro
   await expect(page.getByText('requester@example.test')).toBeVisible();
   await expect(page.getByText('pending@example.test')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Approve viewer' })).toBeVisible();
+  const rows = panel.locator('[class*="row"]');
+  await expect(rows.first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(rows.first()).toHaveCSS('border-left-width', '0px');
+  await expect(rows.first()).toHaveCSS('border-radius', '0px');
 
   await page.getByLabel('Email').fill('new@example.test');
   await selectDropdown(page, 'Invite role', 'editor');
