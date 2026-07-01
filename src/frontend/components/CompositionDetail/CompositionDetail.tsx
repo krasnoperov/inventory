@@ -229,9 +229,19 @@ export function CompositionDetail({
           <div className={styles.sectionHeader}>
             <span>Compositions</span>
             {canEdit && onCreateComposition && (
-              <Button className={styles.actionButton} size="sm" onClick={() => onCreateComposition()}>
-                New
-              </Button>
+              <IconButton
+                className={styles.sectionCreateButton}
+                size="sm"
+                variant="ghost"
+                onClick={() => onCreateComposition()}
+                title="Create composition"
+                aria-label="Create composition"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="M12 5v14" />
+                  <path d="M5 12h14" />
+                </svg>
+              </IconButton>
             )}
           </div>
           <div className={styles.compositionList}>
