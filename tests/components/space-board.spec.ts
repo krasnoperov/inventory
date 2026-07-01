@@ -518,6 +518,7 @@ test('collection menus use shared form controls', async ({ page }) => {
   const cardCaption = heroCard.locator('[class*="caption"]').first();
   await expect(cardCaption).toBeVisible();
   await expectNoOverlap(cardCaption, cardPreview);
+  await expectNoOverlap(cardMenuTrigger, cardPreview);
   await expectNoOverlap(cardMenuPanel, cardPreview);
   await expectNoOverlap(cardMenuPanel, page.locator('button[class*="thumbnailButton"][title="Forest background"]').first());
   await expectWithinViewport(page, cardMenuPanel);
