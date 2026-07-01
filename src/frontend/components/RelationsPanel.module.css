@@ -62,19 +62,6 @@
   height: 14px;
 }
 
-.group {
-  display: grid;
-  gap: 0.2rem;
-}
-
-.groupTitle {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  color: var(--color-text-muted);
-  text-transform: none;
-  letter-spacing: 0;
-}
-
 .rows {
   display: grid;
   gap: 0;

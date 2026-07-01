@@ -267,8 +267,10 @@ test('relations panel shows incoming reverse links and clears relations separate
   });
 
   await expect(page.getByText('Thumbnail for')).toBeVisible();
-  await expect(page.getByText('Outgoing')).toHaveCSS('text-transform', 'none');
-  await expect(page.getByText('Incoming')).toHaveCSS('letter-spacing', 'normal');
+  await expect(page.getByText('Outgoing')).toHaveCount(0);
+  await expect(page.getByText('Incoming')).toHaveCount(0);
+  await expect(page.getByText('Out', { exact: true })).toBeVisible();
+  await expect(page.getByText('In', { exact: true })).toBeVisible();
   await expect(page.getByText('Atlas Sheet')).toBeVisible();
   await expect(page.getByText('Map Source')).toBeVisible();
   await expect(page.getByText('Map for')).toBeVisible();
@@ -287,6 +289,7 @@ test('relations panel shows incoming reverse links and clears relations separate
     borderTopWidth: '0px',
     width: 520,
   });
+  await expect(page.locator('article')).toHaveCount(2);
   await expect(page.getByRole('button', { name: 'Edit relation' })).toHaveCount(2);
   await expect(page.getByRole('button', { name: 'Clear relation' })).toHaveCount(2);
   await page.mouse.move(0, 0);
@@ -363,8 +366,10 @@ test('relations panel count de-duplicates relations matching both directions', a
 
   await expect(page.getByText('Relations')).toBeVisible();
   await expect(page.getByText('1', { exact: true })).toBeVisible();
-  await expect(page.getByText('Alternate of')).toHaveCount(2);
+  await expect(page.getByText('Both', { exact: true })).toBeVisible();
+  await expect(page.getByText('Alternate of')).toHaveCount(1);
   await expect(page.getByText('Atlas Sheet')).toBeVisible();
   await expect(page.getByText('Hero Character')).toBeVisible();
+  await expect(page.locator('article')).toHaveCount(1);
   await expect(page.getByText(/->/)).toHaveCount(0);
 });
