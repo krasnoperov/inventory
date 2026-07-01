@@ -1266,7 +1266,7 @@ export function ForgeTray({
                   )}
                   {effectiveBatchCount > 1 && showBatchControls && (
                     <UiSelect
-                      className={styles.selectParam}
+                      className={`${styles.selectParam} ${styles.selectBatchMode}`}
                       value={batchMode}
                       options={[
                         { value: 'explore', label: 'Explore' },

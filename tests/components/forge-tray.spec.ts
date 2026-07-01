@@ -1104,7 +1104,10 @@ test('forge tray keeps mode and options on one compact row at narrow widths', as
   expect(geometry.rowHeight).toBeLessThanOrEqual(40);
   const rowWidth = await row.evaluate((node) => node.scrollWidth);
   expect(rowWidth).toBeGreaterThan(360);
-  await expect.poll(() => revealInner.evaluate((node) => node.clientWidth)).toBeLessThan(rowWidth);
+  const batchModeBox = await page.getByLabel('Batch mode').boundingBox();
+  const revealBox = await revealInner.boundingBox();
+  if (!batchModeBox || !revealBox) throw new Error('Expected batch mode control to render inside the options reveal');
+  expect(batchModeBox.x + batchModeBox.width).toBeLessThanOrEqual(revealBox.x + revealBox.width);
 
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-narrow-options-row', { fullPage: true });
