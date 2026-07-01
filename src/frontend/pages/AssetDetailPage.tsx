@@ -585,15 +585,15 @@ export function AssetDetailsStrip({
   const variantScope = selectedVariant
     ? formatSelectedVariant(selectedVariant, selectedVariantIndex, variantCount)
     : `${formatVariantCount(variantCount)} · None`;
-  const detailsActionText = 'Details';
-  const detailsActionLabel = `${fullDetailsOpen ? 'Collapse' : 'Expand'} Details scope`;
+  const detailsActionText = 'Scope';
+  const detailsActionLabel = `${fullDetailsOpen ? 'Collapse' : 'Expand'} asset scope details`;
 
   return (
-    <section className={styles.assetDetailsStrip} aria-label="Details canvas scope">
+    <section className={styles.assetDetailsStrip} aria-label="Details scoped space summary">
       <div className={styles.assetDetailsIdentity} aria-label="Asset scope">
         <div className={styles.assetDetailsEyebrow}>
-          <span>Details</span>
-          <span>Asset</span>
+          <span>Details Space</span>
+          <span>Asset scope</span>
           <span>{formatMediaKind(asset.media_kind)}</span>
         </div>
         <div className={styles.assetDetailsName} title={asset.name}>
@@ -1355,6 +1355,7 @@ export default function AssetDetailPage() {
         <VariantCanvas
           spaceId={spaceId}
           canvasLabel="Details canvas"
+          scope="asset-details"
           avoidGenerationDock
           asset={asset}
           variants={variants}
@@ -1420,10 +1421,10 @@ export default function AssetDetailPage() {
               />
             </CanvasToolbarTitle>
             <CanvasToolbarBadge tone="neutral">
-              Details
+              Details Space
             </CanvasToolbarBadge>
             <CanvasToolbarBadge tone="neutral" className={styles.assetScopeBadge}>
-              Asset
+              Asset scope
             </CanvasToolbarBadge>
             <CanvasToolbarBadge tone="neutral" className={styles.variantScopeBadge}>
               {formatVariantCount(variants.length)}

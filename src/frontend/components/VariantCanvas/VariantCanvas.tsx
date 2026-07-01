@@ -61,6 +61,8 @@ export interface VariantCanvasProps {
   spaceId?: string;
   /** Accessible name for the canvas surface when it is embedded in a larger page. */
   canvasLabel?: string;
+  /** Visual mode for the canvas. Details is the same Space model scoped to one asset. */
+  scope?: 'space' | 'asset-details';
   /** Keep the selected variant inspector clear of the asset generation dock. */
   avoidGenerationDock?: boolean;
   asset: Asset;
@@ -243,6 +245,7 @@ function getLayoutedElements(
 function VariantCanvasInner({
   spaceId,
   canvasLabel = 'Variant canvas',
+  scope = 'space',
   avoidGenerationDock = false,
   asset,
   variants,
@@ -620,20 +623,29 @@ function VariantCanvasInner({
 
   if (variants.length === 0) {
     return (
-      <div className={styles.empty} role="region" aria-label={canvasLabel}>
+      <div
+        className={`${styles.empty} ${scope === 'asset-details' ? styles.assetScoped : ''}`}
+        role="region"
+        aria-label={canvasLabel}
+        data-canvas-scope={scope}
+      >
         <span className={styles.emptyMark} aria-hidden="true" />
         <p className={styles.emptyText}>No variants in this asset yet</p>
       </div>
     );
   }
 
-  const canvasClassName = `${styles.canvas} ${isReady ? styles.ready : styles.loading}`;
+  const canvasClassName = [
+    styles.canvas,
+    scope === 'asset-details' ? styles.assetScoped : '',
+    isReady ? styles.ready : styles.loading,
+  ].filter(Boolean).join(' ');
   const expandedVariant = expandedVariantId
     ? variants.find((v) => v.id === expandedVariantId) ?? null
     : null;
 
   return (
-    <div className={canvasClassName} role="region" aria-label={canvasLabel}>
+    <div className={canvasClassName} role="region" aria-label={canvasLabel} data-canvas-scope={scope}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -690,6 +702,7 @@ function VariantCanvasInner({
 export function VariantCanvas({
   spaceId,
   canvasLabel = 'Variant canvas',
+  scope = 'space',
   avoidGenerationDock = false,
   asset,
   variants,
@@ -797,6 +810,7 @@ export function VariantCanvas({
         asset={asset}
         spaceId={spaceId}
         canvasLabel={canvasLabel}
+        scope={scope}
         avoidGenerationDock={avoidGenerationDock}
         variants={variants}
         lineage={lineage}
