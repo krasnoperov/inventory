@@ -1,13 +1,11 @@
 /**
  * VariantDetailsPanel - inspector for a selected variant.
  *
- * Space-level details render through a portal to document.body so they escape
- * the React Flow transform and never scale with zoom. Asset-scoped details stay
- * inside the local canvas stage so layout can reserve space above Forge Tray.
+ * Details are a workspace dock, not an overlay. The parent canvas reserves
+ * layout space so selected media, controls, and Forge Tray stay visible.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import {
   type Asset,
   type Composition,
@@ -37,9 +35,9 @@ export interface VariantDetailsPanelProps {
   variant: Variant;
   asset: Asset;
   spaceId?: string;
-  /** Shift the viewport inspector away from the asset generation dock. */
+  /** Legacy height clamp for hosts that also render the generation dock. */
   avoidGenerationDock?: boolean;
-  /** Dock inside the scoped canvas instead of viewport when opened from a node. */
+  /** Deprecated compatibility prop; variant details always dock inside layout. */
   dockWithinCanvas?: boolean;
   isActive?: boolean;
   /** Zero-based position of this variant inside the scoped asset canvas. */
@@ -156,7 +154,6 @@ export function VariantDetailsPanel({
   asset,
   spaceId,
   avoidGenerationDock = false,
-  dockWithinCanvas = false,
   isActive,
   variantIndex,
   variantCount = 0,
@@ -341,7 +338,7 @@ export function VariantDetailsPanel({
 
   const panel = (
     <aside
-      className={`${styles.panel} ${avoidGenerationDock ? styles.panelAvoidGenerationDock : ''} ${dockWithinCanvas ? styles.panelCanvasDock : ''}`}
+      className={`${styles.panel} ${avoidGenerationDock ? styles.panelAvoidGenerationDock : ''}`}
       aria-label="Variant details"
     >
       <div className={styles.header}>
@@ -544,7 +541,7 @@ export function VariantDetailsPanel({
     </aside>
   );
 
-  return dockWithinCanvas ? panel : createPortal(panel, document.body);
+  return panel;
 }
 
 function parseJsonObject(value: string | null | undefined): Record<string, unknown> | null {

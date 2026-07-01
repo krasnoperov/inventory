@@ -65,6 +65,7 @@ test('variant details panel uses shared action controls', async ({ page }) => {
   });
 
   await expect(page.getByRole('complementary', { name: 'Variant details' })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Variant details' })).toHaveCSS('position', 'static');
   await expect(page.getByRole('complementary', { name: 'Variant details' })).toHaveCSS('box-shadow', 'none');
   await expect(page.getByRole('complementary', { name: 'Variant details' })).toHaveCSS('border-radius', '8px');
   await expect(page.getByRole('complementary', { name: 'Variant details' })).toHaveCSS('transform', 'none');
@@ -163,8 +164,8 @@ test('variant details panel keeps mobile inspector within viewport', async ({ pa
       viewportHeight: window.innerHeight,
     };
   });
-  expect(bounds.left).toBeGreaterThanOrEqual(16);
-  expect(bounds.right).toBeLessThanOrEqual(bounds.viewportWidth - 16);
-  expect(bounds.top).toBeGreaterThanOrEqual(16);
-  expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight - 16);
+  expect(bounds.left).toBeGreaterThanOrEqual(0);
+  expect(bounds.right).toBeLessThanOrEqual(bounds.viewportWidth);
+  expect(bounds.top).toBeGreaterThanOrEqual(0);
+  expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight);
 });
