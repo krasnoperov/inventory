@@ -18,6 +18,7 @@ type MemberRoleHandler = (userId: string, role: SpaceAccessRole) => ActionResult
 
 interface SpaceSharingPanelProps {
   currentUserRole: SpaceRole;
+  layout?: 'panel' | 'rail';
   sharing?: SpaceSharingResponse | null;
   summaryMembers?: SpaceSharingMember[];
   isLoading?: boolean;
@@ -118,6 +119,7 @@ function RequestActions({
 
 export function SpaceSharingPanel({
   currentUserRole,
+  layout = 'panel',
   sharing,
   summaryMembers = sharing?.members ?? [],
   isLoading = false,
@@ -151,7 +153,7 @@ export function SpaceSharingPanel({
   };
 
   return (
-    <aside className={styles.panel} role="dialog" aria-label="Space sharing">
+    <aside className={`${styles.panel} ${layout === 'rail' ? styles.rail : ''}`} role={layout === 'rail' ? 'region' : 'dialog'} aria-label="Space sharing">
       <div className={styles.header}>
         <div className={styles.titleBlock}>
           <h2>Sharing</h2>

@@ -1,6 +1,23 @@
 import { expect, test } from '@playwright/test';
 import { mountComponent, screenshot } from './harness';
 
+async function expectNoOverlap(
+  first: import('@playwright/test').Locator,
+  second: import('@playwright/test').Locator,
+) {
+  await expect.poll(async () => {
+    const firstBox = await first.boundingBox();
+    const secondBox = await second.boundingBox();
+    if (!firstBox || !secondBox) return false;
+    return !(
+      firstBox.x + firstBox.width <= secondBox.x ||
+      secondBox.x + secondBox.width <= firstBox.x ||
+      firstBox.y + firstBox.height <= secondBox.y ||
+      secondBox.y + secondBox.height <= firstBox.y
+    );
+  }).toBe(false);
+}
+
 test('space page overlay chrome stays flat', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 720 });
   await mountComponent(page, 'SpacePageOverlayChrome', {});
@@ -51,11 +68,11 @@ test('space page overlay chrome keeps long labels readable on mobile', async ({ 
 
 test('space page composition details dock beside the canvas instead of covering it', async ({ page }) => {
   await page.setViewportSize({ width: 1180, height: 760 });
-  await mountComponent(page, 'SpacePageOverlayChrome', { showCompositionRail: true });
+  await mountComponent(page, 'SpacePageOverlayChrome', { sidePanel: 'composition' });
 
   const workspace = page.locator('[class*="canvasWorkspaceWithInspector"]');
   const stage = page.locator('[class*="canvasStage"]');
-  const rail = page.locator('[class*="compositionPanelContainer"]');
+  const rail = page.locator('[class*="spaceSidePanelContainer"]');
   await expect(workspace).toHaveCSS('display', 'grid');
   await expect(rail).not.toHaveCSS('position', 'absolute');
   await expect(page.getByRole('complementary', { name: 'Composition detail' })).toBeVisible();
@@ -66,4 +83,36 @@ test('space page composition details dock beside the canvas instead of covering 
   expect(stageBox!.x + stageBox!.width).toBeLessThanOrEqual(railBox!.x + 1);
 
   await screenshot(page, 'space-page-composition-detail-rail', { fullPage: true });
+});
+
+test('space page sharing panel docks in the same side rail', async ({ page }) => {
+  await page.setViewportSize({ width: 1180, height: 760 });
+  await mountComponent(page, 'SpacePageOverlayChrome', { sidePanel: 'sharing' });
+
+  const stage = page.locator('[class*="canvasStage"]');
+  const rail = page.locator('[class*="spaceSidePanelContainer"]');
+  const sharing = page.getByRole('region', { name: 'Space sharing' });
+  await expect(rail).not.toHaveCSS('position', 'absolute');
+  await expect(sharing).toBeVisible();
+  await expect(sharing).toHaveCSS('width', /.+/);
+  await expect(sharing.getByText('Collaborator With A Long Readable Production Name')).toBeVisible();
+  await expectNoOverlap(sharing, stage);
+
+  await screenshot(page, 'space-page-sharing-rail', { fullPage: true });
+});
+
+test('space page style panel docks in the same side rail', async ({ page }) => {
+  await page.setViewportSize({ width: 1180, height: 760 });
+  await mountComponent(page, 'SpacePageOverlayChrome', { sidePanel: 'style' });
+
+  const stage = page.locator('[class*="canvasStage"]');
+  const rail = page.locator('[class*="spaceSidePanelContainer"]');
+  const stylePanel = page.locator('[class*="stylePanel"]').first();
+  await expect(rail).not.toHaveCSS('position', 'absolute');
+  await expect(stylePanel).not.toHaveCSS('position', 'fixed');
+  await expect(page.getByText('Style Library')).toBeVisible();
+  await expect(page.getByText('Russafa watercolor')).toBeVisible();
+  await expectNoOverlap(stylePanel, stage);
+
+  await screenshot(page, 'space-page-style-rail', { fullPage: true });
 });
