@@ -184,7 +184,7 @@ export function RelationsPanel({
         </IconButton>
       </div>
       {relationCount === 0 ? (
-        <div className={styles.compactEmpty}>No manual relations</div>
+        <div className={styles.compactEmpty}>None</div>
       ) : (
         <RelationRows
           entries={relationEntries}

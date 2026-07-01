@@ -24,7 +24,7 @@ export function StyleReferenceUsagePanel({
     <section className={styles.panel} aria-label="Style reference usage">
       <div className={styles.header}>
         <h2 className={styles.title}>
-          Style usage
+          Style
           <span className={styles.countBadge}>{usageCount}</span>
         </h2>
       </div>

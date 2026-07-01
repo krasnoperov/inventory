@@ -1087,7 +1087,8 @@ test('style reference usage panel displays reverse usage', async ({ page }) => {
   await expect(page.getByRole('region', { name: 'Style reference usage' })).toHaveCSS('border-top-width', '0px');
   await expect(page.getByRole('region', { name: 'Style reference usage' })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.locator('[class*="group"]').first()).toHaveCSS('display', 'flex');
-  await expect(page.getByText('Style usage')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Style/ })).toBeVisible();
+  await expect(page.getByText('Style usage')).toHaveCount(0);
   await expect(page.getByText('Collections')).toHaveCSS('text-transform', 'none');
   await expect(page.getByText('Outputs')).toBeVisible();
   await expect(page.getByText('Generated outputs')).toHaveCount(0);

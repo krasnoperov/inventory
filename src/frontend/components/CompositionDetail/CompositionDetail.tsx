@@ -643,7 +643,7 @@ export function CompositionUsageList({
     <section className={styles.usageList} aria-label="Composition usage">
       <div className={styles.usageHeader}>
         <h2 className={styles.usageTitle}>
-          Composition usage
+          Compositions
           <span className={styles.usageCount}>{usages.length}</span>
         </h2>
       </div>
