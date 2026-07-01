@@ -95,3 +95,27 @@ test('production controls use shared select and buttons', async ({ page }) => {
     expect.objectContaining({ eventName: 'copy', args: ['Scene args', '--props episode-01'] }),
   ]));
 });
+
+test('production handoff controls wrap actions on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 360 });
+  await mountComponent(page, 'ProductionHandoffControls', {
+    copyStatus: 'JSON copied',
+    handoff: { productionId: 'episode-01' },
+    handoffJson: '{\n  "productionId": "episode-01"\n}',
+    onCopyText: '__record__:copy',
+    sceneArgs: '--props episode-01',
+    sortedRecords,
+  });
+
+  await expect(page.getByRole('heading', { name: 'Media Handoff' })).toBeVisible();
+  await expect(page.getByText('JSON copied')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copy JSON' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copy Scene Args' })).toBeVisible();
+
+  const metrics = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
+  await screenshot(page, 'production-handoff-mobile');
+});
