@@ -411,3 +411,98 @@ test('relations panel count de-duplicates relations matching both directions', a
   await expect(page.locator('article')).toHaveCount(1);
   await expect(page.getByText(/->/)).toHaveCount(0);
 });
+
+test('relations panel wraps long relation identity without ellipsis', async ({ page }) => {
+  await mockMedia(page);
+  await page.setViewportSize({ width: 390, height: 620 });
+  const longHero = asset('hero-long', 'Hero Character With Very Long Cinematic Inventory Name For Dialogue Preview');
+  const longAtlas = asset('atlas-long', 'Atlas Sheet Used As Dense Production Reference With Multiple Readable Zones', 'sprite-sheet');
+  const longAssets = [longHero, longAtlas];
+  const longVariants = [variant('hero-long'), variant('atlas-long', 'atlas-long-readable-variant')];
+
+  await mountComponent(page, 'RelationsPanel', {
+    assets: longAssets,
+    variants: longVariants,
+    subjects: [
+      { subjectType: 'asset', assetId: 'hero-long' },
+      { subjectType: 'variant', variantId: 'hero-long-variant' },
+    ],
+    primarySubject: { subjectType: 'asset', assetId: 'hero-long' },
+    relations: [{
+      id: 'relation-long',
+      subject_type: 'asset',
+      subject_asset_id: 'hero-long',
+      subject_variant_id: null,
+      object_type: 'variant',
+      object_asset_id: null,
+      object_variant_id: 'atlas-long-readable-variant',
+      relation_type: 'style_reference_for',
+      context: JSON.stringify({
+        label: 'Readable relation label that should wrap instead of disappearing',
+        context: 'production storyboard panel with long role description',
+        notes: 'Keep this relation understandable without opening a separate editor.',
+      }),
+      sort_index: 0,
+      created_by: 'user-1',
+      created_at: baseTime,
+      updated_at: baseTime,
+    }],
+    onCreate: '__record__:open-create',
+    onEdit: '__record__:open-edit',
+    onDelete: '__record__:delete-relation',
+  });
+
+  const panel = page.getByRole('region', { name: 'Manual relations' });
+  await expect(panel).toContainText('Style reference for');
+  await expect(panel).toContainText('Atlas Sheet Used As Dense Production Reference With Multiple Readable Zones variant atlas-lo');
+  await expect(panel).toContainText('Readable relation label that should wrap instead of disappearing');
+
+  await expect(page.locator('[class*="relationType"]').first()).toHaveCSS('white-space', 'normal');
+  await expect(page.locator('[class*="relationType"]').first()).toHaveCSS('text-overflow', 'clip');
+  await expect(page.locator('[class*="relatedSubject"]').first()).toHaveCSS('white-space', 'normal');
+  await expect(page.locator('[class*="relatedSubject"]').first()).toHaveCSS('text-overflow', 'clip');
+  await expect(page.locator('[class*="rowNotes"]').first()).toHaveCSS('white-space', 'normal');
+  const panelDoesNotOverflow = await panel.evaluate((node) => node.scrollWidth <= node.clientWidth);
+  expect(panelDoesNotOverflow).toBe(true);
+
+  await screenshot(page, 'relations-panel-readable-long-identity', { fullPage: true });
+});
+
+test('relation dialog wraps long endpoint and target option names', async ({ page }) => {
+  await mockMedia(page);
+  await page.setViewportSize({ width: 390, height: 700 });
+  const source = asset('source-long', 'Source Asset With Long Readable Name For Scoped Details');
+  const target = asset('target-long', 'Target Variant Asset With Long Searchable Name For Relation Picker', 'reference');
+  const dialogAssets = [source, target];
+  const dialogVariants = [
+    variant('source-long'),
+    variant('target-long', 'target-long-searchable-variant'),
+  ];
+
+  await mountComponent(page, 'RelationEditorDialog', {
+    mode: 'create',
+    assets: dialogAssets,
+    variants: dialogVariants,
+    sourceSubject: { subjectType: 'asset', assetId: 'source-long' },
+    onCancel: '__noop__',
+    onCreate: '__record__:create-relation',
+    onUpdate: '__record__:update-relation',
+  });
+
+  await page.getByPlaceholder('Search assets and variants').fill('target-long-searchable');
+  const targetName = page.getByText('Target Variant Asset With Long Searchable Name For Relation Picker', { exact: true });
+  await expect(targetName).toBeVisible();
+  await expect(page.locator('[class*="targetText"] span').first()).toHaveCSS('white-space', 'normal');
+  await expect(page.locator('[class*="targetText"] span').first()).toHaveCSS('text-overflow', 'clip');
+  await targetName.click();
+
+  const subjectLine = page.getByLabel('Relation endpoints');
+  await expect(subjectLine).toContainText('Source Asset With Long Readable Name For Scoped Details');
+  await expect(subjectLine).toContainText('Target Variant Asset With Long Searchable Name For Relation Picker');
+  await expect(page.locator('[class*="subjectChipName"]').first()).toHaveCSS('white-space', 'normal');
+  await expect(page.locator('[class*="subjectChipName"]').first()).toHaveCSS('text-overflow', 'clip');
+  const dialogDoesNotOverflow = await page.locator('[class*="_dialog_"]').first().evaluate((node) => node.scrollWidth <= node.clientWidth);
+  expect(dialogDoesNotOverflow).toBe(true);
+
+  await screenshot(page, 'relation-dialog-readable-long-endpoints', { fullPage: true });
+});
