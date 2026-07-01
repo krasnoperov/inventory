@@ -681,15 +681,21 @@ export function SpaceBoard({
         </div>
         {canEdit && (
           <div className={styles.createControls} data-space-board-panel-root>
-            <Button
+            <IconButton
               className={styles.createTrigger}
               onClick={toggleCreatePanel}
               aria-haspopup="dialog"
               aria-expanded={isCreatePanelOpen}
+              title="Create collection"
+              aria-label="Create collection"
+              variant="ghost"
+              size="sm"
             >
-              <span aria-hidden="true">+</span>
-              <span>New collection</span>
-            </Button>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M12 5v14" />
+                <path d="M5 12h14" />
+              </svg>
+            </IconButton>
             {isCreatePanelOpen && (
               <div className={styles.createPanel}>
                 <TextInput

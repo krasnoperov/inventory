@@ -57,11 +57,17 @@
 }
 
 .createTrigger {
-  --ui-button-height: 30px;
-  --ui-button-pad-x: 0.625rem;
-  --ui-button-font-size: var(--font-size-micro);
+  --ui-button-height: 32px;
+  --ui-button-pad-x: 0;
+  --ctl-hover: var(--button-ghost-bg-hover);
 
-  font-size: var(--font-size-micro);
+  width: 32px;
+  color: var(--color-text-muted);
+}
+
+.createTrigger svg {
+  width: 14px;
+  height: 14px;
 }
 
 .collectionMenu {
