@@ -422,6 +422,14 @@ test('asset details dock renders the real expanded stack above ForgeTray', async
     return Boolean(details && prompt && details.compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_FOLLOWING);
   });
   expect(detailsBeforePrompt).toBe(true);
+  const dockGap = await page.evaluate(() => {
+    const details = document.querySelector('[aria-label="Expanded asset details"]');
+    const prompt = document.querySelector('[aria-label="Prompt"]');
+    if (!details || !prompt) return null;
+    return prompt.getBoundingClientRect().top - details.getBoundingClientRect().bottom;
+  });
+  expect(dockGap).not.toBeNull();
+  expect(dockGap!).toBeGreaterThanOrEqual(12);
 
   const stackMetrics = await page.evaluate(() => {
     const expanded = document.querySelector('[aria-label="Expanded asset details"]');
