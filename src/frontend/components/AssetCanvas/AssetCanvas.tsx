@@ -23,7 +23,7 @@ import styles from './AssetCanvas.module.css';
 // the card must show the image as-is — no crop, no letterbox bars).
 const THUMB_HEIGHT = 140;
 const NODE_PADDING = 20; // padding + border around thumbnail
-const LABEL_HEIGHT = 30; // space for name/type label
+const LABEL_HEIGHT = 68; // space for multi-line name/type label
 
 // Default node dimensions (used before images load)
 const DEFAULT_NODE_WIDTH = 160;

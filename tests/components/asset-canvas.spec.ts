@@ -63,6 +63,14 @@ const imageAsset = {
   updated_at: baseTime,
 };
 
+const longLabelAsset = {
+  ...imageAsset,
+  id: 'asset-long-label',
+  name: 'Crystal Gate With Readable Long Production Label',
+  type: 'environment-reference-prop',
+  active_variant_id: 'variant-long-label',
+};
+
 const imageVariant = {
   id: 'variant-image',
   asset_id: imageAsset.id,
@@ -86,6 +94,15 @@ const imageVariant = {
   description: null,
   quality_rating: null,
   rated_at: null,
+};
+
+const longLabelVariant = {
+  ...imageVariant,
+  id: 'variant-long-label',
+  asset_id: longLabelAsset.id,
+  image_key: 'images/space/variant-long-label.png',
+  thumb_key: 'images/space/variant-long-label_thumb.webp',
+  media_key: 'images/space/variant-long-label.png',
 };
 
 async function mockMedia(page: import('@playwright/test').Page) {
@@ -181,4 +198,36 @@ test('asset canvas image previews stay free of hover action overlays', async ({ 
   await expect
     .poll(() => page.evaluate(() => window.__componentHarnessCalls ?? []))
     .toContain('asset-click');
+});
+
+test('asset canvas keeps long node labels readable without ellipsis', async ({ page }) => {
+  await mockMedia(page);
+  await mountComponent(page, 'AssetCanvas', {
+    spaceId: 'space-1',
+    assets: [longLabelAsset],
+    variants: [longLabelVariant],
+    isInitialSyncPending: false,
+    onAssetClick: '__record__:asset-click',
+  });
+
+  await sizeCanvasHarness(page);
+
+  const name = page.getByText('Crystal Gate With Readable Long Production Label');
+  const type = page.getByText('environment-reference-prop / Image');
+  const label = page.locator('[class*="label"]').first();
+  const thumbnail = page.locator('[class*="thumbnail"]').first();
+
+  await expect(name).toBeVisible();
+  await expect(type).toBeVisible();
+  await expect(label).toHaveCSS('white-space', 'normal');
+  await expect(name).toHaveCSS('white-space', 'normal');
+  await expect(type).toHaveCSS('text-overflow', 'clip');
+  await expect(type).toHaveCSS('white-space', 'normal');
+  await expect.poll(async () => label.evaluate((node) => {
+    const box = node.getBoundingClientRect();
+    return node.scrollWidth <= Math.ceil(box.width);
+  })).toBe(true);
+
+  await expect.poll(async () => thumbnail.evaluate((node) => (node as HTMLElement).offsetHeight)).toBe(140);
+  await screenshot(page, 'asset-canvas-readable-long-labels', { fullPage: true });
 });
