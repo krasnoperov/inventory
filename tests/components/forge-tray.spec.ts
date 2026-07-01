@@ -641,7 +641,10 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   expect(styleDockGap).not.toBeNull();
   expect(styleDockGap!).toBeGreaterThanOrEqual(8);
   await expect(page.locator('[class*="defaultBadge"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(page.getByRole('button', { name: 'Create preset' })).toHaveCSS('background-color', await resolvedBackground(page, 'var(--color-surface)'));
+  await expect(page.getByRole('button', { name: 'New preset' })).toHaveCSS('background-color', await resolvedBackground(page, 'var(--color-surface)'));
+  await expect(page.getByLabel('Preset name', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Style prompt', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Set as space default', { exact: true })).toHaveCount(0);
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-style-sheet', { fullPage: true });
   await page.getByRole('button', { name: /Close/i }).click();
@@ -883,11 +886,16 @@ test('style library creates a preset from a style collection', async ({ page }) 
 
   await revealOptions(page);
   await selectDropdown(page, 'Style selector', 'Manage styles...');
+  await expect(page.getByRole('button', { name: 'New preset' })).toHaveAttribute('aria-expanded', 'false');
+  await page.getByRole('button', { name: 'New preset' }).click();
+  await expect(page.getByRole('button', { name: 'Hide' })).toHaveAttribute('aria-expanded', 'true');
   await page.getByLabel('Preset name').fill('Painterly market');
   await page.getByLabel('Style prompt').fill('sun-washed watercolor with ink outlines');
   await page.getByLabel('Style description').fill('For the market scene');
   await page.getByLabel('Set as space default').check();
   await page.getByRole('button', { name: 'Create preset' }).click();
+  await expect(page.getByRole('button', { name: 'New preset' })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByLabel('Preset name', { exact: true })).toHaveCount(0);
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
   expect(calls.find((call) => call.eventName === 'style-create')?.args[0]).toMatchObject({

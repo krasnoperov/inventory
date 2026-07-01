@@ -55,6 +55,7 @@ export function StylePanel({
   const [description, setDescription] = useState('');
   const [collectionId, setCollectionId] = useState(styleReferenceCollections[0]?.id ?? '');
   const [makeDefault, setMakeDefault] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const sortedPresets = useMemo(
     () => [...stylePresets].sort((a, b) => Number(isDefaultPreset(b)) - Number(isDefaultPreset(a)) || a.name.localeCompare(b.name)),
@@ -86,6 +87,7 @@ export function StylePanel({
     setStylePrompt('');
     setDescription('');
     setMakeDefault(false);
+    setCreateOpen(false);
   }, [createStylePreset, description, makeDefault, name, selectedCollectionId, stylePrompt]);
 
   return (
@@ -101,59 +103,73 @@ export function StylePanel({
         </div>
 
         <div className={styles.body}>
-          <section className={styles.section}>
+          <section className={`${styles.section} ${styles.createSection}`}>
             <div className={styles.sectionHeader}>
-              <h3>Create preset</h3>
-              <span>{styleReferenceCollections.length} collections</span>
-            </div>
-            <div className={styles.formGrid}>
-              <TextInput
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Preset name"
-                aria-label="Preset name"
-                fullWidth
-              />
-              <UiSelect
-                value={selectedCollectionId}
-                options={collectionOptions}
-                onValueChange={setCollectionId}
-                label="Style collection"
-                disabled={styleReferenceCollections.length === 0}
-                fullWidth
-              />
-              <TextArea
-                value={stylePrompt}
-                onChange={(event) => setStylePrompt(event.target.value)}
-                placeholder="Style prompt"
-                aria-label="Style prompt"
-                rows={3}
-                fullWidth
-              />
-              <TextInput
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Description"
-                aria-label="Style description"
-                fullWidth
-              />
-              <label className={styles.checkRow}>
-                <Checkbox
-                  checked={makeDefault}
-                  onChange={(event) => setMakeDefault(event.target.checked)}
-                />
-                <span>Set as space default</span>
-              </label>
+              <div className={styles.sectionTitleStack}>
+                <h3>Create preset</h3>
+                <span>{styleReferenceCollections.length} collections</span>
+              </div>
               <Button
-                className={styles.createAction}
-                onClick={handleCreatePreset}
-                disabled={!name.trim() || !selectedCollectionId || !createStylePreset}
+                className={styles.createToggle}
+                onClick={() => setCreateOpen((open) => !open)}
+                aria-expanded={createOpen}
+                aria-controls="style-preset-create-form"
                 variant="secondary"
                 size="sm"
               >
-                Create preset
+                {createOpen ? 'Hide' : 'New preset'}
               </Button>
             </div>
+            {createOpen && (
+              <div id="style-preset-create-form" className={styles.formGrid}>
+                <TextInput
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Preset name"
+                  aria-label="Preset name"
+                  fullWidth
+                />
+                <UiSelect
+                  value={selectedCollectionId}
+                  options={collectionOptions}
+                  onValueChange={setCollectionId}
+                  label="Style collection"
+                  disabled={styleReferenceCollections.length === 0}
+                  fullWidth
+                />
+                <TextArea
+                  value={stylePrompt}
+                  onChange={(event) => setStylePrompt(event.target.value)}
+                  placeholder="Style prompt"
+                  aria-label="Style prompt"
+                  rows={3}
+                  fullWidth
+                />
+                <TextInput
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Description"
+                  aria-label="Style description"
+                  fullWidth
+                />
+                <label className={styles.checkRow}>
+                  <Checkbox
+                    checked={makeDefault}
+                    onChange={(event) => setMakeDefault(event.target.checked)}
+                  />
+                  <span>Set as space default</span>
+                </label>
+                <Button
+                  className={styles.createAction}
+                  onClick={handleCreatePreset}
+                  disabled={!name.trim() || !selectedCollectionId || !createStylePreset}
+                  variant="secondary"
+                  size="sm"
+                >
+                  Create preset
+                </Button>
+              </div>
+            )}
           </section>
 
           <section className={styles.section}>
