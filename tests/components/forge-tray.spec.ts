@@ -649,6 +649,7 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   const chatPanel = page.locator('[class*="chatPanel"]').first();
   await expect(chatPanel).toHaveCSS('box-shadow', 'none');
   await expect(chatPanel).toHaveCSS('transform', 'none');
+  await expect(chatPanel).toHaveCSS('border-radius', '8px');
   await expect.poll(
     () => chatPanel.evaluate((node) => getComputedStyle(node).animationName),
   ).not.toContain('slide');
@@ -822,6 +823,26 @@ test('forge chat loading dots avoid scale motion', async ({ page }) => {
   await expect(loadingDots.first()).not.toHaveCSS('animation-name', /bounce/);
 
   await screenshot(page, 'forge-chat-flat-loading-dots', { fullPage: true });
+});
+
+test('forge chat sheet keeps flattened chrome on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 720 });
+
+  await mountComponent(page, 'ForgeTray', {
+    allAssets: [],
+    allVariants: [],
+    onSubmit: '__record__:forge-submit',
+    onBrandBackground: false,
+    sendChatMessage: '__noop__',
+    requestChatHistory: '__noop__',
+    clearChatSession: '__noop__',
+  });
+  await disableAnimations(page);
+
+  await page.getByTitle('Chat with Claude about your prompt').click();
+  await expect(page.getByText('Chat with Claude')).toBeVisible();
+  await expect(page.locator('[class*="chatPanel"]').first()).toHaveCSS('border-bottom-left-radius', '8px');
+  await expect(page.locator('[class*="chatPanel"]').first()).toHaveCSS('border-bottom-right-radius', '8px');
 });
 
 test('style library creates a preset from a style collection', async ({ page }) => {
