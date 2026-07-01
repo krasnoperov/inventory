@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import type {
   SpaceCollection,
   StylePresetCreateParams,
@@ -94,6 +94,17 @@ export function StylePanel({
     setMakeDefault(false);
     setCreateOpen(false);
   }, [createStylePreset, description, makeDefault, name, selectedCollectionId, stylePrompt]);
+
+  useEffect(() => {
+    if (layout === 'rail') return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [layout, onClose]);
 
   const panel = (
     <div className={`${styles.stylePanel} ${layout === 'rail' ? styles.rail : ''}`} onClick={(event) => event.stopPropagation()}>
@@ -315,7 +326,7 @@ export function StylePanel({
   }
 
   return (
-    <div className={styles.backdrop} onClick={onClose}>
+    <div className={styles.backdrop}>
       {panel}
     </div>
   );

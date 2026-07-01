@@ -42,13 +42,6 @@ export function AssetPickerModal({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
 
-  // Close on backdrop click
-  const handleBackdropClick = useCallback((e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  }, [onClose]);
-
   // Get unique asset types
   const assetTypes = useMemo(() => {
     const types = new Set(allAssets.map(a => a.type));
@@ -130,8 +123,8 @@ export function AssetPickerModal({
   }, [getPrimaryVariant, hasVariant, mediaMode, slots, addSlot, removeSlot]);
 
   return (
-    <div className={styles.backdrop} onClick={handleBackdropClick}>
-      <div className={styles.modal}>
+    <div className={styles.backdrop}>
+      <div className={styles.modal} role="region" aria-label="Add references to Forge Tray">
         <div className={styles.header}>
           <h2 className={styles.title}>Add to Forge Tray</h2>
           <span className={styles.modeHint}>{mediaModeConfig.label} references</span>

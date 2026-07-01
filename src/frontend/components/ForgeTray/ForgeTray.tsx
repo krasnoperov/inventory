@@ -759,6 +759,19 @@ export function ForgeTray({
     setShowUploadPrompt(false);
   }, []);
 
+  useEffect(() => {
+    if (!showUploadPrompt) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        handleUploadPromptCancel();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [handleUploadPromptCancel, showUploadPrompt]);
+
   // Drag-and-drop handlers
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -1635,12 +1648,10 @@ export function ForgeTray({
 
       {/* Upload prompt modal for creating new asset */}
       {showUploadPrompt && (
-        <div className={styles.uploadPromptOverlay} onClick={handleUploadPromptCancel}>
+        <div className={styles.uploadPromptOverlay}>
           <div
             className={styles.uploadPromptModal}
-            onClick={(e) => e.stopPropagation()}
             role="dialog"
-            aria-modal="true"
             aria-labelledby="forge-upload-prompt-title"
           >
             <div className={styles.uploadPromptHeader}>

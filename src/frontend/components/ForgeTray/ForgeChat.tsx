@@ -76,6 +76,15 @@ export function ForgeChat({
     inputRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
   // Scroll to bottom when messages change or progress updates
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -167,8 +176,8 @@ export function ForgeChat({
   }, [clearChat]);
 
   return (
-    <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.chatPanel} onClick={(e) => e.stopPropagation()}>
+    <div className={styles.backdrop}>
+      <div className={styles.chatPanel}>
       {/* Header */}
       <div className={styles.header}>
         <h3 className={styles.title}>Chat with Claude</h3>
