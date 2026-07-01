@@ -494,7 +494,10 @@ test('collection menus use shared form controls', async ({ page }) => {
     .getByLabel('Collection color')
     .fill('#654321');
   await selectDropdown(page, 'Asset to add to Cast', 'Forest background');
-  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  const collectionMenuPanel = page.locator('[class*="collectionMenuPanel"]').first();
+  await expect(collectionMenuPanel.getByRole('button', { name: 'Add selected asset to Cast' })).toBeVisible();
+  await expect(collectionMenuPanel.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0);
+  await collectionMenuPanel.getByRole('button', { name: 'Add selected asset to Cast' }).click();
   await expect(page.locator('[class*="collectionMenuPanel"]').first().getByRole('button', { name: 'Move collection up' })).toBeVisible();
   await expect(page.locator('[class*="collectionMenuPanel"]').first().getByRole('button', { name: 'Move collection down' })).toBeVisible();
   await expect(page.locator('[class*="collectionMenuPanel"]').first().getByText('Move up', { exact: true })).toHaveCount(0);
