@@ -787,9 +787,9 @@ export type ServerMessage =
   | { type: 'generation:estimate'; requestId: string; success: true; estimate: GenerationUsageEstimate }
   | { type: 'generation:estimate'; requestId: string; success: false; error: string; code: ErrorCode }
   | { type: 'chat:response'; requestId: string; success: boolean; response?: unknown; error?: string; deferredActions?: DeferredAction[] }
-  | { type: 'generate:started'; requestId: string; jobId: string; assetId: string; assetName: string }
+  | { type: 'generate:started'; requestId: string; jobId: string; assetId: string; assetName: string; prompt?: string }
   | { type: 'generate:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
-  | { type: 'refine:started'; requestId: string; jobId: string; assetId: string; assetName: string }
+  | { type: 'refine:started'; requestId: string; jobId: string; assetId: string; assetName: string; prompt?: string }
   | { type: 'refine:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
   // Vision (describe/compare) response messages
   | { type: 'describe:response'; requestId: string; success: boolean; description?: string; error?: string; usage?: ClaudeUsage }

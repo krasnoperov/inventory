@@ -1,4 +1,5 @@
 import type { ChatMessage, ChatMessageClient, JobStatus, ServerMessage } from './protocol';
+import { takePendingJobContext } from './jobContextRegistry';
 import type { SpaceSessionState } from './spaceStore';
 import type { SpaceCallbackRefs } from './useSpaceCallbackRefs';
 import { sharedSpaceSocketSession, shouldApplyOverviewSync } from './spaceSocketSession';
@@ -482,44 +483,56 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 break;
 
               case 'generate:started':
+                {
+                  const pendingContext = takePendingJobContext(message.requestId);
                 onGenerateStartedRef.current?.({
                   requestId: message.requestId,
                   jobId: message.jobId,
                   assetId: message.assetId,
                   assetName: message.assetName,
+                  prompt: message.prompt ?? pendingContext?.prompt,
                 });
                 // Also track the job
                 setJobs((prev) => {
                   const next = new Map(prev);
                   next.set(message.jobId, {
+                    ...pendingContext,
                     jobId: message.jobId,
                     status: 'pending',
                     assetId: message.assetId,
                     assetName: message.assetName,
+                    prompt: message.prompt ?? pendingContext?.prompt,
                   });
                   return next;
                 });
                 break;
+                }
 
               case 'refine:started':
+                {
+                  const pendingContext = takePendingJobContext(message.requestId);
                 // Mirror generate:started handling for refinements
                 onGenerateStartedRef.current?.({
                   requestId: message.requestId,
                   jobId: message.jobId,
                   assetId: message.assetId,
                   assetName: message.assetName,
+                  prompt: message.prompt ?? pendingContext?.prompt,
                 });
                 setJobs((prev) => {
                   const next = new Map(prev);
                   next.set(message.jobId, {
+                    ...pendingContext,
                     jobId: message.jobId,
                     status: 'pending',
                     assetId: message.assetId,
                     assetName: message.assetName,
+                    prompt: message.prompt ?? pendingContext?.prompt,
                   });
                   return next;
                 });
                 break;
+                }
 
               case 'generate:result':
                 onGenerateResultRef.current?.({

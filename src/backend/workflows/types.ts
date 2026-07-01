@@ -354,6 +354,7 @@ export interface GenerateStartedMessage {
   jobId: string;
   assetId: string;
   assetName: string;
+  prompt?: string;
 }
 
 /** Generation result notification (broadcast to all) */

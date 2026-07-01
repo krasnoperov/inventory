@@ -30,6 +30,7 @@ import type {
   UseSpaceWebSocketReturn,
 } from './protocol';
 import type { SpaceSessionState } from './spaceStore';
+import { registerPendingJobContext } from './jobContextRegistry';
 import { sharedSpaceSocketSession } from './spaceSocketSession';
 
 interface SpaceCommandsInput {
@@ -335,6 +336,11 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
   // Send generate request to trigger GenerationWorkflow
   const sendGenerateRequest = useCallback((params: GenerateRequestParams): string => {
     const requestId = crypto.randomUUID();
+    registerPendingJobContext(requestId, {
+      assetName: params.name,
+      operation: 'derive',
+      prompt: params.prompt,
+    });
     sendMessage({
       type: 'generate:request',
       requestId,
@@ -365,6 +371,11 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
   // Send refine request to trigger GenerationWorkflow for variant refinement
   const sendRefineRequest = useCallback((params: RefineRequestParams): string => {
     const requestId = crypto.randomUUID();
+    registerPendingJobContext(requestId, {
+      assetId: params.assetId,
+      operation: 'refine',
+      prompt: params.prompt,
+    });
     sendMessage({
       type: 'refine:request',
       requestId,

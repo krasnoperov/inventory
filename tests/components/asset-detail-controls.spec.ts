@@ -786,29 +786,36 @@ test('asset variant inspector stays clear of the generation dock', async ({ page
 
   const inspector = page.getByRole('complementary', { name: 'Variant details' });
   const dock = page.getByRole('region', { name: 'Asset generation controls' });
+  const flowPane = page.locator('[class*="flowPane"]').first();
   await expect(inspector).toBeVisible();
   await expect(dock).toBeVisible();
   await expectNoOverlap(inspector, dock);
+  await expectNoOverlap(inspector, flowPane);
 
-	  const geometry = await page.evaluate(() => {
-	    const panel = document.querySelector('[aria-label="Variant details"]');
-	    const panelBox = panel?.getBoundingClientRect();
-	    return panelBox
-	      ? {
-	          panelLeft: panelBox.left,
-	          panelRight: panelBox.right,
-	          panelTop: panelBox.top,
-	          panelBottom: panelBox.bottom,
-	          viewportWidth: window.innerWidth,
-	          viewportHeight: window.innerHeight,
-	        }
-	      : null;
-	  });
-	  expect(geometry).not.toBeNull();
-	  expect(geometry!.panelLeft).toBeGreaterThanOrEqual(16);
-	  expect(geometry!.panelRight).toBeLessThanOrEqual(geometry!.viewportWidth - 16);
-	  expect(geometry!.panelTop).toBeGreaterThanOrEqual(16);
-	  expect(geometry!.panelBottom).toBeLessThanOrEqual(geometry!.viewportHeight - 16);
+  const geometry = await page.evaluate(() => {
+    const panel = document.querySelector('[aria-label="Variant details"]');
+    const flowPane = document.querySelector('[class*="flowPane"]');
+    const panelBox = panel?.getBoundingClientRect();
+    const flowPaneBox = flowPane?.getBoundingClientRect();
+    return panelBox
+      ? {
+          panelLeft: panelBox.left,
+          panelRight: panelBox.right,
+          panelTop: panelBox.top,
+          panelBottom: panelBox.bottom,
+          flowPaneBottom: flowPaneBox?.bottom ?? null,
+          viewportWidth: window.innerWidth,
+          viewportHeight: window.innerHeight,
+        }
+      : null;
+  });
+  expect(geometry).not.toBeNull();
+  expect(geometry!.panelLeft).toBeGreaterThanOrEqual(16);
+  expect(geometry!.panelRight).toBeLessThanOrEqual(geometry!.viewportWidth - 16);
+  expect(geometry!.panelTop).toBeGreaterThanOrEqual(16);
+  expect(geometry!.flowPaneBottom).not.toBeNull();
+  expect(geometry!.panelTop).toBeGreaterThanOrEqual(geometry!.flowPaneBottom! + 8);
+  expect(geometry!.panelBottom).toBeLessThanOrEqual(geometry!.viewportHeight - 16);
 
   await screenshot(page, 'asset-details-variant-inspector-clear-of-dock', { fullPage: true });
 });
@@ -819,21 +826,27 @@ test('asset variant inspector stays clear of the generation dock on tablet width
 
   const inspector = page.getByRole('complementary', { name: 'Variant details' });
   const dock = page.getByRole('region', { name: 'Asset generation controls' });
+  const flowPane = page.locator('[class*="flowPane"]').first();
   await expect(inspector).toBeVisible();
   await expect(dock).toBeVisible();
   await expectNoOverlap(inspector, dock);
+  await expectNoOverlap(inspector, flowPane);
 
   const geometry = await page.evaluate(() => {
     const panel = document.querySelector('[aria-label="Variant details"]');
     const generationDock = document.querySelector('[aria-label="Asset generation controls"]');
+    const flowPane = document.querySelector('[class*="flowPane"]');
     const panelBox = panel?.getBoundingClientRect();
     const dockBox = generationDock?.getBoundingClientRect();
+    const flowPaneBox = flowPane?.getBoundingClientRect();
     return panelBox && dockBox
       ? {
           panelLeft: panelBox.left,
           panelRight: panelBox.right,
+          panelTop: panelBox.top,
           panelBottom: panelBox.bottom,
           dockTop: dockBox.top,
+          flowPaneBottom: flowPaneBox?.bottom ?? null,
           viewportWidth: window.innerWidth,
         }
       : null;
@@ -841,6 +854,8 @@ test('asset variant inspector stays clear of the generation dock on tablet width
   expect(geometry).not.toBeNull();
   expect(geometry!.panelLeft).toBeGreaterThanOrEqual(16);
   expect(geometry!.panelRight).toBeLessThanOrEqual(geometry!.viewportWidth - 16);
+  expect(geometry!.flowPaneBottom).not.toBeNull();
+  expect(geometry!.panelTop).toBeGreaterThanOrEqual(geometry!.flowPaneBottom! + 4);
   expect(geometry!.panelBottom).toBeLessThanOrEqual(geometry!.dockTop - 4);
 
   await screenshot(page, 'asset-details-variant-inspector-tablet-clear-of-dock', { fullPage: true });

@@ -508,6 +508,8 @@ describe('GenerationController pipeline hooks', () => {
       assert.equal(placement.pinnedVariantId, createdVariantId);
       assert.equal(placement.role, 'lead');
       assert.ok(broadcasts.some((message) => message.type === 'collection_item:created'));
+      const started = broadcasts.find((message) => message.type === 'generate:started');
+      assert.equal(started?.prompt, 'hero portrait');
     });
 
     test('rejects missing collection placement before creating generated asset placeholder', async () => {
@@ -758,7 +760,7 @@ describe('GenerationController pipeline hooks', () => {
       const bindings: unknown[][] = [];
       const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
       const repo = createMockRepo();
-      const { ctx } = createMockContext(repo);
+      const { ctx, broadcasts } = createMockContext(repo);
       ctx.env.DB = createQuotaCheckDb({
         quotaLimit: 0,
         quotaLimitsJson: EXHAUSTED_IMAGE_QUOTA_LIMITS,
@@ -785,6 +787,8 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(asMock(ctx.send).mock.calls.length, 0);
       assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 1);
       assert.strictEqual(workflowCreate.mock.calls.length, 1);
+      const started = broadcasts.find((message) => message.type === 'generate:started');
+      assert.equal(started?.prompt, 'short heroic orchestral loop');
       assert.ok(bindings.some((args) => args[1] === 'gemini_audio'));
       assert.ok(!bindings.some((args) => args[1] === 'gemini_images'));
     });
@@ -953,7 +957,7 @@ describe('GenerationController pipeline hooks', () => {
       const bindings: unknown[][] = [];
       const workflowCreate = mock.fn(async () => ({ id: 'workflow-1' }));
       const repo = createMockRepo();
-      const { ctx } = createMockContext(repo);
+      const { ctx, broadcasts } = createMockContext(repo);
       ctx.env.DB = createQuotaCheckDb({
         quotaLimit: 0,
         quotaLimitsJson: EXHAUSTED_IMAGE_QUOTA_LIMITS,
@@ -979,6 +983,8 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(asMock(ctx.send).mock.calls.length, 0);
       assert.strictEqual(asMock(repo.createPlaceholderVariant).mock.calls.length, 1);
       assert.strictEqual(workflowCreate.mock.calls.length, 1);
+      const started = broadcasts.find((message) => message.type === 'refine:started');
+      assert.equal(started?.prompt, 'make the loop softer');
       assert.ok(bindings.some((args) => args[1] === 'gemini_audio'));
       assert.ok(!bindings.some((args) => args[1] === 'gemini_images'));
     });
@@ -1209,7 +1215,9 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(workflowInput.mediaKind, 'audio');
       assert.strictEqual(workflowInput.prompt, recipe.prompt);
       assert.strictEqual(workflowInput.voiceId, 'voice-abc');
-      assert.strictEqual(workflowInput.requestId, broadcasts.find((msg) => msg.type === 'refine:started')?.requestId);
+      const started = broadcasts.find((msg) => msg.type === 'refine:started');
+      assert.strictEqual(workflowInput.requestId, started?.requestId);
+      assert.strictEqual(started?.prompt, recipe.prompt);
       assert.ok(broadcasts.some((msg) => msg.type === 'variant:created' && msg.variant.id === createInput.id));
       assert.ok(broadcasts.some((msg) => msg.type === 'variant:updated' && msg.variant.status === 'processing'));
     });

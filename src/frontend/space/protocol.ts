@@ -904,7 +904,7 @@ export interface UseSpaceWebSocketParams {
   onChatMessage?: (message: ChatMessage) => void;
   onChatResponse?: (response: ChatResponseResult) => void;
   onChatProgress?: (progress: ChatProgressResult) => void;
-  onGenerateStarted?: (data: { requestId: string; jobId: string; assetId: string; assetName: string }) => void;
+  onGenerateStarted?: (data: { requestId: string; jobId: string; assetId: string; assetName: string; prompt?: string }) => void;
   onGenerateResult?: (data: { requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }) => void;
   onDescribeResponse?: (response: DescribeResponseResult) => void;
   onCompareResponse?: (response: CompareResponseResult) => void;
@@ -1020,8 +1020,8 @@ export type ServerMessage =
   | { type: 'chat:response'; requestId: string; success: boolean; response?: BotResponse; error?: string; deferredActions?: DeferredAction[] }
   | { type: 'chat:progress'; requestId: string; toolName: string; toolParams: Record<string, unknown>; status: 'executing' | 'complete' | 'failed'; result?: string; error?: string }
   | { type: 'chat:progress'; requestId: string; phase: 'describing'; variantId: string; assetName: string; status: 'started' | 'completed' | 'cached'; description?: string; index: number; total: number }
-  | { type: 'generate:started'; requestId: string; jobId: string; assetId: string; assetName: string }
-  | { type: 'refine:started'; requestId: string; jobId: string; assetId: string; assetName: string }
+  | { type: 'generate:started'; requestId: string; jobId: string; assetId: string; assetName: string; prompt?: string }
+  | { type: 'refine:started'; requestId: string; jobId: string; assetId: string; assetName: string; prompt?: string }
   | { type: 'generate:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
   | { type: 'refine:result'; requestId: string; jobId: string; success: boolean; variant?: Variant; error?: string }
   // Vision (describe/compare) response messages

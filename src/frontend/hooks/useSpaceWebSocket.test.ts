@@ -20,6 +20,7 @@ import {
   type Variant,
 } from './useSpaceWebSocket';
 import { handleSpaceServerMessage, type SpaceMessageContext } from '../space/handleSpaceServerMessage';
+import { clearPendingJobContextsForTests, registerPendingJobContext } from '../space/jobContextRegistry';
 import { useSpaceSessionStore } from '../space/spaceStore';
 
 function asset(overrides: Partial<Asset> = {}): Asset {
@@ -164,6 +165,10 @@ describe('space state snapshot cache', () => {
 });
 
 describe('space message handling', () => {
+  afterEach(() => {
+    clearPendingJobContextsForTests();
+  });
+
   function messageContext(store: ReturnType<typeof useSpaceSessionStore.getState>): SpaceMessageContext {
     return {
       syncModeRef: { current: null },
@@ -208,6 +213,55 @@ describe('space message handling', () => {
     assert.equal(next.assets[0]?.id, 'asset-1');
     assert.equal(next.variants.length, 1);
     assert.equal(next.variants[0]?.id, 'variant-1');
+  });
+
+  test('preserves generate and refine prompts in started job state', () => {
+    const store = useSpaceSessionStore.getState();
+    store.hydrateFromSnapshot('space-jobs', null);
+    const context = messageContext(store);
+
+    registerPendingJobContext('request-generate', {
+      assetName: 'Generated Market Keyframe',
+      operation: 'derive',
+      prompt: 'Long readable market keyframe prompt',
+    });
+    handleSpaceServerMessage({
+      type: 'generate:started',
+      requestId: 'request-generate',
+      jobId: 'job-generate',
+      assetId: 'asset-generated',
+      assetName: 'Generated Market Keyframe',
+      prompt: 'Broadcast market keyframe prompt',
+    }, context);
+
+    registerPendingJobContext('request-refine', {
+      assetId: 'asset-1',
+      operation: 'refine',
+      prompt: 'Long readable refinement prompt',
+    });
+    handleSpaceServerMessage({
+      type: 'refine:started',
+      requestId: 'request-refine',
+      jobId: 'job-refine',
+      assetId: 'asset-1',
+      assetName: 'Asset One',
+    }, context);
+
+    handleSpaceServerMessage({
+      type: 'generate:started',
+      requestId: 'request-collaborator',
+      jobId: 'job-collaborator',
+      assetId: 'asset-collaborator',
+      assetName: 'Collaborator Market Keyframe',
+      prompt: 'Broadcast prompt visible to collaborators',
+    }, context);
+
+    const jobs = useSpaceSessionStore.getState().jobs;
+    assert.equal(jobs.get('job-generate')?.prompt, 'Broadcast market keyframe prompt');
+    assert.equal(jobs.get('job-generate')?.operation, 'derive');
+    assert.equal(jobs.get('job-refine')?.prompt, 'Long readable refinement prompt');
+    assert.equal(jobs.get('job-refine')?.operation, 'refine');
+    assert.equal(jobs.get('job-collaborator')?.prompt, 'Broadcast prompt visible to collaborators');
   });
 
   test('applies live collection mutations and overview collection items', () => {

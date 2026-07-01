@@ -759,6 +759,7 @@ export class GenerationController extends BaseController {
       jobId: result.variantId,
       assetId: result.assetId,
       assetName: msg.name,
+      prompt: msg.prompt,
     });
 
     // Determine operation and trigger workflow
@@ -882,6 +883,7 @@ export class GenerationController extends BaseController {
       jobId: result.variantId,
       assetId: msg.assetId,
       assetName: result.asset.name,
+      prompt: msg.prompt,
     });
 
     // Trigger workflow
@@ -1251,6 +1253,7 @@ export class GenerationController extends BaseController {
       jobId: newVariantId,
       assetId: asset.id,
       assetName: asset.name,
+      prompt: recipe.prompt,
     });
 
     const workflowInput: GenerationWorkflowInput = {
