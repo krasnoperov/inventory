@@ -100,6 +100,7 @@ test('variant canvas empty state uses minimal chrome', async ({ page }) => {
   await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
     spaceId: 'space-1',
     canvasLabel: 'Details canvas',
+    scope: 'asset-details',
     asset: asset('empty', 'Empty asset'),
     variants: [],
     lineage: [],
@@ -109,6 +110,9 @@ test('variant canvas empty state uses minimal chrome', async ({ page }) => {
   });
 
   await expect(page.getByRole('region', { name: 'Details canvas' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Details canvas' })).toHaveAttribute('data-canvas-scope', 'asset-details');
+  const emptyBackground = await page.getByRole('region', { name: 'Details canvas' }).evaluate((node) => getComputedStyle(node).backgroundImage);
+  expect((emptyBackground.match(/linear-gradient/g) ?? [])).toHaveLength(3);
   await expect(page.getByText('No variants in this asset yet')).toBeVisible();
   await expect(page.locator('[class*="emptyMark"]')).toBeVisible();
   await expect(page.getByText('🎨')).toHaveCount(0);
@@ -291,6 +295,7 @@ test('variant canvas reads as a scoped asset variant canvas', async ({ page }) =
   await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
     spaceId: 'space-1',
     canvasLabel: 'Details canvas',
+    scope: 'asset-details',
     asset: scopedAsset,
     variants: [firstVariant, secondVariant],
     lineage: [],
@@ -301,6 +306,7 @@ test('variant canvas reads as a scoped asset variant canvas', async ({ page }) =
   });
 
   await page.waitForSelector('[class*="ready"] .react-flow__node');
+  await expect(page.getByRole('region', { name: 'Details canvas' })).toHaveAttribute('data-canvas-scope', 'asset-details');
   const canvasBackground = await page.getByRole('region', { name: 'Details canvas' }).evaluate((node) => getComputedStyle(node).backgroundImage);
   expect(canvasBackground).toContain('linear-gradient');
   await expect(page.getByText('Variant 1/2')).toBeVisible();

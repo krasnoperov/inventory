@@ -10,6 +10,20 @@
     var(--color-bg);
 }
 
+.canvas.assetScoped,
+.empty.assetScoped {
+  background:
+    linear-gradient(90deg, transparent 0, transparent calc(100% - 1px), oklch(100% 0 0 / 0.045) calc(100% - 1px)) 0 0 / 96px 96px,
+    linear-gradient(180deg, transparent 0, transparent calc(100% - 1px), oklch(100% 0 0 / 0.045) calc(100% - 1px)) 0 0 / 96px 96px,
+    radial-gradient(circle at 1px 1px, oklch(100% 0 0 / 0.1) 1px, transparent 0) 0 0 / 32px 32px,
+    linear-gradient(180deg, var(--color-status-processing-bg), transparent 18rem),
+    var(--color-bg);
+}
+
+.assetScoped :global(.react-flow__background) {
+  opacity: 0.5;
+}
+
 /* Hide canvas until dimensions are ready to prevent blink */
 .canvas.loading {
   opacity: 0;

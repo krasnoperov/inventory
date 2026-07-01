@@ -572,10 +572,10 @@ function AssetDetailOverlayChromePreview() {
             Crystal Gate
           </CanvasToolbarTitle>
           <CanvasToolbarBadge tone="neutral">
-            Details
+            Details Space
           </CanvasToolbarBadge>
           <CanvasToolbarBadge tone="neutral" className={assetDetailStyles.assetScopeBadge}>
-            Asset
+            Asset scope
           </CanvasToolbarBadge>
           <CanvasToolbarBadge tone="neutral" className={assetDetailStyles.variantScopeBadge}>
             2 variants
