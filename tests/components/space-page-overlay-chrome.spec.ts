@@ -48,3 +48,22 @@ test('space page overlay chrome keeps long labels readable on mobile', async ({ 
 
   await screenshot(page, 'space-page-readable-overlay-mobile', { fullPage: true });
 });
+
+test('space page composition details dock beside the canvas instead of covering it', async ({ page }) => {
+  await page.setViewportSize({ width: 1180, height: 760 });
+  await mountComponent(page, 'SpacePageOverlayChrome', { showCompositionRail: true });
+
+  const workspace = page.locator('[class*="canvasWorkspaceWithInspector"]');
+  const stage = page.locator('[class*="canvasStage"]');
+  const rail = page.locator('[class*="compositionPanelContainer"]');
+  await expect(workspace).toHaveCSS('display', 'grid');
+  await expect(rail).not.toHaveCSS('position', 'absolute');
+  await expect(page.getByRole('complementary', { name: 'Composition detail' })).toBeVisible();
+
+  const [stageBox, railBox] = await Promise.all([stage.boundingBox(), rail.boundingBox()]);
+  expect(stageBox).not.toBeNull();
+  expect(railBox).not.toBeNull();
+  expect(stageBox!.x + stageBox!.width).toBeLessThanOrEqual(railBox!.x + 1);
+
+  await screenshot(page, 'space-page-composition-detail-rail', { fullPage: true });
+});
