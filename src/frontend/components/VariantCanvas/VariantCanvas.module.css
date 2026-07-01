@@ -21,11 +21,6 @@
 }
 
 .canvas.detailsOpen :global(.react-flow) {
-  width: calc(100% - 360px);
-  max-width: 100%;
-}
-
-.canvas.assetScoped.detailsOpen :global(.react-flow) {
   width: 100%;
   height: calc(
     100% -
@@ -35,7 +30,7 @@
   );
 }
 
-.canvas.assetScoped.detailsOpen .controls {
+.canvas.detailsOpen .controls {
   bottom: calc(
     var(--variant-details-dock-height) +
     var(--variant-details-dock-gap) +
@@ -104,11 +99,6 @@
   }
 
   .canvas.detailsOpen :global(.react-flow) {
-    width: 100%;
-    height: calc(100% - var(--variant-details-dock-height) - var(--variant-details-dock-gap));
-  }
-
-  .canvas.assetScoped.detailsOpen :global(.react-flow) {
     height: calc(
       100% -
       var(--variant-details-dock-height) -

@@ -672,7 +672,7 @@ function VariantCanvasInner({
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border)" />
         <Controls className={styles.controls} position="bottom-left" />
-        {scope !== 'asset-details' && (
+        {scope !== 'asset-details' && !expandedVariant && (
           <MiniMap
             className={styles.minimap}
             position="bottom-right"
@@ -690,7 +690,7 @@ function VariantCanvasInner({
           asset={asset}
           spaceId={spaceId}
           avoidGenerationDock={avoidGenerationDock}
-          dockWithinCanvas={avoidGenerationDock}
+          dockWithinCanvas
           isActive={expandedVariant.id === asset.active_variant_id}
           variantIndex={variants.findIndex((variant) => variant.id === expandedVariant.id)}
           variantCount={variants.length}

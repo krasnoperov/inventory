@@ -1,5 +1,5 @@
-/* Fixed inspector docked to the right edge of the viewport. It lives outside
-   the React Flow transform (portaled to body), so it never scales with zoom. */
+/* Variant inspector dock. The panel can be portaled, but its default contract
+   is a canvas-level dock that reserves space instead of covering selected media. */
 .panel {
   position: fixed;
   top: 1rem;
