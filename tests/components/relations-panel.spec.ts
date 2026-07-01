@@ -104,8 +104,11 @@ test('relation dialog creates a manual relation with searchable variant target',
   await expect(page.getByLabel('Notes')).toHaveCount(0);
   await selectDropdown(page, 'Type', 'Thumbnail for');
   await page.getByPlaceholder('Search assets and variants').fill('atlas-searchable');
-  await expect(page.getByText('Atlas Sheet variant')).toBeVisible();
-  await page.getByText('Atlas Sheet variant').click();
+  await expect(page.getByText('Atlas Sheet', { exact: true })).toBeVisible();
+  await expect(page.getByText('Variant atlas-se · Image')).toBeVisible();
+  await page.getByText('Atlas Sheet', { exact: true }).click();
+  await expect(page.getByLabel('Relation endpoints')).toContainText('Asset');
+  await expect(page.getByLabel('Relation endpoints')).toContainText('Variant');
   await expect(page.getByLabel('Relation shortcuts')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Mark as thumbnail for/ })).toHaveCount(0);
   await page.mouse.move(0, 0);
@@ -333,6 +336,40 @@ test('relations panel keeps empty state compact with create action available', a
   ]);
 
   await screenshot(page, 'relations-panel-empty-compact', { fullPage: true });
+});
+
+test('relations panel keeps exact variant identity in relation rows', async ({ page }) => {
+  await mockMedia(page);
+  await mountComponent(page, 'RelationsPanel', {
+    assets,
+    variants,
+    subjects: [
+      { subjectType: 'asset', assetId: 'hero' },
+      { subjectType: 'variant', variantId: 'hero-variant' },
+    ],
+    primarySubject: { subjectType: 'asset', assetId: 'hero' },
+    relations: [{
+      id: 'relation-variant',
+      subject_type: 'asset',
+      subject_asset_id: 'hero',
+      subject_variant_id: null,
+      object_type: 'variant',
+      object_asset_id: null,
+      object_variant_id: 'atlas-searchable-variant',
+      relation_type: 'reference_for',
+      context: null,
+      sort_index: 0,
+      created_by: 'user-1',
+      created_at: baseTime,
+      updated_at: baseTime,
+    }],
+    onCreate: '__record__:open-create',
+    onEdit: '__record__:open-edit',
+    onDelete: '__record__:delete-relation',
+  });
+
+  await expect(page.getByText('Atlas Sheet variant atlas-se')).toBeVisible();
+  await expect(page.getByText('Reference for')).toBeVisible();
 });
 
 test('relations panel count de-duplicates relations matching both directions', async ({ page }) => {
