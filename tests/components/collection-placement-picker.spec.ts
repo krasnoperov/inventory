@@ -73,6 +73,11 @@ test('collection placement picker updates role subject and pinning', async ({ pa
   });
   await selectDropdown(page, 'Add collection', 'Style refs');
   await page.mouse.move(0, 0);
+  const rowWidth = await page.getByLabel('Remove Cast placement draft').evaluate((button) => {
+    const row = button.closest('div');
+    return row?.getBoundingClientRect().width ?? 0;
+  });
+  expect(rowWidth).toBeLessThanOrEqual(370);
   await screenshot(page, 'collection-placement-picker', { fullPage: true });
   await page.getByLabel('Remove Cast placement draft').click();
 
