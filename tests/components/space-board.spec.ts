@@ -527,6 +527,7 @@ test('collection menus use shared form controls', async ({ page }) => {
   await expect(cardMenuPanel.getByRole('button', { name: 'Move down' })).toBeVisible();
   await expect(cardMenuPanel.getByText('Move up', { exact: true })).toHaveCount(0);
   await expect(cardMenuPanel.getByText('Move down', { exact: true })).toHaveCount(0);
+  await expect(cardMenuPanel.locator('label').filter({ hasText: 'Pinned variant' })).toHaveCSS('grid-template-columns', /80px/);
   const heroCard = cardMenuTrigger.locator('xpath=ancestor::article[1]');
   const cardPreview = heroCard.locator('[class*="thumbnailButton"]').first();
   const cardCaption = heroCard.locator('[class*="caption"]').first();
