@@ -93,6 +93,23 @@ async function expectNodeChromeBelowMedia(
   expect(boxes!.chromeTop).toBeGreaterThanOrEqual(boxes!.mediaBottom);
 }
 
+async function expectNoOverlap(
+  first: import('@playwright/test').Locator,
+  second: import('@playwright/test').Locator,
+) {
+  await expect.poll(async () => {
+    const firstBox = await first.boundingBox();
+    const secondBox = await second.boundingBox();
+    if (!firstBox || !secondBox) return false;
+    return !(
+      firstBox.x + firstBox.width <= secondBox.x ||
+      secondBox.x + secondBox.width <= firstBox.x ||
+      firstBox.y + firstBox.height <= secondBox.y ||
+      secondBox.y + secondBox.height <= firstBox.y
+    );
+  }).toBe(false);
+}
+
 test('variant canvas empty state uses minimal chrome', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 520 });
   await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
@@ -156,7 +173,7 @@ test('variant canvas shows derivatives as lineage nodes', async ({ page }) => {
   await screenshot(page, 'variant-canvas-flat-flow-controls', { fullPage: true });
 });
 
-test('asset-scoped variant details dock beside the clicked node', async ({ page }) => {
+test('asset-scoped variant details dock below the clicked node', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 720 });
   await mockMedia(page);
   await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
@@ -200,6 +217,17 @@ test('asset-scoped variant details dock beside the clicked node', async ({ page 
     );
   });
   expect(overlaps).toBe(false);
+  const verticalOrder = await page.evaluate(() => {
+    const node = document.querySelector('.react-flow__node');
+    const panel = document.querySelector('[aria-label="Variant details"]');
+    if (!node || !panel) return null;
+    return {
+      nodeBottom: node.getBoundingClientRect().bottom,
+      panelTop: panel.getBoundingClientRect().top,
+    };
+  });
+  expect(verticalOrder).not.toBeNull();
+  expect(verticalOrder!.panelTop).toBeGreaterThanOrEqual(verticalOrder!.nodeBottom);
   const overlapsControls = await page.evaluate(() => {
     const controls = document.querySelector('.react-flow__controls');
     const panel = document.querySelector('[aria-label="Variant details"]');
@@ -215,7 +243,65 @@ test('asset-scoped variant details dock beside the clicked node', async ({ page 
   });
   expect(overlapsControls).toBe(false);
   await page.waitForTimeout(200);
-  await screenshot(page, 'variant-canvas-details-docked-beside-node', { fullPage: true });
+  await screenshot(page, 'variant-canvas-details-docked-below-node', { fullPage: true });
+});
+
+test('space-level variant details dock below the clicked node', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 720 });
+  await mockMedia(page);
+  await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
+  await sizeCanvasHarness(page);
+  const scopedAsset = asset('icon', 'App Icon');
+  const scopedVariant = variant('icon');
+  await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
+    spaceId: 'space-1',
+    canvasLabel: 'Space variant canvas',
+    asset: scopedAsset,
+    variants: [scopedVariant],
+    lineage: [],
+    selectedVariantId: scopedVariant.id,
+    allVariants: [scopedVariant],
+    allAssets: [scopedAsset],
+    onVariantClick: '__noop__',
+  });
+
+  await page.waitForSelector('.react-flow__node');
+  await expect(page.locator('.react-flow__minimap')).toBeVisible();
+  const node = page.locator('.react-flow__node').first();
+  await node.click();
+  const detailsPanel = page.getByRole('complementary', { name: 'Variant details' });
+  await expect(detailsPanel).toBeVisible();
+  await expect(detailsPanel).toHaveCSS('position', 'absolute');
+  await expect(page.locator('.react-flow__minimap')).toHaveCount(0);
+
+  const geometry = await page.evaluate(() => {
+    const node = document.querySelector('.react-flow__node');
+    const panel = document.querySelector('[aria-label="Variant details"]');
+    const controls = document.querySelector('.react-flow__controls');
+    if (!node || !panel || !controls) return null;
+    const nodeBox = node.getBoundingClientRect();
+    const panelBox = panel.getBoundingClientRect();
+    const controlsBox = controls.getBoundingClientRect();
+    const overlaps = (a: DOMRect, b: DOMRect) => !(
+      a.right <= b.left ||
+      b.right <= a.left ||
+      a.bottom <= b.top ||
+      b.bottom <= a.top
+    );
+    return {
+      panelOverlapsNode: overlaps(nodeBox, panelBox),
+      panelOverlapsControls: overlaps(controlsBox, panelBox),
+      panelTop: panelBox.top,
+      nodeBottom: nodeBox.bottom,
+    };
+  });
+  expect(geometry).not.toBeNull();
+  expect(geometry!.panelOverlapsNode).toBe(false);
+  expect(geometry!.panelOverlapsControls).toBe(false);
+  expect(geometry!.panelTop).toBeGreaterThanOrEqual(geometry!.nodeBottom);
+
+  await page.waitForTimeout(200);
+  await screenshot(page, 'variant-canvas-space-details-docked-below-node', { fullPage: true });
 });
 
 test('asset-scoped variant details keep the clicked node visible on tablet widths', async ({ page }) => {
@@ -328,6 +414,62 @@ test('variant canvas retries failed audio variants and renders queued state', as
     onRetry: '__record__:retry',
   });
   await expect(page.getByText('Queued')).toBeVisible();
+});
+
+test('variant canvas keeps audio node metadata readable below media', async ({ page }) => {
+  const audioAsset = {
+    ...asset('speech', 'Long speech clip'),
+    type: 'speech',
+    media_kind: 'audio',
+    active_variant_id: 'speech-v',
+  };
+  const longPrompt = 'Describe a careful narration pass with a warm studio voice, a deliberate opening pause, clean consonants, and enough phrasing detail that the node has to wrap instead of hiding the prompt.';
+  const audioVariant = {
+    ...variant('speech'),
+    id: 'speech-v',
+    media_kind: 'audio',
+    media_key: 'audio/space/speech-v.mp3',
+    media_mime_type: 'audio/mpeg',
+    media_duration_ms: 12_400,
+    recipe: JSON.stringify({
+      prompt: longPrompt,
+      voiceName: 'Warm narrative studio voice with unusually descriptive label',
+    }),
+    provider_metadata: JSON.stringify({
+      model: 'voice-synthesis-production-model-with-long-readable-name',
+    }),
+  };
+
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
+  await sizeCanvasHarness(page);
+  await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
+    spaceId: 'space-1',
+    asset: audioAsset,
+    variants: [audioVariant],
+    lineage: [],
+    selectedVariantId: 'speech-v',
+    allVariants: [audioVariant],
+    allAssets: [audioAsset],
+    onVariantClick: '__record__:variant-click',
+  });
+
+  const node = page.locator('.react-flow__node').first();
+  const audioCard = node.locator('[class*="audioCard"]').first();
+  const audioPrompt = node.getByText(longPrompt);
+  const longModel = node.getByTitle('voice-synthesis-production-model-with-long-readable-name');
+  await expect(audioCard).toBeVisible();
+  await expect(audioPrompt).toBeVisible();
+  await expect(audioPrompt).toHaveCSS('white-space', 'normal');
+  await expect(audioPrompt).toHaveCSS('-webkit-line-clamp', 'none');
+  await expect(longModel).toHaveCSS('white-space', 'normal');
+  await expect(longModel).toHaveCSS('text-overflow', 'clip');
+
+  const promptBox = await audioPrompt.boundingBox();
+  expect(promptBox).not.toBeNull();
+  expect(promptBox!.height).toBeGreaterThan(28);
+  await expectNodeChromeBelowMedia(node);
+  await screenshot(page, 'variant-canvas-readable-audio-node', { fullPage: true });
 });
 
 test('variant canvas previews stay free of hover action overlays', async ({ page }) => {
@@ -577,8 +719,9 @@ test('variant canvas selected node uses flat selection chrome', async ({ page })
   await screenshot(page, 'variant-canvas-selected-flat-chrome');
 });
 
-test('variant canvas active and forked-from chrome uses tokenized surfaces', async ({ page }) => {
-  const source = asset('source', 'Source sprite');
+test('variant canvas wraps readable forked-from relation labels', async ({ page }) => {
+  const longSourceName = 'Source sprite with a very long production name that should wrap in relation chrome';
+  const source = asset('source', longSourceName);
   const forked = {
     ...asset('forked', 'Forked sprite'),
     active_variant_id: 'forked-v',
@@ -631,15 +774,21 @@ test('variant canvas active and forked-from chrome uses tokenized surfaces', asy
     await resolvedShadow(page, '-3px 0 0 var(--color-success)'),
   );
   const completedSurface = await resolvedBackground(page, 'var(--color-status-completed-bg)');
-  const forkedFrom = page.getByTitle('Forked from: Source sprite');
+  const forkedFrom = page.getByTitle(`Forked from: ${longSourceName}`);
   await expect(forkedFrom).toHaveCSS(
     'background-color',
     completedSurface,
   );
+  await expect(forkedFrom).toHaveCSS('white-space', 'normal');
+  await expect(forkedFrom).toHaveCSS('text-overflow', 'clip');
+  const forkedFromBox = await forkedFrom.boundingBox();
+  expect(forkedFromBox).not.toBeNull();
+  expect(forkedFromBox!.height).toBeGreaterThan(20);
+  await expectNoOverlap(forkedFrom, activePreview);
   await forkedFrom.hover();
   await expect(forkedFrom).toHaveCSS(
     'background-color',
     completedSurface,
   );
-  await screenshot(page, 'variant-canvas-tokenized-node-chrome', { fullPage: true });
+  await screenshot(page, 'variant-canvas-readable-relation-label', { fullPage: true });
 });
