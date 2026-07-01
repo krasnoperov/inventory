@@ -14,7 +14,7 @@ function variant(assetId: string, w: number, h: number) {
   return {
     id: `${assetId}-v`, asset_id: assetId, media_kind: 'image', workflow_id: null,
     status: 'completed', error_message: null, media_width: w, media_height: h,
-    image_key: null, media_key: null, thumbnail_key: null, starred: 0,
+    image_key: `images/${assetId}.png`, media_key: `images/${assetId}.png`, thumbnail_key: null, starred: 0,
     created_by: 'u1', created_at: t, updated_at: t,
   };
 }
@@ -210,12 +210,15 @@ test('space canvas frame card triggers open assets without changing media chrome
     lineage: [],
     isInitialSyncPending: false,
     onAssetClick: '__record__:assetClick',
+    onAddToTray: '__record__:addToTray',
   });
 
   const thumbnailTrigger = page.locator('button[class*="thumbnailButton"][title="Hero"]').first();
   const nameTrigger = page.locator('button[class*="assetName"]').filter({ hasText: 'Hero' }).first();
+  const trayTrigger = page.getByRole('button', { name: 'Add Hero to Forge Tray' });
 
   await expect(thumbnailTrigger).toBeVisible();
+  await expect(trayTrigger).toBeVisible();
   await expect(thumbnailTrigger).toHaveCSS('padding', '0px');
   await expect(thumbnailTrigger).toHaveCSS('border-top-width', '0px');
   await expect(page.locator('[class*="frame"]').first()).toHaveCSS('box-shadow', 'none');
@@ -225,16 +228,20 @@ test('space canvas frame card triggers open assets without changing media chrome
   await expect(nameTrigger).toBeVisible();
   await expect(nameTrigger).toHaveCSS('color', 'rgb(19, 22, 29)');
   await expectNoOverlap(nameTrigger, thumbnailTrigger);
+  await expectNoOverlap(trayTrigger, thumbnailTrigger);
   await screenshot(page, 'space-canvas-frame-card-triggers', { fullPage: true });
 
+  await trayTrigger.click();
   await thumbnailTrigger.click();
   await thumbnailTrigger.hover();
   await nameTrigger.click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
-  expect(calls.map((call) => call.eventName)).toEqual(['assetClick', 'assetClick']);
-  expect((calls[0].args[0] as { id: string }).id).toBe('a0');
+  expect(calls.map((call) => call.eventName)).toEqual(['addToTray', 'assetClick', 'assetClick']);
+  expect((calls[0].args[0] as { id: string }).id).toBe('a0-v');
+  expect((calls[0].args[1] as { id: string }).id).toBe('a0');
   expect((calls[1].args[0] as { id: string }).id).toBe('a0');
+  expect((calls[2].args[0] as { id: string }).id).toBe('a0');
 });
 
 test('re-measures edge endpoints when cards reorder within a frame', async ({ page }) => {

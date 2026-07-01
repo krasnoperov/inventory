@@ -16,13 +16,14 @@ import {
   type NodeProps,
 } from '@xyflow/react';
 import { Thumbnail } from '../Thumbnail';
-import { Button } from '../../ui';
-import type {
-  Asset,
-  CollectionItem,
-  Lineage,
-  SpaceCollection,
-  Variant,
+import { Button, IconButton } from '../../ui';
+import {
+  isVariantForgeTrayReady,
+  type Asset,
+  type CollectionItem,
+  type Lineage,
+  type SpaceCollection,
+  type Variant,
 } from '../../space/protocol';
 import { buildLineageAssetEdges } from './canvasEdges';
 import { FRAME_WIDTH, FRAME_GAP, columnCountForLayout, estimateFrameHeight } from './canvasLayout';
@@ -50,6 +51,7 @@ interface SpaceCanvasProps {
   lineage: Lineage[];
   isInitialSyncPending?: boolean;
   onAssetClick: (asset: Asset) => void;
+  onAddToTray?: (variant: Variant, asset: Asset) => void;
 }
 
 // A frame's content is the justified wall — the same cards as the scrolling
@@ -69,6 +71,7 @@ interface FrameData extends Record<string, unknown> {
   cards: FrameCard[];
   spaceId: string;
   onAssetClick: (asset: Asset) => void;
+  onAddToTray?: (variant: Variant, asset: Asset) => void;
 }
 
 type FrameNode = Node<FrameData, 'frame'>;
@@ -118,6 +121,7 @@ function FrameNodeView({ data }: NodeProps<FrameNode>) {
         <div className={`${styles.frameBody} nodrag`}>
           <div className={boardStyles.cardGrid}>
             {data.cards.map((card) => (
+              // The tray action lives in caption chrome, never over media pixels.
               <article
                 key={card.key}
                 className={boardStyles.assetCard}
@@ -139,9 +143,28 @@ function FrameNodeView({ data }: NodeProps<FrameNode>) {
                   />
                 </Button>
                 <div className={boardStyles.caption}>
-                  <Button className={boardStyles.assetName} onClick={() => data.onAssetClick(card.asset)} variant="ghost" size="sm">
-                    {card.asset.name}
-                  </Button>
+                  <div className={boardStyles.cardCaptionHeader}>
+                    <Button className={boardStyles.assetName} onClick={() => data.onAssetClick(card.asset)} variant="ghost" size="sm">
+                      {card.asset.name}
+                    </Button>
+                    {data.onAddToTray && card.variant && isVariantForgeTrayReady(card.variant) && (
+                      <IconButton
+                        className={styles.trayButton}
+                        onClick={() => {
+                          if (card.variant) data.onAddToTray?.(card.variant, card.asset);
+                        }}
+                        title={`Add ${card.asset.name} to Forge Tray`}
+                        aria-label={`Add ${card.asset.name} to Forge Tray`}
+                        variant="ghost"
+                        size="sm"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                          <path d="M12 5v14" />
+                          <path d="M5 12h14" />
+                        </svg>
+                      </IconButton>
+                    )}
+                  </div>
                   <div className={boardStyles.assetMeta}>
                     <span>{card.asset.type}</span>
                   </div>
@@ -194,6 +217,7 @@ function SpaceCanvasInner({
   lineage,
   isInitialSyncPending,
   onAssetClick,
+  onAddToTray,
 }: SpaceCanvasProps) {
   const { fitView, setViewport, screenToFlowPosition } = useReactFlow();
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -282,12 +306,13 @@ function SpaceCanvasInner({
         cards: frame.cards,
         spaceId,
         onAssetClick,
+        onAddToTray,
       },
     }));
     const totalHeight = seeded.reduce((sum, node) => sum + estimateFrameHeight((node.data as FrameData).count) + FRAME_GAP, 0);
     const columns = columnCountForLayout(totalHeight, viewportAspect, seeded.length);
     return packMasonry(seeded, columns);
-  }, [assets, variants, collections, collectionItems, spaceId, onAssetClick, viewportAspect]);
+  }, [assets, variants, collections, collectionItems, spaceId, onAssetClick, onAddToTray, viewportAspect]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<FrameNode>(initialNodes);
   const draggedIdsRef = useRef<Set<string>>(new Set());

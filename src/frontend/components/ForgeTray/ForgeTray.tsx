@@ -60,6 +60,7 @@ import {
   getMediaKindForForgeMode,
   isAudioForgeMode,
 } from './forgeMediaMode';
+import { ACCEPTED_UPLOAD_TYPES, defaultAssetNameFromFile, findAcceptedUploadFile } from '../../mediaUpload';
 import styles from './ForgeTray.module.css';
 
 export type DestinationType = 'existing_asset' | 'new_asset';
@@ -164,27 +165,6 @@ export interface ForgeTrayProps {
   /** Request a preflight usage/cost estimate for the current Forge Tray state */
   sendGenerationEstimateRequest?: (params: GenerationEstimateRequestParams) => string;
 }
-
-const ACCEPTED_UPLOAD_MIME_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'audio/aac',
-  'audio/flac',
-  'audio/mpeg',
-  'audio/mp4',
-  'audio/ogg',
-  'audio/wav',
-  'audio/webm',
-  'audio/x-wav',
-  'video/mp4',
-  'video/quicktime',
-  'video/webm',
-  'video/x-m4v',
-];
-
-const ACCEPTED_UPLOAD_TYPES = ACCEPTED_UPLOAD_MIME_TYPES.join(',');
 
 /**
  * Top-level media group. The tray surfaces these three primary modes; audio
@@ -751,7 +731,7 @@ export function ForgeTray({
     // No target asset - need to create new asset
     if (onUploadNewAsset) {
       // Use filename (without extension) as default name
-      const defaultName = file.name.replace(/\.[^/.]+$/, '');
+      const defaultName = defaultAssetNameFromFile(file);
       setPendingUploadFile(file);
       setUploadAssetName(defaultName);
       setShowUploadPrompt(true);
@@ -800,8 +780,7 @@ export function ForgeTray({
     e.stopPropagation();
     setIsDragOver(false);
 
-    const files = Array.from(e.dataTransfer.files);
-    const uploadFile = files.find(f => ACCEPTED_UPLOAD_MIME_TYPES.includes(f.type));
+    const uploadFile = findAcceptedUploadFile(e.dataTransfer.files);
 
     if (!uploadFile) {
       console.warn('No valid media file dropped');
@@ -820,7 +799,7 @@ export function ForgeTray({
 
     // No target asset - need to create new asset
     if (onUploadNewAsset) {
-      const defaultName = uploadFile.name.replace(/\.[^/.]+$/, '');
+      const defaultName = defaultAssetNameFromFile(uploadFile);
       setPendingUploadFile(uploadFile);
       setUploadAssetName(defaultName);
       setShowUploadPrompt(true);

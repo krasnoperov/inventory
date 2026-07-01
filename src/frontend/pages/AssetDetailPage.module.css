@@ -16,6 +16,27 @@
   isolation: isolate;
 }
 
+.canvasDropActive {
+  outline: 1px solid var(--color-primary);
+  outline-offset: -1px;
+}
+
+.dropHint {
+  position: absolute;
+  left: 50%;
+  top: 4rem;
+  z-index: 30;
+  transform: translateX(-50%);
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-size: var(--font-size-small-sm);
+  font-weight: 650;
+  pointer-events: none;
+}
+
 /* Header elements */
 .brand {
   font-size: 0.875rem;

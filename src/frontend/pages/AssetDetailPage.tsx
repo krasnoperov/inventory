@@ -36,6 +36,7 @@ import { ForgeTray } from '../components/ForgeTray';
 import { VariantCanvas } from '../components/VariantCanvas';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
+import { findAcceptedUploadFile } from '../mediaUpload';
 import { RotationPanel } from '../components/RotationPanel/RotationPanel';
 import { TileGrid } from '../components/TileGrid/TileGrid';
 import { RelationEditorDialog, RelationsPanel } from '../components/RelationsPanel';
@@ -678,6 +679,7 @@ export default function AssetDetailPage() {
   const [relationEditor, setRelationEditor] = useState<RelationEditorState | null>(null);
   const [showCompositionPanel, setShowCompositionPanel] = useState(false);
   const [selectedCompositionId, setSelectedCompositionId] = useState<string | null>(null);
+  const [isDetailsDragOver, setIsDetailsDragOver] = useState(false);
   const collectionPanelRef = React.useRef<HTMLDivElement | null>(null);
   const rotationEnabled = isWebRotationEnabled(sessionQuery.data);
 
@@ -1198,6 +1200,31 @@ export default function AssetDetailPage() {
     await uploadImage(file, assetId);
   }, [uploadImage]);
 
+  const handleDetailsDragOver = useCallback((event: React.DragEvent) => {
+    if (!canEdit || isUploading || !assetId) return;
+    if (!Array.from(event.dataTransfer.types).includes('Files')) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    setIsDetailsDragOver(true);
+  }, [assetId, canEdit, isUploading]);
+
+  const handleDetailsDragLeave = useCallback((event: React.DragEvent) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsDetailsDragOver(false);
+    }
+  }, []);
+
+  const handleDetailsDrop = useCallback(async (event: React.DragEvent) => {
+    if (!canEdit || isUploading || !assetId) return;
+    if (!Array.from(event.dataTransfer.types).includes('Files')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDetailsDragOver(false);
+    const file = findAcceptedUploadFile(event.dataTransfer.files);
+    if (!file) return;
+    await uploadImage(file, assetId);
+  }, [assetId, canEdit, isUploading, uploadImage]);
+
   const handleExportTrainingData = useCallback((pipeline: 'tiles' | 'rotations' | 'all') => {
     if (!spaceId) return;
     window.open(`/api/spaces/${spaceId}/training-data?pipeline=${pipeline}`, '_blank');
@@ -1261,7 +1288,12 @@ export default function AssetDetailPage() {
       />
 
       {/* Full-screen canvas container */}
-      <div className={styles.canvasContainer}>
+      <div
+        className={`${styles.canvasContainer} ${isDetailsDragOver ? styles.canvasDropActive : ''}`}
+        onDragOver={handleDetailsDragOver}
+        onDragLeave={handleDetailsDragLeave}
+        onDrop={handleDetailsDrop}
+      >
         {/* Variant Canvas - fills entire container */}
         <VariantCanvas
           spaceId={spaceId}
@@ -1389,6 +1421,12 @@ export default function AssetDetailPage() {
           {/* Derivatives aren't listed here — the canvas already shows them as
               clickable lineage nodes. */}
         </div>
+
+        {isDetailsDragOver && (
+          <div className={styles.dropHint} role="status">
+            <span>Create new variant</span>
+          </div>
+        )}
 
         {/* Jobs overlay - bottom left */}
         {jobs.size > 0 && (() => {
