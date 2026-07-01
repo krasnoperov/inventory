@@ -99,6 +99,7 @@ test('variant canvas empty state uses minimal chrome', async ({ page }) => {
   await sizeCanvasHarness(page);
   await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
     spaceId: 'space-1',
+    canvasLabel: 'Details canvas',
     asset: asset('empty', 'Empty asset'),
     variants: [],
     lineage: [],
@@ -107,7 +108,8 @@ test('variant canvas empty state uses minimal chrome', async ({ page }) => {
     onVariantClick: '__noop__',
   });
 
-  await expect(page.getByText('No variants yet')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Details canvas' })).toBeVisible();
+  await expect(page.getByText('No variants in this asset yet')).toBeVisible();
   await expect(page.locator('[class*="emptyMark"]')).toBeVisible();
   await expect(page.getByText('🎨')).toHaveCount(0);
   await expect(page.getByText('Use the Forge Tray below')).toHaveCount(0);

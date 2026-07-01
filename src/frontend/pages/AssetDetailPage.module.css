@@ -123,6 +123,10 @@
   max-width: 220px;
 }
 
+.assetScopeBadge {
+  border-left: 2px solid var(--color-primary);
+}
+
 /* Breadcrumb */
 .breadcrumb {
   display: flex;
@@ -230,7 +234,7 @@
   gap: 0.18rem;
   min-width: 0;
   padding-inline-start: 0.55rem;
-  border-left: 3px solid var(--color-text-muted);
+  border-left: 3px solid var(--color-primary);
 }
 
 .assetDetailsEyebrow {
@@ -274,7 +278,7 @@
   display: grid;
   gap: 0.14rem;
   padding-inline-start: 0.65rem;
-  border-left: 3px solid var(--color-primary);
+  border-left: 3px solid var(--color-text-muted);
 }
 
 .variantFocusLabel {

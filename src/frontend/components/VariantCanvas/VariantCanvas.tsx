@@ -59,6 +59,8 @@ export type LayoutDirection = 'TB' | 'LR' | 'BT' | 'RL';
 
 export interface VariantCanvasProps {
   spaceId?: string;
+  /** Accessible name for the canvas surface when it is embedded in a larger page. */
+  canvasLabel?: string;
   asset: Asset;
   variants: Variant[];
   lineage: Lineage[];
@@ -238,6 +240,7 @@ function getLayoutedElements(
 /** Inner component that has access to ReactFlow hooks */
 function VariantCanvasInner({
   spaceId,
+  canvasLabel = 'Variant canvas',
   asset,
   variants,
   lineage,
@@ -612,9 +615,9 @@ function VariantCanvasInner({
 
   if (variants.length === 0) {
     return (
-      <div className={styles.empty}>
+      <div className={styles.empty} role="region" aria-label={canvasLabel}>
         <span className={styles.emptyMark} aria-hidden="true" />
-        <p className={styles.emptyText}>No variants yet</p>
+        <p className={styles.emptyText}>No variants in this asset yet</p>
       </div>
     );
   }
@@ -625,7 +628,7 @@ function VariantCanvasInner({
     : null;
 
   return (
-    <div className={canvasClassName}>
+    <div className={canvasClassName} role="region" aria-label={canvasLabel}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -679,6 +682,7 @@ function VariantCanvasInner({
 /** Main exported component - handles dimension loading and provides ReactFlow context */
 export function VariantCanvas({
   spaceId,
+  canvasLabel = 'Variant canvas',
   asset,
   variants,
   lineage,
@@ -784,6 +788,7 @@ export function VariantCanvas({
       <VariantCanvasInner
         asset={asset}
         spaceId={spaceId}
+        canvasLabel={canvasLabel}
         variants={variants}
         lineage={lineage}
         selectedVariantId={selectedVariantId}
