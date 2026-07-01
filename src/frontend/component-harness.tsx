@@ -1114,6 +1114,11 @@ function revive(value: unknown): unknown {
     };
   }
 
+  if (typeof value === 'string' && value.startsWith('__variantInForgeTray__:')) {
+    const ids = new Set(value.slice('__variantInForgeTray__:'.length).split(',').filter(Boolean));
+    return (variantId: string) => ids.has(variantId);
+  }
+
   if (value instanceof Map) {
     return new Map(
       [...value.entries()].map(([key, entry]) => [key, revive(entry)]),

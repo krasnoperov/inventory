@@ -253,6 +253,19 @@
   color: var(--button-primary-text);
 }
 
+.addButtonAdded {
+  border-color: var(--color-success);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.addButtonAdded:disabled {
+  border-color: var(--color-success);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  opacity: 1;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .infoRow {

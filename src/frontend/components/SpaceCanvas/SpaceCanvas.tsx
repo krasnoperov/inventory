@@ -52,6 +52,7 @@ interface SpaceCanvasProps {
   isInitialSyncPending?: boolean;
   onAssetClick: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
+  isVariantInForgeTray?: (variantId: string) => boolean;
 }
 
 // A frame's content is the justified wall — the same cards as the scrolling
@@ -72,6 +73,7 @@ interface FrameData extends Record<string, unknown> {
   spaceId: string;
   onAssetClick: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
+  isVariantInForgeTray?: (variantId: string) => boolean;
 }
 
 type FrameNode = Node<FrameData, 'frame'>;
@@ -104,6 +106,70 @@ function packMasonry(nodes: FrameNode[], columns: number, draggedIds: ReadonlySe
 // Invisible flex children that keep a sparse last row at its natural height.
 const ROW_FILLERS = Array.from({ length: 8 });
 
+function FrameAssetCard({ card, data }: { card: FrameCard; data: FrameData }) {
+  const isInForgeTray = Boolean(card.variant && data.isVariantInForgeTray?.(card.variant.id));
+  const trayLabel = isInForgeTray
+    ? `${card.asset.name} is in Forge Tray`
+    : `Add ${card.asset.name} to Forge Tray`;
+
+  return (
+    <article
+      className={boardStyles.assetCard}
+      data-asset-id={card.asset.id}
+      style={{ '--card-aspect': card.aspect } as CSSProperties}
+    >
+      <Button
+        className={boardStyles.thumbnailButton}
+        onClick={() => data.onAssetClick(card.asset)}
+        title={card.asset.name}
+        variant="ghost"
+        size="sm"
+      >
+        <Thumbnail
+          variant={card.variant}
+          size="fill"
+          spaceId={data.spaceId}
+          className={boardStyles.thumbnail}
+        />
+      </Button>
+      <div className={boardStyles.caption}>
+        <div className={boardStyles.cardCaptionHeader}>
+          <Button className={boardStyles.assetName} onClick={() => data.onAssetClick(card.asset)} variant="ghost" size="sm">
+            {card.asset.name}
+          </Button>
+          {data.onAddToTray && card.variant && isVariantForgeTrayReady(card.variant) && (
+            <IconButton
+              className={`${styles.trayButton} ${isInForgeTray ? styles.trayButtonAdded : ''}`}
+              disabled={isInForgeTray}
+              onClick={() => {
+                if (card.variant) data.onAddToTray?.(card.variant, card.asset);
+              }}
+              title={trayLabel}
+              aria-label={trayLabel}
+              variant="ghost"
+              size="sm"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                {isInForgeTray ? (
+                  <path d="m5 12 4 4L19 6" />
+                ) : (
+                  <>
+                    <path d="M12 5v14" />
+                    <path d="M5 12h14" />
+                  </>
+                )}
+              </svg>
+            </IconButton>
+          )}
+        </div>
+        <div className={boardStyles.assetMeta}>
+          <span>{card.asset.type}</span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function FrameNodeView({ data }: NodeProps<FrameNode>) {
   return (
     <div className={styles.frame} style={{ '--collection-color': data.color } as CSSProperties}>
@@ -122,54 +188,7 @@ function FrameNodeView({ data }: NodeProps<FrameNode>) {
           <div className={boardStyles.cardGrid}>
             {data.cards.map((card) => (
               // The tray action lives in caption chrome, never over media pixels.
-              <article
-                key={card.key}
-                className={boardStyles.assetCard}
-                data-asset-id={card.asset.id}
-                style={{ '--card-aspect': card.aspect } as CSSProperties}
-              >
-                <Button
-                  className={boardStyles.thumbnailButton}
-                  onClick={() => data.onAssetClick(card.asset)}
-                  title={card.asset.name}
-                  variant="ghost"
-                  size="sm"
-                >
-                  <Thumbnail
-                    variant={card.variant}
-                    size="fill"
-                    spaceId={data.spaceId}
-                    className={boardStyles.thumbnail}
-                  />
-                </Button>
-                <div className={boardStyles.caption}>
-                  <div className={boardStyles.cardCaptionHeader}>
-                    <Button className={boardStyles.assetName} onClick={() => data.onAssetClick(card.asset)} variant="ghost" size="sm">
-                      {card.asset.name}
-                    </Button>
-                    {data.onAddToTray && card.variant && isVariantForgeTrayReady(card.variant) && (
-                      <IconButton
-                        className={styles.trayButton}
-                        onClick={() => {
-                          if (card.variant) data.onAddToTray?.(card.variant, card.asset);
-                        }}
-                        title={`Add ${card.asset.name} to Forge Tray`}
-                        aria-label={`Add ${card.asset.name} to Forge Tray`}
-                        variant="ghost"
-                        size="sm"
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                          <path d="M12 5v14" />
-                          <path d="M5 12h14" />
-                        </svg>
-                      </IconButton>
-                    )}
-                  </div>
-                  <div className={boardStyles.assetMeta}>
-                    <span>{card.asset.type}</span>
-                  </div>
-                </div>
-              </article>
+              <FrameAssetCard key={card.key} card={card} data={data} />
             ))}
             {ROW_FILLERS.map((_, index) => (
               <span key={`filler-${index}`} className={boardStyles.cardFiller} aria-hidden="true" />
@@ -218,6 +237,7 @@ function SpaceCanvasInner({
   isInitialSyncPending,
   onAssetClick,
   onAddToTray,
+  isVariantInForgeTray,
 }: SpaceCanvasProps) {
   const { fitView, setViewport, screenToFlowPosition } = useReactFlow();
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -307,12 +327,13 @@ function SpaceCanvasInner({
         spaceId,
         onAssetClick,
         onAddToTray,
+        isVariantInForgeTray,
       },
     }));
     const totalHeight = seeded.reduce((sum, node) => sum + estimateFrameHeight((node.data as FrameData).count) + FRAME_GAP, 0);
     const columns = columnCountForLayout(totalHeight, viewportAspect, seeded.length);
     return packMasonry(seeded, columns);
-  }, [assets, variants, collections, collectionItems, spaceId, onAssetClick, onAddToTray, viewportAspect]);
+  }, [assets, variants, collections, collectionItems, spaceId, onAssetClick, onAddToTray, isVariantInForgeTray, viewportAspect]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<FrameNode>(initialNodes);
   const draggedIdsRef = useRef<Set<string>>(new Set());

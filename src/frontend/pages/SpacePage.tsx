@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, type DragEvent } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef, type DragEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
@@ -94,6 +94,15 @@ export default function SpacePage() {
 
   // Forge tray store
   const { addSlot } = useForgeTrayStore();
+  const forgeTraySlots = useForgeTrayStore((state) => state.slots);
+  const forgeTrayVariantIds = useMemo(
+    () => new Set(forgeTraySlots.map((slot) => slot.variant.id)),
+    [forgeTraySlots],
+  );
+  const isVariantInForgeTray = useCallback(
+    (variantId: string) => forgeTrayVariantIds.has(variantId),
+    [forgeTrayVariantIds],
+  );
 
   // Persistent chat state from Zustand store (shared across pages)
   const chatMessages = useChatStore((state) => state.messages);
@@ -543,6 +552,7 @@ export default function SpacePage() {
           isInitialSyncPending={!hasSynced}
           onAssetClick={handleAssetOpen}
           onAddToTray={canEdit ? handleAddToTray : undefined}
+          isVariantInForgeTray={isVariantInForgeTray}
         />
 
         <CanvasToolbar ariaLabel="Space controls">
