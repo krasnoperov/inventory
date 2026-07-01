@@ -328,17 +328,15 @@
   flex: 0 0 28px;
 }
 
-.destructiveButton {
-  justify-self: stretch;
-  justify-content: flex-start;
-  margin-top: 0.25rem;
+.destructiveIconButton {
+  justify-self: start;
   color: var(--color-error);
   border-color: transparent;
   --ctl-hover: var(--color-danger-bg);
 }
 
-.destructiveButton:hover:not(:disabled),
-.destructiveButton:focus-visible {
+.destructiveIconButton:hover:not(:disabled),
+.destructiveIconButton:focus-visible {
   color: var(--color-error);
   border-color: var(--color-danger-bg);
 }
