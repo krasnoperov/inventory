@@ -62,6 +62,8 @@ export function StylePanel({
     () => [...stylePresets].sort((a, b) => Number(isDefaultPreset(b)) - Number(isDefaultPreset(a)) || a.name.localeCompare(b.name)),
     [stylePresets],
   );
+  const canCreatePreset = Boolean(createStylePreset && styleReferenceCollections.length > 0);
+  const showCustomRefs = customStyleOptions.length > 0 || customStyleVariantIds.length > 0;
   const selectedCollectionId = collectionId || styleReferenceCollections[0]?.id || '';
   const collectionOptions = useMemo<Array<SelectOption<string>>>(
     () => styleReferenceCollections.length === 0
@@ -110,18 +112,20 @@ export function StylePanel({
                 <h3>Create preset</h3>
                 <span>{styleReferenceCollections.length} collections</span>
               </div>
-              <Button
-                className={styles.createToggle}
-                onClick={() => setCreateOpen((open) => !open)}
-                aria-expanded={createOpen}
-                aria-controls="style-preset-create-form"
-                variant="secondary"
-                size="sm"
-              >
-                {createOpen ? 'Hide' : 'New preset'}
-              </Button>
+              {canCreatePreset && (
+                <Button
+                  className={styles.createToggle}
+                  onClick={() => setCreateOpen((open) => !open)}
+                  aria-expanded={createOpen}
+                  aria-controls="style-preset-create-form"
+                  variant="secondary"
+                  size="sm"
+                >
+                  {createOpen ? 'Hide' : 'New preset'}
+                </Button>
+              )}
             </div>
-            {createOpen && (
+            {createOpen && canCreatePreset && (
               <div id="style-preset-create-form" className={styles.formGrid}>
                 <TextInput
                   value={name}
@@ -278,28 +282,27 @@ export function StylePanel({
             </div>
           </section>
 
-          <section className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <h3>Custom request refs</h3>
-              <span>{customStyleVariantIds.length} selected</span>
-            </div>
-            <div className={styles.refList}>
-              {customStyleOptions.map((option) => (
-                <label key={option.variantId} className={styles.refRow}>
-                  <Checkbox
-                    checked={customStyleVariantIds.includes(option.variantId)}
-                    onChange={() => onToggleCustomStyleVariant?.(option.variantId)}
-                    disabled={!onToggleCustomStyleVariant}
-                  />
-                  <span>{option.label}</span>
-                  <small>{option.collectionName}</small>
-                </label>
-              ))}
-              {customStyleOptions.length === 0 && (
-                <div className={styles.emptyState}>Add assets to a Style References collection to use custom refs.</div>
-              )}
-            </div>
-          </section>
+          {showCustomRefs && (
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <h3>Custom request refs</h3>
+                <span>{customStyleVariantIds.length} selected</span>
+              </div>
+              <div className={styles.refList}>
+                {customStyleOptions.map((option) => (
+                  <label key={option.variantId} className={styles.refRow}>
+                    <Checkbox
+                      checked={customStyleVariantIds.includes(option.variantId)}
+                      onChange={() => onToggleCustomStyleVariant?.(option.variantId)}
+                      disabled={!onToggleCustomStyleVariant}
+                    />
+                    <span>{option.label}</span>
+                    <small>{option.collectionName}</small>
+                  </label>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       </div>
     </div>

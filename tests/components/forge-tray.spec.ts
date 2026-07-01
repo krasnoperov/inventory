@@ -641,7 +641,7 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   expect(styleDockGap).not.toBeNull();
   expect(styleDockGap!).toBeGreaterThanOrEqual(8);
   await expect(page.locator('[class*="defaultBadge"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(page.getByRole('button', { name: 'New preset' })).toHaveCSS('background-color', await resolvedBackground(page, 'var(--color-surface)'));
+  await expect(page.getByRole('button', { name: 'New preset' })).toHaveCount(0);
   await expect(page.getByLabel('Preset name', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel('Style prompt', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel('Set as space default', { exact: true })).toHaveCount(0);
@@ -651,6 +651,8 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   await expect(page.getByText(russafaPreset.description)).toBeVisible();
   await expect(page.getByLabel('Enabled', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Set default' })).toHaveCount(0);
+  await expect(page.getByText('Custom request refs')).toHaveCount(0);
+  await expect(page.getByText('Add assets to a Style References collection to use custom refs.')).toHaveCount(0);
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-style-sheet', { fullPage: true });
   await page.getByRole('button', { name: /Close/i }).click();
@@ -892,6 +894,7 @@ test('style library creates a preset from a style collection', async ({ page }) 
 
   await revealOptions(page);
   await selectDropdown(page, 'Style selector', 'Manage styles...');
+  await expect(page.getByRole('button', { name: 'New preset' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'New preset' })).toHaveAttribute('aria-expanded', 'false');
   await page.getByRole('button', { name: 'New preset' }).click();
   await expect(page.getByRole('button', { name: 'Hide' })).toHaveAttribute('aria-expanded', 'true');
@@ -1024,6 +1027,7 @@ test('forge tray submits custom selected style refs', async ({ page }) => {
 
   await page.getByLabel('Prompt').fill('A hand-painted doorway');
   await selectDropdown(page, 'Style selector', 'Custom refs');
+  await expect(page.getByText('Custom request refs')).toBeVisible();
   await page.getByLabel('Image Ref One').check();
   await page.getByRole('button', { name: /Close/i }).click();
   await expectDropdownValue(page, 'Style selector', 'Custom refs (1)');
