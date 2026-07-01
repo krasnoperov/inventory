@@ -480,7 +480,7 @@ test('asset details strip makes video facts visible without dock disclosure chro
   await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCSS('border-top-width', '1px');
   await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCSS('border-left-width', '1px');
-  await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCSS('border-radius', '12px');
+  await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCSS('border-radius', '8px');
   await expect(page.getByText('Hero reveal video')).toBeVisible();
   await expect(page.getByLabel('Asset scope', { exact: true })).toContainText('Details');
   await expect(page.getByText('Asset', { exact: true })).toHaveCSS('text-transform', 'none');
@@ -682,7 +682,7 @@ test('asset details dock keeps heavy details outside ForgeTray', async ({ page }
   await expect(page.getByLabel('Prompt')).toBeVisible();
   const embeddedTray = page.locator('[class*="tray"]').first();
   await expect(embeddedTray).toHaveCSS('box-shadow', 'none');
-  await expect(embeddedTray).toHaveCSS('border-radius', '12px');
+  await expect(embeddedTray).toHaveCSS('border-radius', '8px');
 
   const detailsBeforePrompt = await page.evaluate(() => {
     const details = document.querySelector('[aria-label="Details scoped space summary"]');
@@ -746,7 +746,7 @@ test('asset details inspector stays separate from ForgeTray on mobile', async ({
   await expect(page.getByLabel('Prompt')).toBeVisible();
   const embeddedTray = page.locator('[class*="tray"]').first();
   await expect(embeddedTray).toHaveCSS('box-shadow', 'none');
-  await expect(embeddedTray).toHaveCSS('border-radius', '12px');
+  await expect(embeddedTray).toHaveCSS('border-radius', '8px');
   const mobileDockGap = await page.evaluate(() => {
     const details = document.querySelector('[aria-label="Details scoped space summary"]');
     const tray = document.querySelector('[class*="tray"]');

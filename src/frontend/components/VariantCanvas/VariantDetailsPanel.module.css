@@ -33,7 +33,7 @@
   left: 1rem;
   width: auto;
   max-width: none;
-  max-height: var(--variant-details-dock-height, min(32vh, 18rem));
+  max-height: min(var(--variant-details-dock-height, min(32vh, 18rem)), calc(100% - 2rem));
   min-height: 0;
 }
 
@@ -69,7 +69,7 @@
     left: 1rem;
     width: auto;
     max-width: none;
-    max-height: var(--variant-details-dock-height, min(22vh, 11rem));
+    max-height: min(var(--variant-details-dock-height, min(22vh, 11rem)), calc(100% - 2rem));
   }
 }
 
