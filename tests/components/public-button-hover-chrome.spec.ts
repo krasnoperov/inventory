@@ -1,14 +1,16 @@
 import { expect, test } from '@playwright/test';
 import { mountComponent, screenshot } from './harness';
 
-test('shared form submit hover stays flat', async ({ page }) => {
+test('shared form action button hover stays flat', async ({ page }) => {
   await page.setViewportSize({ width: 560, height: 430 });
   await mountComponent(page, 'FormContainerPreview', {});
 
-  const submit = page.getByRole('button', { name: 'Legacy submit' });
-  await submit.hover();
-  await expect(submit).toHaveCSS('transform', 'none');
-  await expect(submit).toHaveCSS('box-shadow', 'none');
+  await expect(page.getByRole('button', { name: 'Legacy submit' })).toHaveCount(0);
+
+  const action = page.getByRole('button', { name: 'Continue' });
+  await action.hover();
+  await expect(action).toHaveCSS('transform', 'none');
+  await expect(action).toHaveCSS('box-shadow', 'none');
 
   await screenshot(page, 'form-submit-flat-hover-chrome', { fullPage: true });
 });
