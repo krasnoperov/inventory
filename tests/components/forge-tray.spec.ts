@@ -637,6 +637,7 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   expect(styleDockGap).not.toBeNull();
   expect(styleDockGap!).toBeGreaterThanOrEqual(8);
   await expect(page.locator('[class*="defaultBadge"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.getByRole('button', { name: 'Create preset' })).toHaveCSS('background-color', await resolvedBackground(page, 'var(--color-surface)'));
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-style-sheet', { fullPage: true });
   await page.getByRole('button', { name: /Close/i }).click();

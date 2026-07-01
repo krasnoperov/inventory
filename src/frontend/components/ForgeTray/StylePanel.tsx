@@ -148,7 +148,7 @@ export function StylePanel({
                 className={styles.createAction}
                 onClick={handleCreatePreset}
                 disabled={!name.trim() || !selectedCollectionId || !createStylePreset}
-                variant="primary"
+                variant="secondary"
                 size="sm"
               >
                 Create preset
