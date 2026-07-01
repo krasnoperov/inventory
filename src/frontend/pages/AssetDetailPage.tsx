@@ -12,6 +12,7 @@ import { HeaderNav } from '../components/HeaderNav';
 import { WorkspaceChrome } from '../components/WorkspaceChrome';
 import {
   CanvasToolbar,
+  CanvasToolbarBadge,
   CanvasToolbarButton,
   CanvasToolbarDivider,
   CanvasToolbarGroup,
@@ -536,12 +537,17 @@ export function AssetDetailsStrip({
     <section className={styles.assetDetailsStrip} aria-label="Asset details">
       <div className={styles.assetDetailsIdentity}>
         <div className={styles.assetDetailsEyebrow}>
-          <span>Asset details</span>
+          <span>Asset</span>
           <span>{formatMediaKind(asset.media_kind)}</span>
         </div>
         <div className={styles.assetDetailsName} title={asset.name}>
           {asset.name}
         </div>
+      </div>
+
+      <div className={styles.variantFocus} aria-label="Variant focus">
+        <span className={styles.variantFocusLabel}>Variant focus</span>
+        <span className={styles.variantFocusValue}>{formatSelectedVariant(selectedVariant)}</span>
       </div>
 
       <dl className={styles.assetDetailsFacts}>
@@ -563,10 +569,6 @@ export function AssetDetailsStrip({
         <div>
           <dt>Variants</dt>
           <dd>{variantCount}</dd>
-        </div>
-        <div>
-          <dt>Selected</dt>
-          <dd>{formatSelectedVariant(selectedVariant)}</dd>
         </div>
         {dimensions && (
           <div>
@@ -1360,6 +1362,9 @@ export default function AssetDetailPage() {
                 onStartEditName={handleStartEditName}
               />
             </CanvasToolbarTitle>
+            <CanvasToolbarBadge tone="neutral">
+              Details
+            </CanvasToolbarBadge>
             {wsStatus === 'connected' && (
               <CanvasToolbarGroup>
                 <CanvasToolbarLive />
