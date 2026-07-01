@@ -9,6 +9,8 @@ test('shared form container uses flat chrome', async ({ page }) => {
   await expect(formContainer).toHaveCSS('box-shadow', 'none');
   await expect(formContainer).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(formContainer).toHaveCSS('border-top-width', '1px');
+  await expect(page.getByRole('textbox', { name: 'Project name' })).toHaveCSS('border-radius', '8px');
+  await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
 
   await screenshot(page, 'form-container-flat-chrome', { fullPage: true });
 });
