@@ -241,7 +241,7 @@ test('asset collection membership is compact until management is requested', asy
   await expect(page.getByRole('button', { name: 'Add variant to collection' })).toBeVisible();
   await page.getByRole('button', { name: 'Add asset to collection' }).click();
   await expect(page.getByText('Add asset to collections', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('Add to Style refs')).toBeVisible();
+  await expect(page.getByLabel('Add collection')).toBeVisible();
 
   await page.getByRole('button', { name: 'Hide' }).click();
   await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
@@ -271,7 +271,7 @@ test('asset collection placement shortcut opens selected variant picker', async 
 
   await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Add selected variant to collections', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('Add to Cast')).toBeVisible();
+  await expect(page.getByLabel('Add collection')).toBeVisible();
   await page.getByRole('button', { name: 'Hide' }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);

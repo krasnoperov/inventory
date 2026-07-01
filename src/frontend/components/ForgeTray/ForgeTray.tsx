@@ -912,9 +912,11 @@ export function ForgeTray({
 
     document.addEventListener('pointerdown', handleOutsidePress, true);
     document.addEventListener('mousedown', handleOutsidePress, true);
+    document.addEventListener('click', handleOutsidePress, true);
     return () => {
       document.removeEventListener('pointerdown', handleOutsidePress, true);
       document.removeEventListener('mousedown', handleOutsidePress, true);
+      document.removeEventListener('click', handleOutsidePress, true);
     };
   }, [trayFocused]);
 

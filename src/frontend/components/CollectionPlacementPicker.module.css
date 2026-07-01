@@ -4,6 +4,13 @@
   gap: 0.5rem;
 }
 
+.addRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .label {
   margin: 0;
   color: var(--color-text-muted);
@@ -11,24 +18,11 @@
   font-weight: 650;
 }
 
-.collectionList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.collectionToggle {
-  min-height: 30px;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--chip-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-size: var(--font-size-small-sm);
-  cursor: pointer;
+.addSelect {
+  --ui-select-height: 2rem;
+  --ui-select-min-width: 8.75rem;
+  --ui-select-max-width: 11rem;
+  --ui-select-font-size: var(--font-size-small-sm);
 }
 
 .placementRows {
@@ -37,14 +31,16 @@
 }
 
 .placementRow {
-  display: grid;
-  grid-template-columns: minmax(7rem, 1fr) minmax(7rem, 9rem) minmax(8rem, 10rem) minmax(8rem, 10rem) max-content;
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
   align-items: center;
 }
 
 .collectionName {
-  min-width: 0;
+  flex: 0 1 8rem;
+  min-width: 6rem;
+  max-width: 10rem;
   overflow: hidden;
   color: var(--color-text);
   font-size: var(--font-size-small-sm);
@@ -54,12 +50,14 @@
 }
 
 .input {
+  flex: 0 1 10rem;
   --ui-text-input-height: 2rem;
   --ui-text-field-font-size: var(--font-size-small-sm);
 }
 
 .select {
-  width: 100%;
+  flex: 0 1 9rem;
+  width: auto;
   --ui-select-min-width: 0;
   --ui-select-max-width: 100%;
   --ui-select-height: 2rem;
@@ -67,6 +65,7 @@
 }
 
 .pinToggle {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
@@ -75,8 +74,21 @@
   white-space: nowrap;
 }
 
+.removeButton {
+  flex: 0 0 auto;
+  --ui-button-height: 2rem;
+  color: var(--color-text-muted);
+}
+
 @media (max-width: 760px) {
   .placementRow {
-    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .collectionName,
+  .select,
+  .input {
+    max-width: none;
+    flex: 1 1 100%;
   }
 }

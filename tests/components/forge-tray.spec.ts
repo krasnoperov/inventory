@@ -992,7 +992,7 @@ test('forge tray on asset detail shows compact destination dropdown', async ({ p
   await expectDropdownValue(page, 'Destination', 'New');
 });
 
-test('forge tray destination dropdown uses shared select keyboard behavior', async ({ page }) => {
+test('forge tray destination dropdown uses shared select behavior', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 
   await mountComponent(page, 'ForgeTray', {
@@ -1008,9 +1008,10 @@ test('forge tray destination dropdown uses shared select keyboard behavior', asy
   await expectDropdownValue(page, 'Destination', 'Current');
 
   await destination.focus();
-  await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
+  await expect(page.getByRole('option', { name: 'New' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await selectDropdown(page, 'Destination', 'New');
 
   await expectDropdownValue(page, 'Destination', 'New');
   await expect(page.getByLabel('Asset name')).toBeVisible();

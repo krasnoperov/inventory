@@ -41,12 +41,9 @@ test('collection placement picker updates role subject and pinning', async ({ pa
     showPinToCreatedVariant: true,
   });
 
-  await expect(page.getByText('Add to Cast')).toHaveCount(0);
-  await expect(page.getByText('Add to Style refs')).toHaveCount(0);
-  await expect(page.getByLabel('Add to Cast')).toBeChecked();
-  await expect(page.getByLabel('Add to Style refs')).not.toBeChecked();
-  await expect(page.locator('label').filter({ hasText: 'Cast' })).toBeVisible();
-  await expect(page.locator('label').filter({ hasText: 'Style refs' })).toBeVisible();
+  await expect(page.getByLabel('Add collection')).toContainText('Add collection');
+  await expect(page.getByText('Cast', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Remove Cast')).toBeVisible();
 
   await selectDropdown(page, 'Role for Cast', 'Background');
   await page.evaluate((nextProps) => window.__setHarnessProps?.(nextProps), {
@@ -62,26 +59,63 @@ test('collection placement picker updates role subject and pinning', async ({ pa
     showPinToCreatedVariant: true,
   });
   await selectDropdown(page, 'Collection subject for Cast', 'Exact variant');
-  await page.mouse.move(0, 0);
-  await screenshot(page, 'collection-placement-picker', { fullPage: true });
-
-  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
-  expect(calls[0]).toMatchObject({
-    eventName: 'change',
-    args: [[{
-      collectionId: 'cast',
-      role: 'background',
-      subjectType: 'asset',
-      pinToCreatedVariant: true,
-    }]],
-  });
-  expect(calls.at(-1)).toMatchObject({
-    eventName: 'change',
-    args: [[{
+  await page.evaluate((nextProps) => window.__setHarnessProps?.(nextProps), {
+    collections,
+    value: [{
       collectionId: 'cast',
       role: 'background',
       subjectType: 'variant',
       pinToCreatedVariant: false,
-    }]],
+    }],
+    onChange: '__record__:change',
+    allowSubjectChoice: true,
+    showPinToCreatedVariant: true,
+  });
+  await selectDropdown(page, 'Add collection', 'Style refs');
+  await page.mouse.move(0, 0);
+  await screenshot(page, 'collection-placement-picker', { fullPage: true });
+  await page.getByLabel('Remove Cast').click();
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls).toEqual(expect.arrayContaining([
+    expect.objectContaining({
+      eventName: 'change',
+      args: [[{
+        collectionId: 'cast',
+        role: 'background',
+        subjectType: 'asset',
+        pinToCreatedVariant: true,
+      }]],
+    }),
+    expect.objectContaining({
+      eventName: 'change',
+      args: [[{
+        collectionId: 'cast',
+        role: 'background',
+        subjectType: 'variant',
+        pinToCreatedVariant: false,
+      }]],
+    }),
+    expect.objectContaining({
+      eventName: 'change',
+      args: [[
+        {
+          collectionId: 'cast',
+          role: 'background',
+          subjectType: 'variant',
+          pinToCreatedVariant: false,
+        },
+        {
+          collectionId: 'style',
+          role: 'style_ref',
+          subjectType: 'asset',
+          pinToCreatedVariant: true,
+        },
+      ]],
+    }),
+  ]));
+  expect(calls.at(-1)).toMatchObject({
+    eventName: 'change',
+    args: [[]],
   });
 });

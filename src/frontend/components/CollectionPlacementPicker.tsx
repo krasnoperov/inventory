@@ -1,6 +1,6 @@
 import type { CollectionPlacementInput } from '../../shared/websocket-types';
 import type { SpaceCollection } from '../space/protocol';
-import { Checkbox, TextInput, UiSelect, type SelectOption } from '../ui';
+import { Checkbox, IconButton, TextInput, UiSelect, type SelectOption } from '../ui';
 import styles from './CollectionPlacementPicker.module.css';
 
 export const KNOWN_COLLECTION_ITEM_ROLES = [
@@ -34,6 +34,8 @@ const SUBJECT_TYPE_OPTIONS: Array<SelectOption<'asset' | 'variant'>> = [
   { value: 'asset', label: 'Asset' },
   { value: 'variant', label: 'Exact variant' },
 ];
+
+const ADD_COLLECTION_PLACEHOLDER = '__add_collection__';
 
 function isKnownCollectionItemRole(role: string | undefined): role is typeof KNOWN_COLLECTION_ITEM_ROLES[number] {
   return Boolean(role && KNOWN_COLLECTION_ITEM_ROLES.includes(role as typeof KNOWN_COLLECTION_ITEM_ROLES[number]));
@@ -90,6 +92,19 @@ export function CollectionPlacementPicker({
   if (collections.length === 0) return null;
 
   const selectedByCollection = new Map(value.map((placement) => [placement.collectionId, placement]));
+  const availableCollections = collections.filter((collection) => !selectedByCollection.has(collection.id));
+  const addCollectionOptions: Array<SelectOption<string>> = [
+    {
+      value: ADD_COLLECTION_PLACEHOLDER,
+      label: availableCollections.length > 0 ? 'Add collection' : 'All collections added',
+      disabled: true,
+    },
+    ...availableCollections.map((collection) => ({
+      value: collection.id,
+      label: collection.name,
+      textValue: getCollectionPlacementLabel(collection),
+    })),
+  ];
 
   const setPlacement = (collectionId: string, changes: Partial<CollectionPlacementInput>) => {
     onChange(value.map((placement) => (
@@ -97,11 +112,10 @@ export function CollectionPlacementPicker({
     )));
   };
 
-  const toggleCollection = (collection: SpaceCollection, checked: boolean) => {
-    if (!checked) {
-      onChange(value.filter((placement) => placement.collectionId !== collection.id));
-      return;
-    }
+  const addCollection = (collectionId: string) => {
+    if (collectionId === ADD_COLLECTION_PLACEHOLDER) return;
+    const collection = collections.find((candidate) => candidate.id === collectionId);
+    if (!collection || selectedByCollection.has(collection.id)) return;
     onChange([
       ...value,
       {
@@ -113,21 +127,22 @@ export function CollectionPlacementPicker({
     ]);
   };
 
+  const removeCollection = (collectionId: string) => {
+    onChange(value.filter((placement) => placement.collectionId !== collectionId));
+  };
+
   return (
     <div className={`${styles.picker} ${className ?? ''}`}>
-      <p className={styles.label}>{label}</p>
-      <div className={styles.collectionList}>
-        {collections.map((collection) => (
-          <label key={collection.id} className={styles.collectionToggle}>
-            <Checkbox
-              checked={selectedByCollection.has(collection.id)}
-              disabled={disabled}
-              aria-label={getCollectionPlacementLabel(collection)}
-              onChange={(event) => toggleCollection(collection, event.target.checked)}
-            />
-            <span>{collection.name}</span>
-          </label>
-        ))}
+      <div className={styles.addRow}>
+        <p className={styles.label}>{label}</p>
+        <UiSelect
+          className={styles.addSelect}
+          value={ADD_COLLECTION_PLACEHOLDER}
+          options={addCollectionOptions}
+          disabled={disabled || availableCollections.length === 0}
+          label="Add collection"
+          onValueChange={addCollection}
+        />
       </div>
       {value.length > 0 && (
         <div className={styles.placementRows}>
@@ -186,6 +201,19 @@ export function CollectionPlacementPicker({
                     <span>Pin variant</span>
                   </label>
                 )}
+                <IconButton
+                  className={styles.removeButton}
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Remove ${collection.name}`}
+                  title={`Remove ${collection.name}`}
+                  disabled={disabled}
+                  onClick={() => removeCollection(collection.id)}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" aria-hidden="true">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </svg>
+                </IconButton>
               </div>
             );
           })}
