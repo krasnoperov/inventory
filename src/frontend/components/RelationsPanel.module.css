@@ -234,13 +234,29 @@
 }
 
 .subjectChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3125rem;
   min-width: 0;
   padding: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--color-text);
   font-weight: 600;
+}
+
+.subjectChipName,
+.subjectChipScope {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subjectChipScope {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 650;
 }
 
 .subjectLine svg {

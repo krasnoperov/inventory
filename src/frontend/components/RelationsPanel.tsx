@@ -97,6 +97,20 @@ function getSubjectLabel(subject: SpaceSubject, assets: Asset[], variants: Varia
   return asset ? `${asset.name} variant ${variant!.id.slice(0, 8)}` : 'Missing variant';
 }
 
+function getSubjectName(subject: SpaceSubject, assets: Asset[], variants: Variant[]): string {
+  if (subject.subjectType === 'asset') {
+    return assets.find((asset) => asset.id === subject.assetId)?.name ?? 'Missing asset';
+  }
+
+  const variant = variants.find((entry) => entry.id === subject.variantId);
+  const asset = variant ? assets.find((entry) => entry.id === variant.asset_id) : null;
+  return asset?.name ?? 'Missing asset';
+}
+
+function getSubjectScope(subject: SpaceSubject): string {
+  return subject.subjectType === 'asset' ? 'Asset' : 'Variant';
+}
+
 function subjectSearchText(subject: SpaceSubject, assets: Asset[], variants: Variant[]): string {
   if (subject.subjectType === 'asset') {
     const asset = assets.find((entry) => entry.id === subject.assetId);
@@ -106,6 +120,29 @@ function subjectSearchText(subject: SpaceSubject, assets: Asset[], variants: Var
   const variant = variants.find((entry) => entry.id === subject.variantId);
   const asset = variant ? assets.find((entry) => entry.id === variant.asset_id) : null;
   return [asset?.name, variant?.id, variant ? formatMediaKind(variant.media_kind) : undefined, variant?.description].filter(Boolean).join(' ');
+}
+
+function RelationSubjectChip({
+  subject,
+  assets,
+  variants,
+  placeholder = 'Select target',
+}: {
+  subject: SpaceSubject | null;
+  assets: Asset[];
+  variants: Variant[];
+  placeholder?: string;
+}) {
+  if (!subject) {
+    return <span className={styles.subjectChip}>{placeholder}</span>;
+  }
+
+  return (
+    <span className={styles.subjectChip}>
+      <span className={styles.subjectChipName}>{getSubjectName(subject, assets, variants)}</span>
+      <span className={styles.subjectChipScope}>{getSubjectScope(subject)}</span>
+    </span>
+  );
 }
 
 type RelationDirection = 'outgoing' | 'incoming' | 'both';
@@ -370,7 +407,6 @@ export function RelationEditorDialog({
   const [notes, setNotes] = useState(existingContext.notes ?? '');
   const [detailsOpen, setDetailsOpen] = useState(mode === 'edit' || hasExistingContext);
 
-  const sourceLabel = getSubjectLabel(sourceSubject, assets, variants);
   const canSubmit = mode === 'edit' || targetSubject !== null;
   const normalizedQuery = query.trim().toLowerCase();
   const options = useMemo(() => {
@@ -378,7 +414,7 @@ export function RelationEditorDialog({
       key: `asset:${asset.id}`,
       subject: { subjectType: 'asset', assetId: asset.id } satisfies SpaceSubject,
       title: asset.name,
-      subtitle: `${asset.type} / ${formatMediaKind(asset.media_kind)}`,
+      subtitle: `Asset · ${asset.type} / ${formatMediaKind(asset.media_kind)}`,
       variant: getAssetVariant(asset, variants),
     }));
     const variantOptions = variants.map((variant) => {
@@ -386,8 +422,8 @@ export function RelationEditorDialog({
       return {
         key: `variant:${variant.id}`,
         subject: { subjectType: 'variant', variantId: variant.id } satisfies SpaceSubject,
-        title: asset ? `${asset.name} variant` : 'Variant',
-        subtitle: `${variant.id.slice(0, 8)} / ${formatMediaKind(variant.media_kind)}`,
+        title: asset?.name ?? 'Missing asset',
+        subtitle: `Variant ${variant.id.slice(0, 8)} · ${formatMediaKind(variant.media_kind)}`,
         variant,
       };
     });
@@ -427,12 +463,12 @@ export function RelationEditorDialog({
         </div>
 
         <div className={styles.subjectLine} aria-label="Relation endpoints">
-          <span className={styles.subjectChip}>{sourceLabel}</span>
+          <RelationSubjectChip subject={sourceSubject} assets={assets} variants={variants} />
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M5 12h14" />
             <path d="m12 5 7 7-7 7" />
           </svg>
-          <span className={styles.subjectChip}>{targetSubject ? getSubjectLabel(targetSubject, assets, variants) : 'Select target'}</span>
+          <RelationSubjectChip subject={targetSubject} assets={assets} variants={variants} />
         </div>
 
         <div className={styles.field}>
