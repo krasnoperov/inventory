@@ -155,17 +155,21 @@ function FrameAssetCard({ card, data }: { card: FrameCard; data: FrameData }) {
 }
 
 function FrameNodeView({ data }: NodeProps<FrameNode>) {
+  const countLabel = `${data.count} ${data.count === 1 ? 'asset' : 'assets'}`;
+
   return (
     <div className={styles.frame} style={{ '--collection-color': data.color } as CSSProperties}>
       <header className={styles.frameHeader}>
-        {(data.showColorDot || data.kindLabel) && (
-          <span className={styles.frameEyebrow}>
-            {data.showColorDot && <span className={styles.colorDot} />}
-            {data.kindLabel && <span>{data.kindLabel}</span>}
-          </span>
-        )}
         <h2 className={styles.frameTitle}>{data.title}</h2>
-        <span className={styles.frameCount}>{data.count}</span>
+        <div className={styles.frameMeta}>
+          {(data.showColorDot || data.kindLabel) && (
+            <span className={styles.frameEyebrow}>
+              {data.showColorDot && <span className={styles.colorDot} />}
+              {data.kindLabel && <span>{data.kindLabel}</span>}
+            </span>
+          )}
+          <span className={styles.frameCount}>{countLabel}</span>
+        </div>
       </header>
       {data.cards.length > 0 ? (
         <div className={`${styles.frameBody} nodrag`}>

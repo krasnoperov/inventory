@@ -38,9 +38,9 @@
 
 /* Header doubles as the drag handle for the frame. */
 .frameHeader {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
+  display: grid;
+  align-items: start;
+  gap: 0.18rem;
   padding: 0.55rem 0 0.55rem;
   cursor: grab;
 }
@@ -49,13 +49,21 @@
   cursor: grabbing;
 }
 
+.frameMeta {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
 .frameEyebrow {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   color: var(--color-text-muted);
   font-size: var(--font-size-micro);
-  font-weight: 650;
+  font-weight: 560;
   text-transform: none;
   letter-spacing: 0;
 }
@@ -72,15 +80,15 @@
   color: var(--color-text);
   font-size: var(--font-size-body);
   font-weight: 650;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .frameCount {
   color: var(--color-text-muted);
   font-size: var(--font-size-small-sm);
-  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .frameBody {

@@ -210,6 +210,9 @@ test('space canvas renders collection frames without overlap', async ({ page }) 
     .not.toMatch(/Backgrounds\s+Backgrounds/);
   await expect(page.locator('[class*="frameEyebrow"]').first()).toHaveCSS('text-transform', 'none');
   await expect(page.locator('[class*="frameEyebrow"]').first()).toHaveCSS('letter-spacing', 'normal');
+  await expect(page.locator('[class*="frameCount"]').first()).toHaveText('3 assets');
+  await expect(page.locator('[class*="frameTitle"]').first()).toHaveCSS('white-space', 'normal');
+  await expect(page.locator('[class*="frameTitle"]').first()).toHaveCSS('text-overflow', 'clip');
 
   // Frames are laid out without overlapping each other.
   await expect(page.locator('.react-flow__node')).toHaveCount(3);
@@ -246,7 +249,7 @@ test('space canvas keeps empty collection zones header-only', async ({ page }) =
   await expect(page.getByText('No items')).toHaveCount(0);
 
   const propsFrame = page.locator('.react-flow__node').filter({ has: page.getByRole('heading', { name: 'Props' }) }).locator('> div').first();
-  await expect(propsFrame.locator('[class*="frameCount"]')).toHaveText('0');
+  await expect(propsFrame.locator('[class*="frameCount"]')).toHaveText('0 assets');
   await expect(propsFrame.locator('[class*="frameEyebrow"]')).not.toContainText('Custom');
   await expect(propsFrame.locator('[data-asset-id]')).toHaveCount(0);
   await expect(propsFrame.locator('[class*="frameBody"]')).toHaveCount(0);
@@ -255,6 +258,40 @@ test('space canvas keeps empty collection zones header-only', async ({ page }) =
   await expect(page.locator('.react-flow__node')).toHaveCount(2);
   expect(noOverlap(await frameBoxes(page))).toBe(true);
   await screenshot(page, 'space-canvas-empty-zone-header-only', { fullPage: true });
+});
+
+test('space canvas collection zone titles wrap without ellipsis', async ({ page }) => {
+  await page.setViewportSize({ width: 820, height: 560 });
+  const longCollection = collection(
+    'long',
+    'Storyboard beat references for the living room outro sequence',
+    'scenes',
+    '#7bca5a',
+    0,
+  );
+
+  await mountComponent(page, 'SpaceCanvas', {
+    spaceId: 'space-1',
+    assets: [assets[0]],
+    variants: [variants[0]],
+    collections: [longCollection],
+    collectionItems: [item('long-a0', 'long', 'a0', 0)],
+    lineage: [],
+    isInitialSyncPending: false,
+    onAssetClick: '__noop__',
+  });
+
+  const frame = page.locator('.react-flow__node > div[class*="frame"]').first();
+  const title = frame.locator('[class*="frameTitle"]');
+  const meta = frame.locator('[class*="frameMeta"]');
+
+  await expect(page.getByRole('heading', { name: longCollection.name })).toBeVisible();
+  await expect(title).toHaveCSS('white-space', 'normal');
+  await expect(title).toHaveCSS('text-overflow', 'clip');
+  await expect(meta).toContainText('Scenes');
+  await expect(meta).toContainText('1 asset');
+  await expect(frame).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await screenshot(page, 'space-canvas-readable-zone-title', { fullPage: true });
 });
 
 test('space canvas frame card triggers open assets without changing media chrome', async ({ page }) => {
