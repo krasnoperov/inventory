@@ -108,6 +108,23 @@ async function selectDropdown(page: import('@playwright/test').Page, label: stri
   await page.getByRole('option', { name: optionName, exact: true }).click();
 }
 
+async function expectNoOverlap(
+  first: import('@playwright/test').Locator,
+  second: import('@playwright/test').Locator,
+) {
+  await expect.poll(async () => {
+    const firstBox = await first.boundingBox();
+    const secondBox = await second.boundingBox();
+    if (!firstBox || !secondBox) return false;
+    return !(
+      firstBox.x + firstBox.width <= secondBox.x ||
+      secondBox.x + secondBox.width <= firstBox.x ||
+      firstBox.y + firstBox.height <= secondBox.y ||
+      secondBox.y + secondBox.height <= firstBox.y
+    );
+  }).toBe(false);
+}
+
 test('asset detail title rename uses shared inline field', async ({ page }) => {
   await page.setViewportSize({ width: 520, height: 180 });
   await mountComponent(page, 'AssetTitleInlineEditor', {
@@ -356,7 +373,8 @@ test('asset details strip makes video facts and details disclosure visible', asy
   await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toHaveCSS('border-left-width', '0px');
   await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toHaveCSS('border-radius', '0px');
   await expect(page.getByText('Hero reveal video')).toBeVisible();
-  await expect(page.getByText('Asset details', { exact: true })).toHaveCSS('text-transform', 'none');
+  await expect(page.getByText('Asset', { exact: true })).toHaveCSS('text-transform', 'none');
+  await expect(page.getByLabel('Variant focus')).toContainText('Variant focus');
   await expect(page.getByText('Video', { exact: true })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Asset type' })).toBeVisible();
   await selectDropdown(page, 'Asset type', 'Environment');
@@ -407,12 +425,38 @@ test('asset details strip also exposes image facts without a hidden click target
   await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
   await expect(page.getByText('Hero portrait')).toBeVisible();
   await expect(page.getByText('Image', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Variant focus')).toContainText('Image · Completed');
+  await expectNoOverlap(page.getByLabel('Variant focus'), page.getByRole('button', { name: 'Hide image details' }));
   await expect(page.getByText('Character')).toBeVisible();
   await expect(page.getByText('Image · Completed')).toBeVisible();
   await expect(page.getByText('1024x1024')).toBeVisible();
   await expect(page.getByText('Duration')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Hide image details' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Hide image details' })).toContainText('Details');
+});
+
+test('asset details strip keeps variant focus visible without a selected variant', async ({ page }) => {
+  await page.setViewportSize({ width: 620, height: 360 });
+  await mountComponent(page, 'AssetDetailsStrip', {
+    asset: asset({
+      name: 'Unselected detail',
+      type: 'character',
+      media_kind: 'image',
+    }),
+    assetCollectionCount: 0,
+    fullDetailsOpen: false,
+    onToggleFullDetails: '__record__:toggleFullDetails',
+    selectedVariant: null,
+    selectedVariantCollectionCount: 0,
+    variantCount: 2,
+  });
+
+  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
+  await expect(page.getByText('Unselected detail')).toBeVisible();
+  await expect(page.getByLabel('Variant focus')).toContainText('None');
+  await expect(page.getByText('Variants')).toBeVisible();
+  await expect(page.getByText('2')).toBeVisible();
+  await screenshot(page, 'asset-details-strip-no-variant', { fullPage: true });
 });
 
 test('asset details strip names audio details explicitly', async ({ page }) => {
@@ -440,6 +484,7 @@ test('asset details strip names audio details explicitly', async ({ page }) => {
 
   await expect(page.getByText('Narration pass')).toBeVisible();
   await expect(page.getByText('Audio', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Variant focus')).toContainText('Audio · Completed');
   await expect(page.getByText('Audio · Completed')).toBeVisible();
   await expect(page.getByText('42s')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Hide audio details' })).toBeVisible();
@@ -558,6 +603,8 @@ test('asset detail overlays use flat chrome', async ({ page }) => {
   await page.setViewportSize({ width: 760, height: 460 });
   await mountComponent(page, 'AssetDetailOverlayChrome', {});
 
+  await expect(page.getByRole('toolbar', { name: 'Asset detail controls' })).toContainText('Details');
+  await expect(page.getByRole('toolbar', { name: 'Asset detail controls' })).toContainText('Crystal Gate');
   await expect(page.getByRole('region', { name: 'Tile grid overlay' })).toHaveCSS('box-shadow', 'none');
   const generationJobs = page.getByRole('region', { name: 'Generation jobs' });
   await expect(generationJobs.locator('[class*="jobCard"]')).toHaveCSS('box-shadow', 'none');

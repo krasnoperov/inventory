@@ -9,7 +9,7 @@ import { AssetPicker } from './components/AssetPicker';
 import { CollectionPlacementPicker } from './components/CollectionPlacementPicker';
 import { CompositionDetail, CompositionUsageList } from './components/CompositionDetail';
 import { CompositionPlacementControl } from './components/CompositionPlacementControl';
-import { CanvasToolbar, CanvasToolbarButton, CanvasToolbarDivider, CanvasToolbarLink, CanvasToolbarTitle } from './components/CanvasToolbar';
+import { CanvasToolbar, CanvasToolbarBadge, CanvasToolbarButton, CanvasToolbarDivider, CanvasToolbarLink, CanvasToolbarTitle } from './components/CanvasToolbar';
 import { CreateSpaceDialog } from './components/CreateSpaceDialog';
 import { ForgeTray } from './components/ForgeTray';
 import { FormContainer, FormTitle } from './components/forms';
@@ -529,6 +529,22 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
 function AssetDetailOverlayChromePreview() {
   return (
     <div style={{ position: 'relative', width: '720px', height: '420px', padding: '1rem', background: 'var(--color-bg)' }}>
+      <div className={assetDetailStyles.assetOverlay}>
+        <CanvasToolbar ariaLabel="Asset detail controls" className={assetDetailStyles.detailToolbar}>
+          <CanvasToolbarLink to="/spaces/space-1" title="Back to space">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 12H5" />
+              <path d="M12 19l-7-7 7-7" />
+            </svg>
+          </CanvasToolbarLink>
+          <CanvasToolbarTitle className={assetDetailStyles.assetTitleSlot}>
+            Crystal Gate
+          </CanvasToolbarTitle>
+          <CanvasToolbarBadge tone="neutral">
+            Details
+          </CanvasToolbarBadge>
+        </CanvasToolbar>
+      </div>
       <section className={assetDetailStyles.tileGridOverlay} role="region" aria-label="Tile grid overlay">
         <div style={{ padding: '0.75rem', display: 'grid', gap: '0.35rem' }}>
           <strong>Tile grid</strong>
