@@ -275,7 +275,12 @@ test('asset collection membership is compact until management is requested', asy
   await expect(page.getByRole('button', { name: 'Remove Style refs from variant collections' })).toBeVisible();
   await expect(page.getByText('Remove', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add asset to collection' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Add selected variant' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add selected variant to collection' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Done managing collections' })).toBeVisible();
+  await expect(page.getByText('Variant collections', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Add asset to collection', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Add selected variant', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Done', { exact: true })).toHaveCount(0);
   const expandedRowMetrics = await page.getByLabel('Role in Cast').evaluate((input) => {
     const row = input.closest('div');
     if (!row) return null;
@@ -298,7 +303,7 @@ test('asset collection membership is compact until management is requested', asy
   await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Add asset to collection' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Hide' }).click();
+  await page.getByRole('button', { name: 'Hide asset collection picker' }).click();
   await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
 });
 
@@ -360,7 +365,7 @@ test('asset collection placement shortcut opens selected variant picker', async 
   await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Add selected variant to collections', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Add selected variant to collection' })).toBeVisible();
-  await page.getByRole('button', { name: 'Hide' }).click();
+  await page.getByRole('button', { name: 'Hide variant collection picker' }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
   expect(calls).toEqual(expect.arrayContaining([
