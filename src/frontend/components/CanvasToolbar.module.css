@@ -142,12 +142,14 @@
 }
 
 .active {
-  color: var(--button-primary-text);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border-color: var(--color-primary);
 }
 
 .active:hover:not(:disabled) {
-  border-color: transparent;
-  color: var(--button-primary-text);
+  border-color: var(--color-primary);
+  color: var(--color-text);
 }
 
 .danger {
