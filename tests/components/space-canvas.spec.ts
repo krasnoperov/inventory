@@ -198,6 +198,18 @@ test('space canvas renders collection frames without overlap', async ({ page }) 
   // Cards render inside the frames (thumbnail button titled by asset name).
   await expect(page.getByRole('button', { name: 'Hero' }).first()).toBeVisible();
   await expect(page.locator('[class*="colorDot"]').first()).toHaveCSS('box-shadow', 'none');
+  const firstFrame = page.locator('.react-flow__node > div[class*="frame"]').first();
+  await expect(firstFrame).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(firstFrame).toHaveCSS('border-top-width', '1px');
+  await expect(firstFrame).toHaveCSS('border-left-width', '0px');
+  await expect(firstFrame).toHaveCSS('border-radius', '0px');
+  await expect.poll(() => firstFrame.evaluate(
+    (element) => getComputedStyle(element, '::before').backgroundImage,
+  )).toBe('none');
+  await expect.poll(() => firstFrame.locator('[class*="frameHeader"]').evaluate((element) => element.textContent ?? ''))
+    .not.toMatch(/Backgrounds\s+Backgrounds/);
+  await expect(page.locator('[class*="frameEyebrow"]').first()).toHaveCSS('text-transform', 'none');
+  await expect(page.locator('[class*="frameEyebrow"]').first()).toHaveCSS('letter-spacing', 'normal');
 
   // Frames are laid out without overlapping each other.
   await expect(page.locator('.react-flow__node')).toHaveCount(3);
@@ -211,6 +223,7 @@ test('space canvas renders collection frames without overlap', async ({ page }) 
   for (let i = 0; i < 6; i++) await zoomOut.click();
   await expect(page.locator('[data-asset-id="a0"] svg').first()).toBeVisible();
   await expect(page.getByTestId('greek-card')).toHaveCount(0);
+  await screenshot(page, 'space-canvas-flat-collection-zones', { fullPage: true });
 });
 
 test('space canvas frame card triggers open assets without changing media chrome', async ({ page }) => {
@@ -232,7 +245,9 @@ test('space canvas frame card triggers open assets without changing media chrome
   await expect(trayTrigger).toBeVisible();
   await expect(thumbnailTrigger).toHaveCSS('padding', '0px');
   await expect(thumbnailTrigger).toHaveCSS('border-top-width', '0px');
-  await expect(page.locator('[class*="frame"]').first()).toHaveCSS('box-shadow', 'none');
+  const firstFrame = page.locator('.react-flow__node > div[class*="frame"]').first();
+  await expect(firstFrame).toHaveCSS('box-shadow', 'none');
+  await expect(firstFrame).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.locator('[class*="colorDot"]').first()).toHaveCSS('box-shadow', 'none');
 
   await thumbnailTrigger.hover();

@@ -171,13 +171,14 @@ function FrameAssetCard({ card, data }: { card: FrameCard; data: FrameData }) {
 }
 
 function FrameNodeView({ data }: NodeProps<FrameNode>) {
+  const showKindText = Boolean(data.kindLabel && data.kindLabel.toLowerCase() !== data.title.toLowerCase());
   return (
     <div className={styles.frame} style={{ '--collection-color': data.color } as CSSProperties}>
       <header className={styles.frameHeader}>
         {data.kindLabel && (
           <span className={styles.frameEyebrow}>
             <span className={styles.colorDot} />
-            <span>{data.kindLabel}</span>
+            {showKindText && <span>{data.kindLabel}</span>}
           </span>
         )}
         <h2 className={styles.frameTitle}>{data.title}</h2>
