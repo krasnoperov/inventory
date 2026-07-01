@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, type DragEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '../components/Link';
 import { useNavigate } from '../hooks/useNavigate';
@@ -28,20 +28,15 @@ import {
 import { UsageIndicator } from '../components/UsageIndicator';
 import { SpaceSharingPanel } from '../components/SpaceSharingPanel';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
-import { SpaceBoard } from '../components/SpaceBoard';
 import { SpaceCanvas } from '../components/SpaceCanvas';
-import { RelationsCanvas } from '../components/RelationsCanvas';
 import { ForgeTray } from '../components/ForgeTray';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
+import { defaultAssetNameFromFile, findAcceptedUploadFile } from '../mediaUpload';
 import { TileSetPanel } from '../components/TileSetPanel/TileSetPanel';
 import { StylePanel } from '../components/ForgeTray/StylePanel';
 import { CompositionDetail } from '../components/CompositionDetail';
 import { ButtonLink, IconButton } from '../ui';
-import {
-  applyCompositionShortcut,
-  type CompositionShortcut,
-} from '../productionShortcuts';
 import {
   approveSpaceAccessRequest,
   inviteSpaceEmail,
@@ -78,6 +73,7 @@ export default function SpacePage() {
   const space = spaceDataQuery.data?.space ?? null;
   const members = spaceDataQuery.data?.members ?? [];
   const isOwner = space?.role === 'owner';
+  const canEdit = space?.role === 'owner' || space?.role === 'editor';
   const isLoading = spaceDataQuery.isPending;
   const error = spaceDataQuery.error instanceof Error ? spaceDataQuery.error.message : null;
   const [forgeError, setForgeError] = useState<string | null>(null);
@@ -86,6 +82,7 @@ export default function SpacePage() {
   const [showSharingPanel, setShowSharingPanel] = useState(false);
   const [sharingActionError, setSharingActionError] = useState<string | null>(null);
   const [busySharingAction, setBusySharingAction] = useState<string | null>(null);
+  const [isSpaceDragOver, setIsSpaceDragOver] = useState(false);
 
   const sharingQuery = useQuery({
     ...spaceSharingQueryOptions(spaceId || ''),
@@ -130,14 +127,12 @@ export default function SpacePage() {
     assets,
     variants,
     lineage,
-    relations,
     collections,
     collectionItems,
     stylePresets,
     compositions,
     compositionItems,
     jobs,
-    regenerateVariant,
     requestSync,
     requestOverviewSync,
     clearJob,
@@ -147,13 +142,6 @@ export default function SpacePage() {
     requestChatHistory,
     clearChatSession,
     forkAsset,
-    createCollection,
-    updateCollection,
-    deleteCollection,
-    addCollectionItem,
-    updateCollectionItem,
-    reorderCollectionItems,
-    deleteCollectionItem,
     createComposition,
     updateComposition,
     deleteComposition,
@@ -237,21 +225,14 @@ export default function SpacePage() {
   const [isImporting, setIsImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  // Board (scrolling wall) vs canvas (floating collection frames) vs relations
-  // (asset graph with typed edges) view.
-  const [viewMode, setViewMode] = useState<'wall' | 'canvas' | 'relations'>('wall');
-
-  // The graph views (canvas, relations) draw lineage edges, but the default
-  // overview sync omits lineage — leaving the relations Story view empty (every
-  // asset reads as an unlinked orphan). Upgrade to a full sync when a graph view
-  // is open; the full sync then sticks. Gated on a live connection so the
-  // request isn't dropped before the socket opens — it re-fires on (re)connect,
-  // covering the slow-connection path where the toolbar renders before OPEN.
+  // The Space overview is the canvas. It draws lineage edges, while the default
+  // overview sync omits lineage, so upgrade to a full sync once the socket is
+  // open. The full sync then sticks for contextual details and composition work.
   useEffect(() => {
-    if ((viewMode === 'relations' || viewMode === 'canvas') && wsStatus === 'connected') {
+    if (wsStatus === 'connected') {
       requestSync();
     }
-  }, [viewMode, wsStatus, requestSync]);
+  }, [wsStatus, requestSync]);
 
   // Tile Set panel state
   const [showTileSetPanel, setShowTileSetPanel] = useState(false);
@@ -287,17 +268,6 @@ export default function SpacePage() {
     sendBatchRequest,
   });
 
-  // Post-generation composition placement: apply a chosen role to a finished
-  // variant. Replaces the old pre-generation shortcut dropdown — the decision
-  // now happens over a real result, not predicted before it exists.
-  const handlePlaceInComposition = useCallback((variant: Variant, shortcut: CompositionShortcut) => {
-    applyCompositionShortcut(shortcut, variant, compositionItems, {
-      updateComposition,
-      createCompositionItem,
-      updateCompositionItem,
-    });
-  }, [compositionItems, updateComposition, createCompositionItem, updateCompositionItem]);
-
   // Image upload hook
   const { upload: uploadImage, uploadNewAsset, isUploading } = useImageUpload({
     spaceId: spaceId || '',
@@ -311,14 +281,35 @@ export default function SpacePage() {
     await uploadNewAsset({ file, assetName });
   }, [uploadNewAsset]);
 
+  const handleSpaceDragOver = useCallback((event: DragEvent) => {
+    if (!canEdit || isUploading) return;
+    if (!Array.from(event.dataTransfer.types).includes('Files')) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    setIsSpaceDragOver(true);
+  }, [canEdit, isUploading]);
+
+  const handleSpaceDragLeave = useCallback((event: DragEvent) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsSpaceDragOver(false);
+    }
+  }, []);
+
+  const handleSpaceDrop = useCallback(async (event: DragEvent) => {
+    if (!canEdit || isUploading) return;
+    if (!Array.from(event.dataTransfer.types).includes('Files')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setIsSpaceDragOver(false);
+    const file = findAcceptedUploadFile(event.dataTransfer.files);
+    if (!file) return;
+    await uploadNewAsset({ file, assetName: defaultAssetNameFromFile(file) });
+  }, [canEdit, isUploading, uploadNewAsset]);
+
   // Handle add to forge tray
   const handleAddToTray = useCallback((variant: Variant, asset: Asset) => {
     addSlot(variant, asset);
   }, [addSlot]);
-
-  const handleRegenerateVariant = useCallback((variant: Variant) => {
-    regenerateVariant(variant.id);
-  }, [regenerateVariant]);
 
   const handleAssetOpen = useCallback((clickedAsset: Asset) => {
     navigate(`/spaces/${spaceId}/assets/${clickedAsset.id}`);
@@ -527,8 +518,6 @@ export default function SpacePage() {
     );
   }
 
-  const canEdit = space.role === 'owner' || space.role === 'editor';
-
   return (
     <div className={styles.page}>
       <WorkspaceChrome
@@ -538,56 +527,23 @@ export default function SpacePage() {
       />
 
       {/* Full-screen canvas container */}
-      <div className={styles.canvasContainer}>
-        {viewMode === 'relations' ? (
-          <RelationsCanvas
-            spaceId={spaceId || ''}
-            assets={assets}
-            variants={variants}
-            lineage={lineage}
-            relations={relations}
-            collections={collections}
-            collectionItems={collectionItems}
-            compositions={compositions}
-            compositionItems={compositionItems}
-            isInitialSyncPending={!hasSynced}
-            onAssetClick={handleAssetOpen}
-          />
-        ) : viewMode === 'canvas' ? (
-          <SpaceCanvas
-            spaceId={spaceId || ''}
-            assets={assets}
-            variants={variants}
-            collections={collections}
-            collectionItems={collectionItems}
-            lineage={lineage}
-            isInitialSyncPending={!hasSynced}
-            onAssetClick={handleAssetOpen}
-          />
-        ) : (
-          <SpaceBoard
-            spaceId={spaceId || ''}
-            assets={assets}
-            variants={variants}
-            collections={collections}
-            collectionItems={collectionItems}
-            canEdit={canEdit}
-            isInitialSyncPending={!hasSynced}
-            onAssetClick={handleAssetOpen}
-            onAddToTray={canEdit ? handleAddToTray : undefined}
-            onRegenerateVariant={canEdit ? handleRegenerateVariant : undefined}
-            compositions={compositions}
-            compositionItems={compositionItems}
-            onPlaceInComposition={canEdit ? handlePlaceInComposition : undefined}
-            createCollection={createCollection}
-            updateCollection={updateCollection}
-            deleteCollection={deleteCollection}
-            addCollectionItem={addCollectionItem}
-            updateCollectionItem={updateCollectionItem}
-            reorderCollectionItems={reorderCollectionItems}
-            deleteCollectionItem={deleteCollectionItem}
-          />
-        )}
+      <div
+        className={`${styles.canvasContainer} ${isSpaceDragOver ? styles.canvasDropActive : ''}`}
+        onDragOver={handleSpaceDragOver}
+        onDragLeave={handleSpaceDragLeave}
+        onDrop={handleSpaceDrop}
+      >
+        <SpaceCanvas
+          spaceId={spaceId || ''}
+          assets={assets}
+          variants={variants}
+          collections={collections}
+          collectionItems={collectionItems}
+          lineage={lineage}
+          isInitialSyncPending={!hasSynced}
+          onAssetClick={handleAssetOpen}
+          onAddToTray={canEdit ? handleAddToTray : undefined}
+        />
 
         <CanvasToolbar ariaLabel="Space controls">
           <CanvasToolbarTitle>
@@ -642,40 +598,6 @@ export default function SpacePage() {
             </CanvasToolbarStat>
             {wsStatus === 'connected' && <CanvasToolbarLive />}
           </CanvasToolbarGroup>
-          <CanvasToolbarDivider />
-          <CanvasToolbarButton
-            active={viewMode === 'canvas'}
-            onClick={() => setViewMode((mode) => (mode === 'canvas' ? 'wall' : 'canvas'))}
-            title={viewMode === 'canvas' ? 'Switch to board view' : 'Switch to canvas view'}
-          >
-            {viewMode === 'canvas' ? (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="3" width="7" height="7" rx="1" />
-                <rect x="3" y="14" width="7" height="7" rx="1" />
-                <rect x="14" y="14" width="7" height="7" rx="1" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="4" width="8" height="6" rx="1.5" />
-                <rect x="14" y="4" width="7" height="9" rx="1.5" />
-                <rect x="3" y="13" width="8" height="7" rx="1.5" />
-                <rect x="14" y="16" width="7" height="4" rx="1.5" />
-              </svg>
-            )}
-          </CanvasToolbarButton>
-          <CanvasToolbarButton
-            active={viewMode === 'relations'}
-            onClick={() => setViewMode((mode) => (mode === 'relations' ? 'wall' : 'relations'))}
-            title={viewMode === 'relations' ? 'Switch to board view' : 'Switch to relations view'}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="5" cy="6" r="2.5" />
-              <circle cx="19" cy="6" r="2.5" />
-              <circle cx="12" cy="18" r="2.5" />
-              <path d="M7 7.5 17 7.5M6.5 8 11 16M17.5 8 13 16" />
-            </svg>
-          </CanvasToolbarButton>
           <CanvasToolbarDivider />
           <CanvasToolbarButton
             onClick={() => navigate(`/spaces/${spaceId}/production`)}
@@ -762,6 +684,12 @@ export default function SpacePage() {
             </>
           )}
         </CanvasToolbar>
+
+        {isSpaceDragOver && (
+          <div className={styles.dropHint} role="status">
+            <span>Create new asset</span>
+          </div>
+        )}
 
         {showSharingPanel && isOwner && (
           <div className={styles.sharingPanelContainer}>
