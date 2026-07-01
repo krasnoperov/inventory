@@ -96,7 +96,7 @@ export function CanvasToolbarButton({
       aria-label={ariaLabel}
       title={title}
       type={type}
-      variant={active ? 'primary' : 'ghost'}
+      variant={active ? 'secondary' : 'ghost'}
       className={mergeClasses(
         styles.button,
         active && styles.active,
