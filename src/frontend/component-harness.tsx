@@ -699,8 +699,13 @@ function AssetDetailOverlayChromePreview() {
 }
 
 function RelationsCanvasPreview(props: Record<string, unknown>) {
+  const {
+    previewWidth = '900px',
+    previewHeight = '640px',
+    ...canvasProps
+  } = props;
   return (
-    <div style={{ position: 'relative', width: '900px', height: '640px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', width: String(previewWidth), height: String(previewHeight), border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
       <RelationsCanvas
         spaceId="space-1"
         assets={stackAssets}
@@ -711,8 +716,8 @@ function RelationsCanvasPreview(props: Record<string, unknown>) {
         collectionItems={stackCollectionItems}
         compositions={stackCompositions}
         compositionItems={stackCompositionItems}
-        {...props}
-        onAssetClick={(props.onAssetClick as ((asset: Asset) => void) | undefined) ?? (() => undefined)}
+        {...canvasProps}
+        onAssetClick={(canvasProps.onAssetClick as ((asset: Asset) => void) | undefined) ?? (() => undefined)}
       />
     </div>
   );

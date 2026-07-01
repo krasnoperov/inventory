@@ -63,10 +63,11 @@ interface RelationsCanvasProps {
   onAssetClick: (asset: Asset) => void;
 }
 
-const ASSET_W = 196;
-const ASSET_H = 176;
-const COMP_W = 184;
-const COMP_H = 76;
+const ASSET_W = 224;
+const ASSET_H = 228;
+const COMP_W = 208;
+const COMP_H = 96;
+const FIT_PADDING = 0.24;
 
 const ALL_FAMILIES: RelationFamily[] = ['lineage', 'relation', 'composition'];
 const GROUPINGS: { id: GroupingAxis; label: string }[] = [
@@ -474,7 +475,7 @@ function RelationsCanvasInner({
   useEffect(() => {
     if (didFit.current || nodes.length === 0) return;
     didFit.current = true;
-    requestAnimationFrame(() => fitView({ padding: 0.14, maxZoom: 1 }));
+    requestAnimationFrame(() => fitView({ padding: FIT_PADDING, maxZoom: 1 }));
   }, [nodes.length, fitView]);
 
   // Re-frame when switching lens/layout or revealing attempts — the visible set
@@ -482,7 +483,7 @@ function RelationsCanvasInner({
   const didMountFit = useRef(false);
   useEffect(() => {
     if (!didMountFit.current) { didMountFit.current = true; return; }
-    const t = requestAnimationFrame(() => fitView({ padding: 0.14, maxZoom: 1 }));
+    const t = requestAnimationFrame(() => fitView({ padding: FIT_PADDING, maxZoom: 1 }));
     return () => cancelAnimationFrame(t);
   }, [storyMode, showAttempts, effectiveLayout, traceId, fitView]);
 
