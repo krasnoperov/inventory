@@ -322,15 +322,18 @@
 }
 
 .destructiveButton {
-  justify-self: center;
-  margin-top: 0.125rem;
+  justify-self: stretch;
+  justify-content: flex-start;
+  margin-top: 0.25rem;
   color: var(--color-error);
+  border-color: transparent;
   --ctl-hover: var(--color-danger-bg);
 }
 
 .destructiveButton:hover:not(:disabled),
 .destructiveButton:focus-visible {
   color: var(--color-error);
+  border-color: var(--color-danger-bg);
 }
 
 .previewStrip {
