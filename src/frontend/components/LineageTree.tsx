@@ -304,32 +304,36 @@ export function LineageTree({
                   onClick={() => onSelectVariant(node.variant)}
                   title={getRelationTooltip(node.relation_type, 'parent') + (node.severed ? ' (link severed)' : '')}
                 >
-                  <img
-                    src={getThumbnailUrl(node.variant)}
-                    alt="Parent variant"
-                    className={styles.nodeImage}
-                  />
-                  <span className={`${styles.badge} ${styles[node.relation_type]}`}>
-                    {getRelationLabel(node.relation_type)}
-                  </span>
-                  {node.severed && (
-                    <span className={styles.severedBadge} title="Link severed">✂</span>
-                  )}
-                  {node.lineage_id && !node.severed && onSeverLineage && (
-                    <IconButton
-                      className={styles.severButton}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSeverLineage(node.lineage_id!);
-                      }}
-                      title="Sever this lineage link"
-                      aria-label="Sever this lineage link"
-                      variant="danger"
-                      size="sm"
-                    >
-                      <SeverLineageIcon />
-                    </IconButton>
-                  )}
+                  <div className={styles.nodeMedia}>
+                    <img
+                      src={getThumbnailUrl(node.variant)}
+                      alt="Parent variant"
+                      className={styles.nodeImage}
+                    />
+                  </div>
+                  <div className={styles.nodeChrome}>
+                    <span className={`${styles.badge} ${styles[node.relation_type]}`}>
+                      {getRelationLabel(node.relation_type)}
+                    </span>
+                    {node.severed && (
+                      <span className={styles.severedBadge} title="Link severed">Severed</span>
+                    )}
+                    {node.lineage_id && !node.severed && onSeverLineage && (
+                      <IconButton
+                        className={styles.severButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSeverLineage(node.lineage_id!);
+                        }}
+                        title="Sever this lineage link"
+                        aria-label="Sever this lineage link"
+                        variant="ghost"
+                        size="sm"
+                      >
+                        <SeverLineageIcon />
+                      </IconButton>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -368,32 +372,36 @@ export function LineageTree({
                   onClick={() => onSelectVariant(node.variant)}
                   title={getRelationTooltip(node.relation_type, 'child') + (node.severed ? ' (link severed)' : '')}
                 >
-                  <img
-                    src={getThumbnailUrl(node.variant)}
-                    alt="Child variant"
-                    className={styles.nodeImage}
-                  />
-                  <span className={`${styles.badge} ${styles[node.relation_type]}`}>
-                    {getRelationLabel(node.relation_type)}
-                  </span>
-                  {node.severed && (
-                    <span className={styles.severedBadge} title="Link severed">✂</span>
-                  )}
-                  {node.lineage_id && !node.severed && onSeverLineage && (
-                    <IconButton
-                      className={styles.severButton}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSeverLineage(node.lineage_id!);
-                      }}
-                      title="Sever this lineage link"
-                      aria-label="Sever this lineage link"
-                      variant="danger"
-                      size="sm"
-                    >
-                      <SeverLineageIcon />
-                    </IconButton>
-                  )}
+                  <div className={styles.nodeMedia}>
+                    <img
+                      src={getThumbnailUrl(node.variant)}
+                      alt="Child variant"
+                      className={styles.nodeImage}
+                    />
+                  </div>
+                  <div className={styles.nodeChrome}>
+                    <span className={`${styles.badge} ${styles[node.relation_type]}`}>
+                      {getRelationLabel(node.relation_type)}
+                    </span>
+                    {node.severed && (
+                      <span className={styles.severedBadge} title="Link severed">Severed</span>
+                    )}
+                    {node.lineage_id && !node.severed && onSeverLineage && (
+                      <IconButton
+                        className={styles.severButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSeverLineage(node.lineage_id!);
+                        }}
+                        title="Sever this lineage link"
+                        aria-label="Sever this lineage link"
+                        variant="ghost"
+                        size="sm"
+                      >
+                        <SeverLineageIcon />
+                      </IconButton>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
