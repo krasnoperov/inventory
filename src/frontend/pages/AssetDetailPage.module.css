@@ -350,17 +350,16 @@
   z-index: 14;
   display: grid;
   grid-auto-rows: max-content;
-  gap: 0.55rem;
+  gap: 0.65rem;
   min-width: 0;
   max-height: none;
   overflow: auto;
   overscroll-behavior: contain;
-  margin: 0.75rem 0.75rem 0.75rem 0;
-  padding: 0.65rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-lg);
+  margin: 0;
+  padding: 0.75rem 0.75rem 0.75rem 0.875rem;
+  border-left: 1px solid var(--color-border);
+  background: transparent;
+  box-shadow: none;
   pointer-events: auto;
 }
 
@@ -761,7 +760,10 @@
 
   .assetDetailsInspector {
     grid-row: 2;
-    margin: 0 0.5rem 0.5rem;
+    margin: 0;
+    padding: 0.75rem 0.5rem 0.5rem;
+    border-top: 1px solid var(--color-border);
+    border-left: 0;
     max-height: min(34vh, 280px);
   }
 

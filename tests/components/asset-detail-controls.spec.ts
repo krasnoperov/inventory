@@ -620,6 +620,10 @@ test('asset details dock keeps heavy details outside ForgeTray', async ({ page }
   await expect(dock).not.toContainText('Manual relations');
   const inspector = page.getByRole('region', { name: 'Asset details inspector' });
   await expect(inspector).toBeVisible();
+  await expect(inspector).toHaveCSS('box-shadow', 'none');
+  await expect(inspector).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(inspector).toHaveCSS('border-left-width', '1px');
+  await expect(inspector).toHaveCSS('border-radius', '0px');
   await expect(inspector.getByRole('region', { name: 'Collection membership' })).toBeVisible();
   await expect(inspector.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
   await expect(inspector.getByRole('region', { name: 'Manual relations' })).toBeVisible();
@@ -701,6 +705,10 @@ test('asset details inspector stays separate from ForgeTray on mobile', async ({
   await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /asset scope details/i })).toHaveCount(0);
   const inspector = page.getByRole('region', { name: 'Asset details inspector' });
+  await expect(inspector).toHaveCSS('box-shadow', 'none');
+  await expect(inspector).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(inspector).toHaveCSS('border-left-width', '0px');
+  await expect(inspector).toHaveCSS('border-top-width', '1px');
   await expect(inspector.getByRole('region', { name: 'Collection membership' })).toBeVisible();
   await expect(inspector.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
   await expect(inspector.getByRole('region', { name: 'Manual relations' })).toBeVisible();
