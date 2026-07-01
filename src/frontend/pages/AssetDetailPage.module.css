@@ -415,17 +415,25 @@
 
 .collectionMembershipRow {
   display: grid;
-  grid-template-columns: minmax(7rem, 1fr) minmax(7rem, 0.8fr) minmax(8rem, 0.9fr) auto;
-  gap: 0.4rem;
+  grid-template-columns: minmax(6.5rem, 0.75fr) minmax(7rem, 0.85fr) minmax(8rem, 1fr) auto;
+  gap: 0.35rem;
   align-items: center;
+  min-height: 2.25rem;
+  padding: 0.25rem 0;
+  border-top: 1px solid var(--color-border);
+  --ui-button-height: 1.875rem;
+  --ui-select-height: 1.875rem;
+  --ui-select-font-size: var(--font-size-small-sm);
+  --ui-text-input-height: 1.875rem;
+  --ui-text-field-font-size: var(--font-size-small-sm);
 }
 
 .variantCollectionMembershipRow {
-  grid-template-columns: minmax(7rem, 12rem) minmax(7rem, 18rem) auto;
+  grid-template-columns: minmax(6.5rem, 12rem) minmax(7rem, 18rem) auto;
   justify-content: start;
 }
 
-.collectionMembershipRow span {
+.collectionMembershipName {
   min-width: 0;
   overflow: hidden;
   color: var(--color-text);
@@ -514,7 +522,7 @@
 }
 
 .collectionRemoveAction {
-  --ui-button-height: 2rem;
+  justify-self: end;
   color: var(--color-text-muted);
 }
 

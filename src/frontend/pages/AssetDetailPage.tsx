@@ -329,7 +329,7 @@ export function AssetCollectionsPanel({
         const collectionName = collection?.name ?? 'collection';
         return (
           <div key={item.id} className={styles.collectionMembershipRow}>
-            <span>{collection?.name ?? 'Collection'}</span>
+            <span className={styles.collectionMembershipName}>{collection?.name ?? 'Collection'}</span>
             <TextInput
               value={item.role}
               aria-label={`Role in ${collectionName}`}
@@ -423,7 +423,7 @@ export function AssetCollectionsPanel({
             const collectionName = collection?.name ?? 'collection';
             return (
               <div key={item.id} className={`${styles.collectionMembershipRow} ${styles.variantCollectionMembershipRow}`}>
-                <span>{collection?.name ?? 'Collection'}</span>
+                <span className={styles.collectionMembershipName}>{collection?.name ?? 'Collection'}</span>
                 <TextInput
                   value={item.role}
                   aria-label={`Variant role in ${collectionName}`}
