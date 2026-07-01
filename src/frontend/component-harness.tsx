@@ -10,6 +10,7 @@ import { CollectionPlacementPicker } from './components/CollectionPlacementPicke
 import { CompositionDetail, CompositionUsageList } from './components/CompositionDetail';
 import { CompositionPlacementControl } from './components/CompositionPlacementControl';
 import { CanvasToolbar, CanvasToolbarButton, CanvasToolbarDivider, CanvasToolbarLink, CanvasToolbarTitle } from './components/CanvasToolbar';
+import { CreateSpaceDialog } from './components/CreateSpaceDialog';
 import { ForgeTray } from './components/ForgeTray';
 import { FormContainer, FormTitle } from './components/forms';
 import { ImageLightbox } from './components/ImageLightbox';
@@ -41,10 +42,8 @@ import { AdminSpendView } from './pages/AdminSpendPage';
 import { AuthorizationDecisionActions } from './pages/AuthorizationApprovalPage';
 import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsStrip, AssetGenerationDock, AssetTitleInlineEditor, AssetTypeSelect } from './pages/AssetDetailPage';
 import assetDetailStyles from './pages/AssetDetailPage.module.css';
-import { CreateSpaceDialog } from './pages/DashboardPage';
 import dashboardStyles from './pages/DashboardPage.module.css';
 import DocsPage from './pages/DocsPage';
-import { LandingCreateSpaceDialog } from './pages/LandingPage';
 import landingStyles from './pages/LandingPage.module.css';
 import { GoogleLoginButton } from './pages/LoginPage';
 import { HyperbolicCanvas } from './components/HyperbolicCanvas/HyperbolicCanvas';
@@ -777,6 +776,10 @@ function SegmentedControlPreview() {
   );
 }
 
+function LandingCreateSpaceDialogPreview(props: Record<string, unknown>) {
+  return <CreateSpaceDialog {...(props as unknown as ComponentProps<typeof CreateSpaceDialog>)} surface="public" />;
+}
+
 function FormContainerPreview() {
   return (
     <div style={{ width: 'min(520px, 100%)', padding: '2rem' }}>
@@ -998,7 +1001,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   DocsPage: DocsPagePreview,
   GoogleLoginButton: GoogleLoginButton as unknown as ComponentType<Record<string, unknown>>,
   HyperbolicCanvas: HyperbolicCanvas as unknown as ComponentType<Record<string, unknown>>,
-  LandingCreateSpaceDialog: LandingCreateSpaceDialog as unknown as ComponentType<Record<string, unknown>>,
+  LandingCreateSpaceDialog: LandingCreateSpaceDialogPreview,
   LandingCardHoverChrome: LandingCardHoverChromePreview,
   LandingDualChrome: LandingDualChromePreview,
   FormContainerPreview,
