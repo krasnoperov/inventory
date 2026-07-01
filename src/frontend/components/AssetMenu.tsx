@@ -84,15 +84,12 @@ export function AssetMenu({
       role="menu"
       aria-label={`${asset.name} actions`}
     >
-      <div className={styles.header}>
+      <div className={styles.header} role="presentation">
         <span className={styles.assetName}>{asset.name}</span>
-        <span className={styles.assetBadges}>
-          <span className={styles.assetType}>{asset.type}</span>
-          <span className={styles.assetType}>{formatMediaKind(asset.media_kind)}</span>
-        </span>
+        <span className={styles.assetMeta}>{asset.type} · {formatMediaKind(asset.media_kind)}</span>
       </div>
 
-      <div className={styles.section}>
+      <div className={styles.section} role="presentation">
         {onRename && (
           <Button
             className={styles.action}
@@ -129,7 +126,7 @@ export function AssetMenu({
       </div>
 
       {onDelete && (
-        <div className={styles.section}>
+        <div className={`${styles.section} ${styles.dangerSection}`} role="presentation">
           <Button
             className={`${styles.action} ${styles.danger}`}
             onClick={() => handleAction(onDelete)}

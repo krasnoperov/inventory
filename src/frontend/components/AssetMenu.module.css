@@ -1,12 +1,15 @@
-/* AssetMenu - Context menu matching ForgeTray style */
 .menu {
   position: fixed;
   z-index: 1000;
+  display: grid;
+  gap: 0.125rem;
+  min-width: 180px;
+  max-width: min(18rem, calc(100vw - 1rem));
+  padding: 0.25rem;
   background: var(--color-surface);
-  border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   box-shadow: none;
-  min-width: 200px;
   overflow: hidden;
   animation: menuAppear 0.15s ease;
 }
@@ -21,98 +24,91 @@
 }
 
 .header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  background: var(--color-bg);
-  border-bottom: 1px solid var(--color-border);
+  min-width: 0;
+  display: grid;
+  gap: 0.125rem;
+  padding: 0.375rem 0.5rem 0.25rem;
 }
 
 .assetName {
-  font-size: 0.875rem;
-  font-weight: 600;
+  min-width: 0;
   color: var(--color-text);
-  white-space: nowrap;
+  font-size: var(--font-size-micro);
+  font-weight: 650;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 0;
+  white-space: nowrap;
 }
 
-.assetBadges {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  flex-shrink: 0;
-}
-
-.assetType {
-  font-size: 0.6875rem;
-  font-weight: 500;
+.assetMeta {
   color: var(--color-text-muted);
-  background: var(--color-surface);
-  padding: 0.1875rem 0.5rem;
-  border-radius: var(--radius-xs);
+  font-size: var(--font-size-micro);
+  font-weight: 520;
   text-transform: capitalize;
-  flex-shrink: 0;
 }
 
 .section {
-  padding: 0.375rem;
-  border-bottom: 1px solid var(--color-border);
+  display: grid;
+  gap: 0.125rem;
+  padding: 0;
 }
 
-.section:last-child {
-  border-bottom: none;
+.dangerSection {
+  padding-top: 0.125rem;
+  border-top: 1px solid var(--color-border);
 }
 
 .action {
-  --ui-button-height: 2.5rem;
-  --ui-button-pad-x: 0.75rem;
-  --ui-button-font-size: 0.8125rem;
+  --ui-button-height: 1.875rem;
+  --ui-button-pad-x: 0.5rem;
+  --ui-button-font-size: var(--font-size-micro);
 
-  gap: 0.75rem;
-  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  gap: 0.5rem;
   width: 100%;
   border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-weight: 520;
   text-align: left;
 }
 
 .action:hover:not(:disabled) {
-  background: var(--color-bg);
+  color: var(--color-text);
+  background: var(--ctl-hover, var(--button-ghost-bg-hover));
 }
 
 .action.danger:hover:not(:disabled) {
-  background: var(--color-danger-bg);
+  color: var(--button-primary-text);
+  background: var(--color-error);
 }
 
-.action.danger .actionIcon,
-.action.danger .actionLabel {
-  color: var(--color-danger);
+.action:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.danger {
+  color: var(--color-error);
 }
 
 .actionIcon {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-  transition: color 0.15s ease;
+  color: currentColor;
 }
 
-.action:hover .actionIcon {
-  color: var(--color-text);
-}
-
-.action.danger:hover .actionIcon {
-  color: var(--color-danger);
+.actionIcon svg {
+  width: 14px;
+  height: 14px;
 }
 
 .actionLabel {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--color-text);
+  min-width: 0;
+  color: currentColor;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
