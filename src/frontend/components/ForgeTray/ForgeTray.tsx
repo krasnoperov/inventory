@@ -1284,7 +1284,7 @@ export function ForgeTray({
               {currentMediaGroup === 'video' && (
                 <>
                   <UiSelect
-                    className={styles.selectParam}
+                    className={`${styles.selectParam} ${styles.selectVideoTier}`}
                     value={videoTier}
                     options={VIDEO_TIER_SELECT_OPTIONS}
                     onValueChange={handleVideoTierSelect}
@@ -1293,7 +1293,7 @@ export function ForgeTray({
                     title="Video tier"
                   />
                   <UiSelect
-                    className={styles.selectParam}
+                    className={`${styles.selectParam} ${styles.selectVideoResolution}`}
                     value={videoResolution}
                     options={videoResolutionOptions}
                     onValueChange={setVideoResolution}
@@ -1302,7 +1302,7 @@ export function ForgeTray({
                     title="Video resolution"
                   />
                   <UiSelect
-                    className={styles.selectParam}
+                    className={`${styles.selectParam} ${styles.selectVideoDuration}`}
                     value={String(videoDurationSeconds)}
                     options={videoDurationOptions}
                     onValueChange={(nextValue) => setVideoDurationSeconds(Number(nextValue) as VideoGenerationDurationSeconds)}
