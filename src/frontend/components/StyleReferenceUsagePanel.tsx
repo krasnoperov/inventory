@@ -50,7 +50,7 @@ export function StyleReferenceUsagePanel({
       )}
       {outputs.length > 0 && (
         <div className={styles.group}>
-          <div className={styles.groupTitle}>Generated outputs</div>
+          <div className={styles.groupTitle}>Outputs</div>
           <div className={styles.items}>
             {outputs.map((output) => (
               <Link key={output.id} className={styles.itemLink} to={`/spaces/${spaceId}/assets/${output.id}`}>{output.name}</Link>
