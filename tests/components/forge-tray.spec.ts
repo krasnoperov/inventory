@@ -1292,8 +1292,21 @@ test('forge tray keeps mode and options on one compact row at narrow widths', as
   });
   expect(geometry.topSpread).toBeLessThanOrEqual(8);
   expect(geometry.rowHeight).toBeLessThanOrEqual(40);
-  const rowWidth = await row.evaluate((node) => node.scrollWidth);
-  expect(rowWidth).toBeGreaterThan(360);
+  const stripMetrics = await revealInner.evaluate((node) => {
+    const style = getComputedStyle(node);
+    return {
+      clientWidth: node.clientWidth,
+      scrollWidth: node.scrollWidth,
+      overflowX: style.overflowX,
+      maskImage: style.maskImage,
+    };
+  });
+  expect(stripMetrics.scrollWidth).toBeGreaterThan(stripMetrics.clientWidth);
+  expect(stripMetrics.overflowX).toBe('auto');
+  expect(stripMetrics.maskImage).toContain('linear-gradient');
+  const generateBox = await page.getByRole('button', { name: 'Generate ×2' }).boundingBox();
+  expect(generateBox).not.toBeNull();
+  expect(generateBox!.x + generateBox!.width).toBeLessThanOrEqual(430);
   const batchModeBox = await page.getByLabel('Batch mode').boundingBox();
   const revealBox = await revealInner.boundingBox();
   if (!batchModeBox || !revealBox) throw new Error('Expected batch mode control to render inside the options reveal');
@@ -1301,6 +1314,15 @@ test('forge tray keeps mode and options on one compact row at narrow widths', as
 
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-narrow-options-row', { fullPage: true });
+
+  await revealInner.evaluate((node) => {
+    node.scrollLeft = node.scrollWidth;
+  });
+  const styleBox = await page.getByLabel('Style selector').boundingBox();
+  if (!styleBox || !revealBox) throw new Error('Expected style selector to be reachable by scrolling the options strip');
+  expect(styleBox.x).toBeGreaterThanOrEqual(revealBox.x);
+  expect(styleBox.x + styleBox.width).toBeLessThanOrEqual(revealBox.x + revealBox.width);
+  await screenshot(page, 'forge-tray-narrow-options-row-scrolled', { fullPage: true });
 });
 
 test('forge tray dark theme polish', async ({ page }) => {

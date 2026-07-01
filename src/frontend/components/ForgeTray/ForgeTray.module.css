@@ -482,12 +482,16 @@
 .optionsRevealInner {
   min-height: 0;
   overflow: hidden;
+  position: relative;
 }
 
 .optionsRevealOpen .optionsRevealInner {
   overflow-x: auto;
   overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-padding-inline: 0.5rem;
   scrollbar-width: none;
+  mask-image: linear-gradient(to right, var(--color-text) calc(100% - 1.5rem), transparent);
 }
 
 .optionsRevealOpen .optionsRevealInner::-webkit-scrollbar {
