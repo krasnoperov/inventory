@@ -49,6 +49,8 @@ interface CollectionPlacementPickerProps {
   defaultSubjectType?: 'asset' | 'variant';
   allowSubjectChoice?: boolean;
   showPinToCreatedVariant?: boolean;
+  showLabel?: boolean;
+  addSelectLabel?: string;
   disabled?: boolean;
   className?: string;
 }
@@ -86,6 +88,8 @@ export function CollectionPlacementPicker({
   defaultSubjectType = 'asset',
   allowSubjectChoice = false,
   showPinToCreatedVariant = false,
+  showLabel = true,
+  addSelectLabel = 'Add collection',
   disabled = false,
   className,
 }: CollectionPlacementPickerProps) {
@@ -134,13 +138,13 @@ export function CollectionPlacementPicker({
   return (
     <div className={`${styles.picker} ${className ?? ''}`}>
       <div className={styles.addRow}>
-        <p className={styles.label}>{label}</p>
+        {showLabel && <p className={styles.label}>{label}</p>}
         <UiSelect
           className={styles.addSelect}
           value={ADD_COLLECTION_PLACEHOLDER}
           options={addCollectionOptions}
           disabled={disabled || availableCollections.length === 0}
-          label="Add collection"
+          label={addSelectLabel}
           onValueChange={addCollection}
         />
       </div>
