@@ -29,6 +29,7 @@ import { UsageIndicator } from '../components/UsageIndicator';
 import { SpaceSharingPanel } from '../components/SpaceSharingPanel';
 import { useSpaceWebSocket } from '../hooks/useSpaceWebSocket';
 import { SpaceCanvas } from '../components/SpaceCanvas';
+import { CanvasDropHint } from '../components/CanvasDropHint';
 import { ForgeTray } from '../components/ForgeTray';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
@@ -696,9 +697,11 @@ export default function SpacePage() {
         </CanvasToolbar>
 
         {isSpaceDragOver && (
-          <div className={styles.dropHint} role="status">
-            <span>Create new asset</span>
-          </div>
+          <CanvasDropHint
+            scope="Space"
+            message="New asset"
+            detail="Drop a media file onto the canvas"
+          />
         )}
 
         {showSharingPanel && isOwner && (
