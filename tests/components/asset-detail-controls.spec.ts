@@ -468,6 +468,14 @@ test('asset details dock keeps the real expanded stack usable on mobile', async 
   await expect(page.getByRole('region', { name: 'Manual relations' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Composition usage' })).toBeVisible();
   await expect(page.getByLabel('Prompt')).toBeVisible();
+  const mobileDockGap = await page.evaluate(() => {
+    const details = document.querySelector('[aria-label="Expanded asset details"]');
+    const tray = document.querySelector('[class*="tray"]');
+    if (!details || !tray) return null;
+    return tray.getBoundingClientRect().top - details.getBoundingClientRect().bottom;
+  });
+  expect(mobileDockGap).not.toBeNull();
+  expect(mobileDockGap!).toBeGreaterThanOrEqual(12);
 
   await screenshot(page, 'asset-details-stack-mobile', { fullPage: true });
 });
