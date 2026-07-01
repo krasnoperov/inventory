@@ -72,45 +72,6 @@
   color: var(--landing-accent-text);
 }
 
-.nav {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.625rem;
-}
-
-.navLink {
-  color: var(--landing-text-muted);
-  font-size: 0.875rem;
-  font-weight: 560;
-  text-decoration: none;
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-md);
-  transition: background 0.2s ease, color 0.2s ease;
-}
-
-.navLink:hover {
-  color: var(--color-text);
-  background: var(--landing-accent-soft);
-}
-
-.authButton {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--landing-on-accent);
-  background: var(--landing-accent);
-  text-decoration: none;
-  padding: 0.5625rem 1rem;
-  border-radius: var(--radius-md);
-  box-shadow: var(--button-primary-shadow);
-  transition: background 0.2s ease;
-  display: inline-flex;
-  align-items: center;
-}
-
-.authButton:hover {
-  background: var(--landing-accent-hover);
-}
-
 .main {
   flex: 1;
 }

@@ -367,7 +367,7 @@ export default function AdminSpendPage() {
   const headerRightSlot = user ? (
     <HeaderNav userName={user.name} userEmail={user.email} />
   ) : (
-    <ButtonLink to="/login" className={styles.authButton} variant="primary">Sign In</ButtonLink>
+    <ButtonLink to="/login" variant="primary">Sign In</ButtonLink>
   );
 
   return (

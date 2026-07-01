@@ -18,6 +18,16 @@ test('shared form action button hover stays flat', async ({ page }) => {
 test('public sign-in buttons do not lift on hover', async ({ page }) => {
   await page.setViewportSize({ width: 1180, height: 720 });
 
+  await mountComponent(page, 'PublicNav', {});
+  await expect(page.getByRole('link', { name: 'Pricing' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Docs' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Toggle theme' })).toBeVisible();
+  const publicNavSignIn = page.getByRole('link', { name: 'Sign in' });
+  await publicNavSignIn.hover();
+  await expect(publicNavSignIn).toHaveCSS('transform', 'none');
+  await expect(publicNavSignIn).toHaveCSS('box-shadow', 'none');
+  await screenshot(page, 'public-nav-flat-hover-chrome', { fullPage: true });
+
   await mountComponent(page, 'DocsPage', { slug: 'quickstart' });
   const docsSignIn = page.getByRole('link', { name: 'Sign In' });
   await docsSignIn.hover();
@@ -31,6 +41,17 @@ test('public sign-in buttons do not lift on hover', async ({ page }) => {
   await expect(profileSignIn).toHaveCSS('transform', 'none');
   await expect(profileSignIn).toHaveCSS('box-shadow', 'none');
   await screenshot(page, 'profile-sign-in-flat-hover-chrome', { fullPage: true });
+});
+
+test('public nav stays compact on narrow headers', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 180 });
+  await mountComponent(page, 'PublicNav', {});
+
+  await expect(page.getByRole('link', { name: 'Pricing' })).not.toBeVisible();
+  await expect(page.getByRole('link', { name: 'Docs' })).not.toBeVisible();
+  await expect(page.getByRole('button', { name: 'Toggle theme' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
+  await screenshot(page, 'public-nav-mobile-compact', { fullPage: true });
 });
 
 test('pricing page ctas do not lift on hover', async ({ page }) => {
