@@ -158,7 +158,7 @@ function formatVariantOrdinal(index: number | undefined, count: number) {
   if (typeof index === 'number' && index >= 0 && count > 0) {
     return `Variant ${index + 1}/${count}`;
   }
-  return 'Selected variant';
+  return 'Variant';
 }
 
 function formatSelectedVariant(variant: Variant | null, index: number | undefined, count: number) {
@@ -324,7 +324,7 @@ export function AssetCollectionsPanel({
             {selectedVariantCollectionMemberships.map((item) => (
               <div key={item.id} className={styles.collectionSummaryRow}>
                 <span className={styles.collectionSummaryName}>{getCollectionName(item.collection_id)}</span>
-                <span className={styles.collectionSummaryMeta}>Selected variant</span>
+                <span className={styles.collectionSummaryMeta}>Variant</span>
                 {item.role && <span className={styles.collectionSummaryMeta}>{item.role}</span>}
               </div>
             ))}
@@ -339,8 +339,8 @@ export function AssetCollectionsPanel({
   return (
     <section className={styles.collectionPanel} aria-label="Collection membership">
       <div className={styles.collectionPanelHeader}>
-        <span>Asset collections</span>
-        {assetCollectionMemberships.length > 0 && <span>{assetCollectionMemberships.length}</span>}
+        <span>Collections</span>
+        {totalMembershipCount > 0 && <span>{totalMembershipCount}</span>}
       </div>
       {assetCollectionMemberships.map((item) => {
         const collection = collections.find((entry) => entry.id === item.collection_id);
@@ -401,7 +401,7 @@ export function AssetCollectionsPanel({
                     setResolvedAssetPlacementOpen(false);
                   }}
               >
-                Add asset placement
+                Apply asset collections
               </Button>
             )}
             <Button
@@ -433,7 +433,7 @@ export function AssetCollectionsPanel({
       {selectedVariant && (
         <>
           <div className={styles.collectionPanelHeader}>
-            <span>Selected variant collections</span>
+            <span>Variant collections</span>
             {selectedVariantCollectionMemberships.length > 0 && <span>{selectedVariantCollectionMemberships.length}</span>}
           </div>
           {selectedVariantCollectionMemberships.map((item) => {
@@ -452,7 +452,7 @@ export function AssetCollectionsPanel({
                   size="sm"
                   variant="ghost"
                   className={`${styles.collectionRemoveAction} ${styles.variantCollectionRemoveButton}`}
-                  aria-label={`Remove ${collectionName} from selected variant collections`}
+                  aria-label={`Remove ${collectionName} from variant collections`}
                   title={`Remove ${collectionName}`}
                   onClick={() => onDeleteCollectionItem(item.collection_id, item.id)}
                 >
@@ -487,7 +487,7 @@ export function AssetCollectionsPanel({
                       setResolvedVariantPlacementOpen(false);
                     }}
                   >
-                    Add variant placement
+                    Apply variant collections
                   </Button>
                 )}
                 <Button
@@ -512,7 +512,7 @@ export function AssetCollectionsPanel({
             </div>
           ) : (
             <Button size="sm" className={styles.collectionPanelAction} onClick={() => setResolvedVariantPlacementOpen(true)}>
-              Add variant to collection
+              Add selected variant
             </Button>
           )}
         </>
@@ -546,12 +546,11 @@ export function AssetDetailsStrip({
   const dimensions = formatDimensions(selectedVariant);
   const duration = formatDuration(selectedVariant?.media_duration_ms);
   const collectionCount = assetCollectionCount + selectedVariantCollectionCount;
-  const mediaKindLabel = formatMediaKind(asset.media_kind);
   const variantScope = selectedVariant
     ? formatSelectedVariant(selectedVariant, selectedVariantIndex, variantCount)
     : `${formatVariantCount(variantCount)} · None`;
   const detailsActionText = 'Details';
-  const detailsActionLabel = `${fullDetailsOpen ? 'Hide' : 'Show'} ${mediaKindLabel.toLowerCase()} details`;
+  const detailsActionLabel = `${fullDetailsOpen ? 'Collapse' : 'Expand'} Details scope`;
 
   return (
     <section className={styles.assetDetailsStrip} aria-label="Details canvas scope">
