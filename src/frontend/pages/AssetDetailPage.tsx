@@ -1272,12 +1272,14 @@ export default function AssetDetailPage() {
       outputVariantId: selectedVariant.id,
     });
     setSelectedCompositionId(id);
+    setShowInspector(true);
     setShowCompositionPanel(true);
   }, [asset, canEdit, createComposition, selectedVariant]);
 
   const handleOpenComposition = useCallback((compositionId: string) => {
     requestSync();
     setSelectedCompositionId(compositionId);
+    setShowInspector(true);
     setShowCompositionPanel(true);
   }, [requestSync]);
 
@@ -1618,39 +1620,6 @@ export default function AssetDetailPage() {
         </div>
       )}
 
-      {showCompositionPanel && (
-        <div className={styles.compositionPanelContainer}>
-          <CompositionDetail
-            spaceId={spaceId}
-            compositions={compositions}
-            compositionItems={compositionItems}
-            assets={wsAssets}
-            variants={wsVariants}
-            lineage={wsLineage}
-            collections={collections}
-            collectionItems={collectionItems}
-            selectedCompositionId={selectedCompositionId}
-            canEdit={canEdit}
-            onSelectComposition={setSelectedCompositionId}
-            onCreateComposition={canEdit ? () => {
-              const id = createComposition({ name: `Composition ${compositions.length + 1}` });
-              setSelectedCompositionId(id);
-            } : undefined}
-            onUpdateComposition={updateComposition}
-            onDeleteComposition={(compositionId) => {
-              deleteComposition(compositionId);
-              setSelectedCompositionId((current) => current === compositionId ? null : current);
-            }}
-            onCreateItem={createCompositionItem}
-            onUpdateItem={updateCompositionItem}
-            onDeleteItem={deleteCompositionItem}
-            onReorderItems={reorderCompositionItems}
-            onOpenAsset={(nextAssetId) => navigate(`/spaces/${spaceId}/assets/${nextAssetId}`)}
-            onClose={() => setShowCompositionPanel(false)}
-          />
-        </div>
-      )}
-
       {/* Asset details + Forge Tray - persistent bottom controls */}
       <AssetGenerationDock
         details={(
@@ -1742,6 +1711,40 @@ export default function AssetDetailPage() {
               compositionItems={compositionItems}
               onOpenComposition={handleOpenComposition}
             />
+          )}
+
+          {showCompositionPanel && (
+            <div className={styles.compositionPanelContainer}>
+              <CompositionDetail
+                spaceId={spaceId}
+                layout="rail"
+                compositions={compositions}
+                compositionItems={compositionItems}
+                assets={wsAssets}
+                variants={wsVariants}
+                lineage={wsLineage}
+                collections={collections}
+                collectionItems={collectionItems}
+                selectedCompositionId={selectedCompositionId}
+                canEdit={canEdit}
+                onSelectComposition={setSelectedCompositionId}
+                onCreateComposition={canEdit ? () => {
+                  const id = createComposition({ name: `Composition ${compositions.length + 1}` });
+                  setSelectedCompositionId(id);
+                } : undefined}
+                onUpdateComposition={updateComposition}
+                onDeleteComposition={(compositionId) => {
+                  deleteComposition(compositionId);
+                  setSelectedCompositionId((current) => current === compositionId ? null : current);
+                }}
+                onCreateItem={createCompositionItem}
+                onUpdateItem={updateCompositionItem}
+                onDeleteItem={deleteCompositionItem}
+                onReorderItems={reorderCompositionItems}
+                onOpenAsset={(nextAssetId) => navigate(`/spaces/${spaceId}/assets/${nextAssetId}`)}
+                onClose={() => setShowCompositionPanel(false)}
+              />
+            </div>
           )}
 
           {relationSubjects.length > 0 && (
