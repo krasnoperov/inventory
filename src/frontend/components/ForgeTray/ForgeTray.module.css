@@ -488,6 +488,27 @@
   width: 5.125rem;
 }
 
+.selectVideoTier {
+  --ui-select-min-width: 6rem;
+  --ui-select-max-width: 6rem;
+
+  width: 6rem;
+}
+
+.selectVideoResolution {
+  --ui-select-min-width: 4.5rem;
+  --ui-select-max-width: 4.5rem;
+
+  width: 4.5rem;
+}
+
+.selectVideoDuration {
+  --ui-select-min-width: 3.75rem;
+  --ui-select-max-width: 3.75rem;
+
+  width: 3.75rem;
+}
+
 .selectStyle {
   --ui-select-min-width: 5.75rem;
   --ui-select-max-width: 6rem;

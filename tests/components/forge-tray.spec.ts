@@ -143,6 +143,14 @@ async function expectDropdownValue(page: import('@playwright/test').Page, label:
   await expect(page.getByLabel(label)).toContainText(valueText);
 }
 
+async function expectDropdownValueToFit(page: import('@playwright/test').Page, label: string) {
+  const trigger = page.getByLabel(label);
+  await expect.poll(async () => trigger.evaluate((node) => {
+    const value = node.querySelector('span');
+    return value ? value.scrollWidth <= value.clientWidth + 1 : false;
+  })).toBe(true);
+}
+
 async function expectDropdownOptionDisabled(page: import('@playwright/test').Page, label: string, optionName: string | RegExp) {
   await page.getByLabel(label).click();
   await expect(page.getByRole('option', { name: optionName })).toBeDisabled();
@@ -491,21 +499,29 @@ test('forge tray video mode exposes Veo options and audio default-on status', as
 
   await expect(page.getByLabel('Video resolution')).toBeVisible();
   await expectDropdownValue(page, 'Video resolution', '720p');
+  await expectDropdownValueToFit(page, 'Video resolution');
   await selectDropdown(page, 'Video resolution', '1080p');
   await expectDropdownValue(page, 'Video resolution', '1080p');
+  await expectDropdownValueToFit(page, 'Video resolution');
 
   await expect(page.getByLabel('Video duration')).toBeVisible();
   await selectDropdown(page, 'Video duration', '6s');
   await expectDropdownValue(page, 'Video duration', '6s');
+  await expectDropdownValueToFit(page, 'Video duration');
 
   await expect(page.getByLabel('Video tier')).toBeVisible();
+  await expectDropdownValueToFit(page, 'Video tier');
   await selectDropdown(page, 'Video tier', 'Fast');
   await expectDropdownValue(page, 'Video tier', 'Fast');
+  await expectDropdownValueToFit(page, 'Video tier');
   await selectDropdown(page, 'Video resolution', '4k');
   await expectDropdownValue(page, 'Video resolution', '4k');
+  await expectDropdownValueToFit(page, 'Video resolution');
   await selectDropdown(page, 'Video tier', 'Lite');
   await expectDropdownValue(page, 'Video tier', 'Lite');
+  await expectDropdownValueToFit(page, 'Video tier');
   await expectDropdownValue(page, 'Video resolution', '1080p');
+  await expectDropdownValueToFit(page, 'Video resolution');
   await expectDropdownOptionDisabled(page, 'Video resolution', '4k');
 
   await expect(page.getByLabel('Audio')).toHaveCount(0);
