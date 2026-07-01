@@ -135,6 +135,8 @@ test('composition detail creates compositions and sets an exact output variant',
   await expect(page.getByRole('complementary', { name: 'Composition detail' })).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(page.getByText('Composition Detail', { exact: true })).toHaveCSS('text-transform', 'none');
   await expect(page.getByText('Compositions', { exact: true })).toHaveCSS('text-transform', 'none');
+  await expect(page.getByText('New', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Create composition' })).toBeVisible();
   await expect(page.getByText('Add', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Delete', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add Output variant' })).toBeVisible();
@@ -144,7 +146,7 @@ test('composition detail creates compositions and sets an exact output variant',
 
   await screenshot(page, 'composition-detail-controls', { fullPage: true });
 
-  await page.getByRole('button', { name: 'New' }).click();
+  await page.getByRole('button', { name: 'Create composition' }).click();
   await expect.poll(() => calls(page)).toContain('create-composition');
   await page.getByRole('button', { name: 'Delete Scene Bar composition' }).click();
   await expect.poll(() => calls(page)).toContain('delete-composition:["composition-1"]');
