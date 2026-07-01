@@ -382,23 +382,23 @@ test('asset details strip makes video facts and details disclosure visible', asy
     variantCount: 3,
   });
 
-  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toHaveCSS('border-top-width', '1px');
-  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toHaveCSS('border-left-width', '0px');
-  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toHaveCSS('border-radius', '0px');
+  await expect(page.getByRole('region', { name: 'Details canvas scope', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Details canvas scope', exact: true })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.getByRole('region', { name: 'Details canvas scope', exact: true })).toHaveCSS('border-top-width', '1px');
+  await expect(page.getByRole('region', { name: 'Details canvas scope', exact: true })).toHaveCSS('border-left-width', '0px');
+  await expect(page.getByRole('region', { name: 'Details canvas scope', exact: true })).toHaveCSS('border-radius', '0px');
   await expect(page.getByText('Hero reveal video')).toBeVisible();
-  await expect(page.getByLabel('Asset scope')).toContainText('Scope');
+  await expect(page.getByLabel('Asset scope')).toContainText('Details');
   await expect(page.getByText('Asset', { exact: true })).toHaveCSS('text-transform', 'none');
-  await expect(page.getByLabel('Variant canvas scope')).toContainText('Variant canvas');
-  await expect(page.getByLabel('Variant canvas scope')).toContainText('3 variants');
+  await expect(page.getByLabel('Variants scope')).toContainText('Variants');
+  await expect(page.getByLabel('Variants scope')).toContainText('3 variants');
   await expect(page.getByText('Video', { exact: true })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Asset type' })).toBeVisible();
   await selectDropdown(page, 'Asset type', 'Environment');
   await expect(page.getByText('Video · Completed')).toBeVisible();
   await expect(page.getByText('1920x1080')).toBeVisible();
   await expect(page.getByText('8.0s')).toBeVisible();
-  const factsChrome = await page.getByRole('region', { name: 'Asset details', exact: true }).evaluate((node) => {
+  const factsChrome = await page.getByRole('region', { name: 'Details canvas scope', exact: true }).evaluate((node) => {
     const factCells = [...node.querySelectorAll('dl > div')];
     return factCells.map((cell) => getComputedStyle(cell).backgroundColor);
   });
@@ -439,12 +439,12 @@ test('asset details strip also exposes image facts without a hidden click target
     variantCount: 1,
   });
 
-  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Details canvas scope', exact: true })).toBeVisible();
   await expect(page.getByText('Hero portrait')).toBeVisible();
   await expect(page.getByText('Image', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('Variant canvas scope')).toContainText('1 variant');
-  await expect(page.getByLabel('Variant canvas scope')).toContainText('Image · Completed');
-  await expectNoOverlap(page.getByLabel('Variant canvas scope'), page.getByRole('button', { name: 'Hide image details' }));
+  await expect(page.getByLabel('Variants scope')).toContainText('1 variant');
+  await expect(page.getByLabel('Variants scope')).toContainText('Image · Completed');
+  await expectNoOverlap(page.getByLabel('Variants scope'), page.getByRole('button', { name: 'Hide image details' }));
   await expect(page.getByText('Character')).toBeVisible();
   await expect(page.getByText('Image · Completed')).toBeVisible();
   await expect(page.getByText('1024x1024')).toBeVisible();
@@ -469,12 +469,12 @@ test('asset details strip keeps variant focus visible without a selected variant
     variantCount: 2,
   });
 
-  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Details canvas scope', exact: true })).toBeVisible();
   await expect(page.getByText('Unselected detail')).toBeVisible();
-  await expect(page.getByLabel('Variant canvas scope')).toContainText('2 variants');
-  await expect(page.getByLabel('Variant canvas scope')).toContainText('None');
+  await expect(page.getByLabel('Variants scope')).toContainText('2 variants');
+  await expect(page.getByLabel('Variants scope')).toContainText('None');
   await expectNoOverlap(page.getByLabel('Asset scope'), page.getByRole('button', { name: 'Show image details' }));
-  await expectNoOverlap(page.getByLabel('Variant canvas scope'), page.getByRole('button', { name: 'Show image details' }));
+  await expectNoOverlap(page.getByLabel('Variants scope'), page.getByRole('button', { name: 'Show image details' }));
   await screenshot(page, 'asset-details-strip-no-variant', { fullPage: true });
 });
 
@@ -503,8 +503,8 @@ test('asset details strip names audio details explicitly', async ({ page }) => {
 
   await expect(page.getByText('Narration pass')).toBeVisible();
   await expect(page.getByText('Audio', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('Variant canvas scope')).toContainText('1 variant');
-  await expect(page.getByLabel('Variant canvas scope')).toContainText('Audio · Completed');
+  await expect(page.getByLabel('Variants scope')).toContainText('1 variant');
+  await expect(page.getByLabel('Variants scope')).toContainText('Audio · Completed');
   await expect(page.getByText('Audio · Completed')).toBeVisible();
   await expect(page.getByText('42s')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Hide audio details' })).toBeVisible();
@@ -526,7 +526,7 @@ test('asset details dock renders the real expanded stack above ForgeTray', async
   });
 
   await expect(page.getByRole('region', { name: 'Asset generation controls' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Details canvas scope', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Hide image details' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Expanded asset details' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Collection membership' })).toBeVisible();
@@ -558,7 +558,7 @@ test('asset details dock renders the real expanded stack above ForgeTray', async
   await expect(embeddedTray).toHaveCSS('border-radius', '8px');
 
   const detailsBeforePrompt = await page.evaluate(() => {
-    const details = document.querySelector('[aria-label="Asset details"]');
+    const details = document.querySelector('[aria-label="Details canvas scope"]');
     const prompt = document.querySelector('[aria-label="Prompt"]');
     return Boolean(details && prompt && details.compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_FOLLOWING);
   });
@@ -605,7 +605,7 @@ test('asset details dock keeps the real expanded stack usable on mobile', async 
   });
 
   await expect(page.getByRole('region', { name: 'Asset generation controls' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Asset details', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Details canvas scope', exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Collection membership' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Manual relations' })).toBeVisible();
@@ -633,8 +633,9 @@ test('asset detail overlays use flat chrome', async ({ page }) => {
   await page.setViewportSize({ width: 760, height: 460 });
   await mountComponent(page, 'AssetDetailOverlayChrome', {});
 
-  await expect(page.getByRole('toolbar', { name: 'Asset detail controls' })).toContainText('Details');
-  await expect(page.getByRole('toolbar', { name: 'Asset detail controls' })).toContainText('Crystal Gate');
+  await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('Details');
+  await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('Asset');
+  await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('Crystal Gate');
   await expect(page.getByRole('region', { name: 'Tile grid overlay' })).toHaveCSS('box-shadow', 'none');
   const generationJobs = page.getByRole('region', { name: 'Generation jobs' });
   await expect(generationJobs.locator('[class*="jobCard"]')).toHaveCSS('box-shadow', 'none');

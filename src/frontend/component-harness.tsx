@@ -530,7 +530,7 @@ function AssetDetailOverlayChromePreview() {
   return (
     <div style={{ position: 'relative', width: '720px', height: '420px', padding: '1rem', background: 'var(--color-bg)' }}>
       <div className={assetDetailStyles.assetOverlay}>
-        <CanvasToolbar ariaLabel="Asset detail controls" className={assetDetailStyles.detailToolbar}>
+        <CanvasToolbar ariaLabel="Scoped asset canvas controls" className={assetDetailStyles.detailToolbar}>
           <CanvasToolbarLink to="/spaces/space-1" title="Back to space">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M19 12H5" />
@@ -542,6 +542,9 @@ function AssetDetailOverlayChromePreview() {
           </CanvasToolbarTitle>
           <CanvasToolbarBadge tone="neutral">
             Details
+          </CanvasToolbarBadge>
+          <CanvasToolbarBadge tone="neutral" className={assetDetailStyles.assetScopeBadge}>
+            Asset
           </CanvasToolbarBadge>
         </CanvasToolbar>
       </div>

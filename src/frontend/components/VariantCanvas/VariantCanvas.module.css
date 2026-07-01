@@ -3,7 +3,9 @@
 .canvas {
   width: 100%;
   height: 100%;
-  background: var(--color-bg);
+  background:
+    radial-gradient(circle at 1px 1px, oklch(100% 0 0 / 0.08) 1px, transparent 0) 0 0 / 32px 32px,
+    var(--color-bg);
 }
 
 /* Hide canvas until dimensions are ready to prevent blink */
@@ -57,7 +59,9 @@
   justify-content: center;
   text-align: center;
   padding: 2rem;
-  background: var(--color-bg);
+  background:
+    radial-gradient(circle at 1px 1px, oklch(100% 0 0 / 0.08) 1px, transparent 0) 0 0 / 32px 32px,
+    var(--color-bg);
 }
 
 .emptyMark {

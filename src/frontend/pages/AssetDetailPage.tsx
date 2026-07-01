@@ -539,10 +539,10 @@ export function AssetDetailsStrip({
   const detailsActionLabel = `${fullDetailsOpen ? 'Hide' : 'Show'} ${mediaKindLabel.toLowerCase()} details`;
 
   return (
-    <section className={styles.assetDetailsStrip} aria-label="Asset details">
+    <section className={styles.assetDetailsStrip} aria-label="Details canvas scope">
       <div className={styles.assetDetailsIdentity} aria-label="Asset scope">
         <div className={styles.assetDetailsEyebrow}>
-          <span>Scope</span>
+          <span>Details</span>
           <span>Asset</span>
           <span>{formatMediaKind(asset.media_kind)}</span>
         </div>
@@ -551,8 +551,8 @@ export function AssetDetailsStrip({
         </div>
       </div>
 
-      <div className={styles.variantFocus} aria-label="Variant canvas scope">
-        <span className={styles.variantFocusLabel}>Variant canvas</span>
+      <div className={styles.variantFocus} aria-label="Variants scope">
+        <span className={styles.variantFocusLabel}>Variants</span>
         <span className={styles.variantFocusValue}>{variantScope}</span>
       </div>
 
@@ -1301,6 +1301,7 @@ export default function AssetDetailPage() {
         {/* Variant Canvas - fills entire container */}
         <VariantCanvas
           spaceId={spaceId}
+          canvasLabel="Details canvas"
           asset={asset}
           variants={variants}
           lineage={lineage}
@@ -1346,7 +1347,7 @@ export default function AssetDetailPage() {
 
         {/* Asset info overlay - top left */}
         <div className={styles.assetOverlay}>
-          <CanvasToolbar ariaLabel="Asset detail controls" className={styles.detailToolbar}>
+          <CanvasToolbar ariaLabel="Scoped asset canvas controls" className={styles.detailToolbar}>
             <CanvasToolbarLink to={`/spaces/${spaceId}`} title="Back to space">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M19 12H5" />
@@ -1366,6 +1367,9 @@ export default function AssetDetailPage() {
             </CanvasToolbarTitle>
             <CanvasToolbarBadge tone="neutral">
               Details
+            </CanvasToolbarBadge>
+            <CanvasToolbarBadge tone="neutral" className={styles.assetScopeBadge}>
+              Asset
             </CanvasToolbarBadge>
             {wsStatus === 'connected' && (
               <CanvasToolbarGroup>
