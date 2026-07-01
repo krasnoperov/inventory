@@ -4,7 +4,7 @@
   display: grid;
   gap: 0.125rem;
   min-width: 180px;
-  max-width: min(18rem, calc(100vw - 1rem));
+  max-width: min(22rem, calc(100vw - 1rem));
   padding: 0.25rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -35,9 +35,10 @@
   color: var(--color-text);
   font-size: var(--font-size-micro);
   font-weight: 650;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .assetMeta {
@@ -59,14 +60,17 @@
 }
 
 .action {
-  --ui-button-height: 1.875rem;
+  --ui-button-height: auto;
   --ui-button-pad-x: 0.5rem;
   --ui-button-font-size: var(--font-size-micro);
 
   display: grid;
   grid-template-columns: 1rem minmax(0, 1fr);
+  align-items: start;
   gap: 0.5rem;
   width: 100%;
+  min-height: 1.875rem;
+  padding-block: 0.375rem;
   border: none;
   border-radius: var(--radius-sm);
   color: var(--color-text);
@@ -108,7 +112,8 @@
 .actionLabel {
   min-width: 0;
   color: currentColor;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }

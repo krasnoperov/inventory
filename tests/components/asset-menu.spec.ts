@@ -56,6 +56,42 @@ test('asset context menu actions use shared button styling', async ({ page }) =>
     .toEqual(['rename', 'close']);
 });
 
+test('asset context menu keeps long identity text readable without ellipsis', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 320 });
+  await mountComponent(page, 'AssetMenu', {
+    asset: {
+      id: 'asset-1',
+      name: 'Crystal Gate With A Very Long Production Name For Review',
+      type: 'environment-prop',
+      media_kind: 'image',
+      tags: '',
+      parent_asset_id: null,
+      active_variant_id: 'variant-1',
+      created_by: 'user-1',
+      created_at: 1_700_000_000_000,
+      updated_at: 1_700_000_000_000,
+    },
+    position: { x: 24, y: 24 },
+    onClose: '__record__:close',
+    onRename: '__record__:rename',
+    onCreateRelation: '__record__:relation',
+    onDelete: '__record__:delete',
+  });
+
+  await expect(page.getByRole('menu', { name: /Crystal Gate With A Very Long Production Name/ })).toBeVisible();
+  const menuBox = await page.getByRole('menu', { name: /Crystal Gate With A Very Long Production Name/ }).boundingBox();
+  expect(menuBox).not.toBeNull();
+  expect(menuBox!.x).toBeGreaterThanOrEqual(8);
+  expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(352);
+  const assetName = page.locator('[class*="assetName"]').first();
+  await expect(assetName).toHaveCSS('white-space', 'normal');
+  await expect(assetName).toHaveCSS('text-overflow', 'clip');
+  await expect.poll(async () => (await assetName.boundingBox())?.height ?? 0).toBeGreaterThan(14);
+  await expect(page.locator('[class*="actionLabel"]').first()).toHaveCSS('white-space', 'normal');
+  await expect(page.locator('[class*="actionLabel"]').first()).toHaveCSS('text-overflow', 'clip');
+  await screenshot(page, 'asset-menu-long-readable-name', { fullPage: true });
+});
+
 test('asset context menu keeps dismiss behavior', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 260 });
   await mountComponent(page, 'AssetMenu', {

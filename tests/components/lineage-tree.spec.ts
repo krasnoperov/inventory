@@ -25,7 +25,7 @@ async function mockLineageGraph(page: Page) {
           image_key: 'images/space/map-variant.png',
           thumb_key: 'images/space/map-variant_thumb.webp',
           created_at: 1_700_000_000_000,
-          asset_name: 'Map Reference',
+          asset_name: 'Map Reference With A Long Readable Source Name',
           asset_type: 'reference',
         },
         {
@@ -34,7 +34,7 @@ async function mockLineageGraph(page: Page) {
           image_key: 'images/space/hero-variant.png',
           thumb_key: 'images/space/hero-variant_thumb.webp',
           created_at: 1_700_000_001_000,
-          asset_name: 'Hero Asset',
+          asset_name: 'Hero Asset With A Long Readable Current Name',
           asset_type: 'character',
         },
         {
@@ -43,7 +43,7 @@ async function mockLineageGraph(page: Page) {
           image_key: 'images/space/atlas-variant.png',
           thumb_key: 'images/space/atlas-variant_thumb.webp',
           created_at: 1_700_000_002_000,
-          asset_name: 'Atlas Output',
+          asset_name: 'Atlas Output With A Long Readable Child Name',
           asset_type: 'prop',
         },
       ],
@@ -146,6 +146,10 @@ test('lineage tree uses shared controls for graph toggle and sever actions', asy
     'border-color',
     await resolvedColor(page, 'var(--color-primary)'),
   );
+  const graphNodeLabel = page.locator('[class*="graphNodeLabel"]').first();
+  await expect(graphNodeLabel).toHaveCSS('white-space', 'normal');
+  await expect(graphNodeLabel).toHaveCSS('text-overflow', 'clip');
+  await expect.poll(async () => (await graphNodeLabel.boundingBox())?.height ?? 0).toBeGreaterThan(12);
   await currentGraphNode.hover();
   await expect(currentGraphNode).toHaveCSS('transform', 'none');
 

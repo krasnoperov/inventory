@@ -76,7 +76,7 @@ async function resolvedColor(page: import('@playwright/test').Page, value: strin
 test('hyperbolic canvas uses tokenized node surfaces', async ({ page }) => {
   await mockMedia(page);
   const assets = [
-    asset('hero', 'Hero Character'),
+    asset('hero', 'Hero Character With A Long Readable Name'),
     asset('atlas', 'Atlas Sheet', 'sprite-sheet'),
     asset('map', 'Map Source', 'reference'),
     asset('scene', 'Scene Bar', 'scene'),
@@ -91,7 +91,11 @@ test('hyperbolic canvas uses tokenized node surfaces', async ({ page }) => {
   await sizeHarness(page);
 
   await expect(page.getByText('Drag to pan')).toBeVisible();
-  await expect(page.getByText('Hero Character')).toBeVisible();
+  await expect(page.getByText('Hero Character With A Long Readable Name')).toBeVisible();
+  const longName = page.getByText('Hero Character With A Long Readable Name');
+  await expect(longName).toHaveCSS('white-space', 'normal');
+  await expect(longName).toHaveCSS('text-overflow', 'clip');
+  await expect.poll(async () => (await longName.boundingBox())?.height ?? 0).toBeGreaterThan(15);
   await expect(page.locator('[class*="thumb"]').first()).toHaveCSS(
     'box-shadow',
     'none',
