@@ -168,7 +168,7 @@ export default function SpaceAccessRequestPage({ spaceId }: { spaceId: string })
   const headerRightSlot = user ? (
     <HeaderNav userName={user.name} userEmail={user.email} />
   ) : (
-    <ButtonLink to="/login" className={styles.headerAction}>Sign in</ButtonLink>
+    <ButtonLink to="/login" variant="primary">Sign in</ButtonLink>
   );
 
   const fallbackAccess = useMemo<SpaceAccessState>(() => ({

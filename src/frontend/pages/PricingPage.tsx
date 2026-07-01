@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
 import { Link } from '../components/Link';
-import { PublicThemeToggle, type PublicThemeScheme } from '../components/PublicThemeToggle';
+import { PublicNav } from '../components/PublicNav';
+import type { PublicThemeScheme } from '../components/PublicThemeToggle';
 import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import styles from './PricingPage.module.css';
@@ -75,23 +76,6 @@ const COMPARE_ROWS = [
   ['Best for', 'Teams that want hosted generation ready immediately', 'Teams with existing provider contracts or credits'],
 ] as const;
 
-function PublicNav({
-  scheme,
-  onToggleScheme,
-}: {
-  scheme: ColorScheme;
-  onToggleScheme: () => void;
-}) {
-  return (
-    <nav className={styles.nav} aria-label="Public navigation">
-      <Link to="/" className={styles.navLink}>Home</Link>
-      <Link to="/docs/quickstart" className={styles.navLink}>Docs</Link>
-      <PublicThemeToggle scheme={scheme} onToggle={onToggleScheme} />
-      <Link to="/login" className={styles.authButton}>Sign in</Link>
-    </nav>
-  );
-}
-
 export default function PricingPage() {
   const { user } = useAuth();
   const [scheme, setScheme] = useState<ColorScheme>('dark');
@@ -112,6 +96,10 @@ export default function PricingPage() {
             <HeaderNav userName={user.name} userEmail={user.email} />
           ) : (
             <PublicNav
+              links={[
+                { to: '/', label: 'Home' },
+                { to: '/docs/quickstart', label: 'Docs' },
+              ]}
               scheme={scheme}
               onToggleScheme={() => setScheme((current) => (current === 'dark' ? 'light' : 'dark'))}
             />

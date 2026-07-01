@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { AppHeader } from '../components/AppHeader';
 import { HeaderNav } from '../components/HeaderNav';
-import { PublicThemeToggle } from '../components/PublicThemeToggle';
+import { PublicNav } from '../components/PublicNav';
 import { ErrorMessage } from '../components/forms';
 import { apiFetch } from '../../api/client';
 import type { Space } from '../../api/types';
@@ -580,15 +580,14 @@ export default function LandingPage() {
           user ? (
             <HeaderNav userName={user.name} userEmail={user.email} />
           ) : (
-            <nav className={styles.nav} aria-label="Public navigation">
-              <Link to="/pricing" className={styles.navLink}>Pricing</Link>
-              <Link to="/docs/quickstart" className={styles.navLink}>Docs</Link>
-              <PublicThemeToggle
-                scheme={scheme}
-                onToggle={() => setScheme((s) => (s === 'dark' ? 'light' : 'dark'))}
-              />
-              <Link to="/login" className={styles.authButton}>Sign in</Link>
-            </nav>
+            <PublicNav
+              links={[
+                { to: '/pricing', label: 'Pricing' },
+                { to: '/docs/quickstart', label: 'Docs' },
+              ]}
+              scheme={scheme}
+              onToggleScheme={() => setScheme((s) => (s === 'dark' ? 'light' : 'dark'))}
+            />
           )
         }
       />

@@ -15,6 +15,7 @@ import { FormContainer, FormTitle } from './components/forms';
 import { ImageLightbox } from './components/ImageLightbox';
 import { LineageTree } from './components/LineageTree';
 import { Pagination } from './components/Pagination';
+import { PublicNav } from './components/PublicNav';
 import { PublicThemeToggle } from './components/PublicThemeToggle';
 import { RelationEditorDialog, RelationsPanel } from './components/RelationsPanel';
 import { RelationsCanvas } from './components/RelationsCanvas/RelationsCanvas';
@@ -809,6 +810,21 @@ function PricingPagePreview() {
   );
 }
 
+function PublicNavPreview() {
+  return (
+    <div className={landingStyles.page} style={{ colorScheme: 'dark', minHeight: 'auto', padding: '1.5rem' }}>
+      <PublicNav
+        links={[
+          { to: '/pricing', label: 'Pricing' },
+          { to: '/docs/quickstart', label: 'Docs' },
+        ]}
+        scheme="dark"
+        onToggleScheme={() => undefined}
+      />
+    </div>
+  );
+}
+
 function LandingCardHoverChromePreview() {
   return (
     <div className={landingStyles.page} style={{ colorScheme: 'dark' }}>
@@ -976,6 +992,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   PricingPage: PricingPagePreview,
   ProfileBillingActions: ProfileBillingActionsHarness,
   ProfileSignInButton: ProfileSignInButtonPreview,
+  PublicNav: PublicNavPreview,
   PublicThemeToggle: PublicThemeToggle as unknown as ComponentType<Record<string, unknown>>,
   ProductionControls: ProductionControlsHarness,
   ProductionHandoffControls: ProductionHandoffHarness,
