@@ -4,6 +4,8 @@ export { Checkbox } from './Checkbox';
 export type { CheckboxProps } from './Checkbox';
 export { ColorInput } from './ColorInput';
 export type { ColorInputProps } from './ColorInput';
+export { UiMenu } from './Menu';
+export type { MenuItem, UiMenuProps } from './Menu';
 export { UiSelect } from './Select';
 export type { SelectOption, UiSelectProps } from './Select';
 export { TextArea, TextInput } from './TextField';
