@@ -94,6 +94,8 @@ test('relation dialog creates a manual relation with searchable variant target',
   await expect(page.locator('[class*="dialogOverlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.locator('[class*="_dialog_"]').first()).toHaveCSS('box-shadow', 'none');
   await expect(page.locator('[class*="_dialog_"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(page.locator('[class*="subjectLine"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('[class*="subjectLine"]')).toHaveCSS('border-radius', '0px');
   await expect(page.getByLabel('Label')).toHaveCount(0);
   await expect(page.getByLabel('Context')).toHaveCount(0);
   await expect(page.getByLabel('Notes')).toHaveCount(0);
