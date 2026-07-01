@@ -110,6 +110,23 @@ async function resolvedColor(page: import('@playwright/test').Page, value: strin
   }, value);
 }
 
+async function expectNoOverlap(
+  first: import('@playwright/test').Locator,
+  second: import('@playwright/test').Locator,
+) {
+  await expect.poll(async () => {
+    const firstBox = await first.boundingBox();
+    const secondBox = await second.boundingBox();
+    if (!firstBox || !secondBox) return false;
+    return !(
+      firstBox.x + firstBox.width <= secondBox.x ||
+      secondBox.x + secondBox.width <= firstBox.x ||
+      firstBox.y + firstBox.height <= secondBox.y ||
+      secondBox.y + secondBox.height <= firstBox.y
+    );
+  }).toBe(false);
+}
+
 test('audio asset card surfaces playback, model, voice, and prompt', async ({ page }) => {
   await page.setViewportSize({ width: 420, height: 560 });
   await mountComponent(page, 'AssetCard', {
@@ -198,4 +215,30 @@ test('asset card add action uses shared icon button outside media', async ({ pag
   );
   await expect(page.getByRole('button', { name: 'View' })).toHaveCount(0);
   await screenshot(page, 'asset-card-shared-actions', { fullPage: true });
+});
+
+test('asset card shows confirmed Forge Tray state without a media overlay', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 380 });
+  await mockMedia(page);
+  await mountComponent(page, 'AssetCard', {
+    asset: imageAsset,
+    variants: [imageVariant],
+    spaceId: 'space-1',
+    isInForgeTray: true,
+    onAssetClick: '__record__:open',
+    onAddToTray: '__record__:tray',
+  });
+
+  const inTray = page.getByRole('button', { name: 'In Forge Tray' });
+  await expect(inTray).toBeVisible();
+  await expect(inTray).toBeDisabled();
+  await expect(inTray).toHaveCSS('color', await resolvedColor(page, 'var(--color-success)'));
+  await expect(inTray.locator('svg')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add to Forge Tray' })).toHaveCount(0);
+  await expectNoOverlap(inTray, page.getByRole('button', { name: 'Open Crystal Gate' }));
+  await screenshot(page, 'asset-card-in-forge-tray', { fullPage: true });
+
+  await inTray.click({ force: true });
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls).toEqual([]);
 });

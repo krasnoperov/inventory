@@ -51,6 +51,17 @@ async function expectNoOverlap(
   }).toBe(false);
 }
 
+async function resolvedColor(page: import('@playwright/test').Page, value: string) {
+  return page.evaluate((colorValue) => {
+    const probe = document.createElement('div');
+    probe.style.color = colorValue;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).color;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
 // Small fixture so props fit in the harness URL: two collections + one unfiled.
 const assets = [
   asset('a0', 'Hero'), asset('a1', 'Tree'), asset('a2', 'Banner'),
@@ -242,6 +253,33 @@ test('space canvas frame card triggers open assets without changing media chrome
   expect((calls[0].args[1] as { id: string }).id).toBe('a0');
   expect((calls[1].args[0] as { id: string }).id).toBe('a0');
   expect((calls[2].args[0] as { id: string }).id).toBe('a0');
+});
+
+test('space canvas confirms when an asset is already in Forge Tray', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await mountComponent(page, 'SpaceCanvas', {
+    spaceId: 'space-1',
+    assets, variants, collections, collectionItems,
+    lineage: [],
+    isInitialSyncPending: false,
+    onAssetClick: '__record__:assetClick',
+    onAddToTray: '__record__:addToTray',
+    isVariantInForgeTray: '__variantInForgeTray__:a0-v',
+  });
+
+  const thumbnailTrigger = page.locator('button[class*="thumbnailButton"][title="Hero"]').first();
+  const inTrayTrigger = page.getByRole('button', { name: 'Hero is in Forge Tray' });
+  await expect(inTrayTrigger).toBeVisible();
+  await expect(inTrayTrigger).toBeDisabled();
+  await expect(inTrayTrigger).toHaveCSS('color', await resolvedColor(page, 'var(--color-success)'));
+  await expect(inTrayTrigger.locator('svg')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add Hero to Forge Tray' })).toHaveCount(0);
+  await expectNoOverlap(inTrayTrigger, thumbnailTrigger);
+  await screenshot(page, 'space-canvas-frame-card-in-tray', { fullPage: true });
+
+  await inTrayTrigger.click({ force: true });
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls).toEqual([]);
 });
 
 test('re-measures edge endpoints when cards reorder within a frame', async ({ page }) => {

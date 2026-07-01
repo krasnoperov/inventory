@@ -609,3 +609,61 @@ test('collection create panel stacks cleanly on narrow screens', async ({ page }
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
   expect(calls.some((call) => call.eventName === 'createCollection')).toBe(true);
 });
+
+test('space board exposes direct Forge Tray state without opening an empty card menu', async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 520 });
+  await mountComponent(page, 'SpaceBoard', {
+    spaceId: 'space-1',
+    assets: [asset('hero', 'Hero sprite')],
+    variants: [readyVariant('hero')],
+    collections: [],
+    collectionItems: [],
+    canEdit: false,
+    onAssetClick: '__noop__',
+    onAddToTray: '__record__:addToTray',
+    createCollection: '__noop__',
+    updateCollection: '__noop__',
+    deleteCollection: '__noop__',
+    addCollectionItem: '__noop__',
+    updateCollectionItem: '__noop__',
+    reorderCollectionItems: '__noop__',
+    deleteCollectionItem: '__noop__',
+  });
+
+  const addToTray = page.getByRole('button', { name: 'Add Hero sprite to Forge Tray' });
+  await expect(addToTray).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Actions for Hero sprite' })).toHaveCount(0);
+  await addToTray.click();
+  let calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls.map((call) => call.eventName)).toEqual(['addToTray']);
+
+  await mountComponent(page, 'SpaceBoard', {
+    spaceId: 'space-1',
+    assets: [asset('hero', 'Hero sprite')],
+    variants: [readyVariant('hero')],
+    collections: [],
+    collectionItems: [],
+    canEdit: false,
+    onAssetClick: '__noop__',
+    onAddToTray: '__record__:addToTray',
+    isVariantInForgeTray: '__variantInForgeTray__:hero-v',
+    createCollection: '__noop__',
+    updateCollection: '__noop__',
+    deleteCollection: '__noop__',
+    addCollectionItem: '__noop__',
+    updateCollectionItem: '__noop__',
+    reorderCollectionItems: '__noop__',
+    deleteCollectionItem: '__noop__',
+  });
+
+  const inTray = page.getByRole('button', { name: 'Hero sprite is in Forge Tray' });
+  await expect(inTray).toBeVisible();
+  await expect(inTray).toBeDisabled();
+  await expect(inTray).toHaveCSS('color', await resolvedBackground(page, 'var(--color-success)'));
+  await expect(page.getByRole('button', { name: 'Add Hero sprite to Forge Tray' })).toHaveCount(0);
+  await screenshot(page, 'space-board-direct-forge-tray-state', { fullPage: true });
+
+  await inTray.click({ force: true });
+  calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls).toEqual([]);
+});

@@ -15,6 +15,7 @@ export interface AssetCardProps {
   generatingStatus?: 'pending' | 'processing';
   canEdit?: boolean;
   spaceId: string;
+  isInForgeTray?: boolean;
   onAssetClick?: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   onRenameAsset?: (asset: Asset) => void;
@@ -28,6 +29,7 @@ export function AssetCard(props: AssetCardProps) {
     variants,
     spaceId,
     depth = 0,
+    isInForgeTray = false,
     isGenerating: _isGenerating = false, // eslint-disable-line @typescript-eslint/no-unused-vars
     generatingStatus: _generatingStatus, // eslint-disable-line @typescript-eslint/no-unused-vars
     onAssetClick,
@@ -55,10 +57,10 @@ export function AssetCard(props: AssetCardProps) {
   // Handle Add to Tray button click
   const handleAddToTray = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (primaryVariant && isVariantForgeTrayReady(primaryVariant)) {
+    if (!isInForgeTray && primaryVariant && isVariantForgeTrayReady(primaryVariant)) {
       onAddToTray?.(primaryVariant, asset);
     }
-  }, [primaryVariant, asset, onAddToTray]);
+  }, [primaryVariant, asset, isInForgeTray, onAddToTray]);
 
   // Handle context menu (right-click)
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -172,15 +174,22 @@ export function AssetCard(props: AssetCardProps) {
         </div>
         {onAddToTray && primaryVariant && isVariantForgeTrayReady(primaryVariant) && (
           <IconButton
-            className={styles.addButton}
+            className={`${styles.addButton} ${isInForgeTray ? styles.addButtonAdded : ''}`}
             onClick={handleAddToTray}
-            title="Add to Forge Tray"
-            aria-label="Add to Forge Tray"
+            disabled={isInForgeTray}
+            title={isInForgeTray ? 'In Forge Tray' : 'Add to Forge Tray'}
+            aria-label={isInForgeTray ? 'In Forge Tray' : 'Add to Forge Tray'}
             variant="ghost"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-              <path d="M12 5v14" />
-              <path d="M5 12h14" />
+              {isInForgeTray ? (
+                <path d="m5 12 4 4L19 6" />
+              ) : (
+                <>
+                  <path d="M12 5v14" />
+                  <path d="M5 12h14" />
+                </>
+              )}
             </svg>
           </IconButton>
         )}

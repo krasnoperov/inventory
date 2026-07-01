@@ -43,6 +43,7 @@ interface SpaceBoardProps {
   isInitialSyncPending?: boolean;
   onAssetClick: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
+  isVariantInForgeTray?: (variantId: string) => boolean;
   onRegenerateVariant?: (variant: Variant) => void;
   onCreateRelation?: (subject: SpaceSubject) => void;
   /** Compositions available as post-generation placement targets */
@@ -103,6 +104,7 @@ export function SpaceBoard({
   isInitialSyncPending,
   onAssetClick,
   onAddToTray,
+  isVariantInForgeTray,
   onRegenerateVariant,
   onCreateRelation,
   compositions = [],
@@ -280,8 +282,36 @@ export function SpaceBoard({
     const audioFacts = [audioMetadata.name, audioMetadata.model, audioMetadata.voice].filter(
       (fact): fact is string => Boolean(fact),
     );
+    const isInForgeTray = Boolean(displayVariant && isVariantInForgeTray?.(displayVariant.id));
+    const forgeTrayLabel = isInForgeTray ? `${asset.name} is in Forge Tray` : `Add ${asset.name} to Forge Tray`;
     const showAudioSummary = isAudioCard;
-    const showCardActions = canEdit || onAddToTray || onCreateRelation || onPlaceInComposition;
+    const showCardMenuActions =
+      canEdit ||
+      onCreateRelation ||
+      onPlaceInComposition ||
+      Boolean(onRegenerateVariant && displayVariant && isVariantAudioReady(displayVariant));
+    const forgeTrayAction = onAddToTray && displayVariant && isVariantForgeTrayReady(displayVariant) ? (
+      <IconButton
+        className={`${styles.cardTrayButton} ${isInForgeTray ? styles.cardTrayButtonAdded : ''}`}
+        disabled={isInForgeTray}
+        onClick={() => onAddToTray(displayVariant, asset)}
+        title={forgeTrayLabel}
+        aria-label={forgeTrayLabel}
+        variant="ghost"
+        size="sm"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          {isInForgeTray ? (
+            <path d="m5 12 4 4L19 6" />
+          ) : (
+            <>
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </>
+          )}
+        </svg>
+      </IconButton>
+    ) : null;
     const thumbnail = (
       <Thumbnail
         variant={displayVariant}
@@ -291,7 +321,7 @@ export function SpaceBoard({
         showAudioControls={isAudioCard}
       />
     );
-    const cardActionTrigger = showCardActions ? (
+    const cardActionTrigger = showCardMenuActions ? (
       <div className={`${styles.cardMenu} ${isCardMenuOpen ? styles.cardMenuOpen : ''}`} data-space-board-panel-root>
         <IconButton
           className={styles.cardMenuTrigger}
@@ -329,6 +359,7 @@ export function SpaceBoard({
               <Button className={styles.assetName} onClick={() => onAssetClick(asset)} variant="ghost" size="sm">
                 {asset.name}
               </Button>
+              {forgeTrayAction}
               {cardActionTrigger}
             </div>
             <div className={styles.assetMeta}>
@@ -343,6 +374,7 @@ export function SpaceBoard({
               <Button className={styles.audioAssetName} onClick={() => onAssetClick(asset)} variant="ghost" size="sm">
                 {asset.name}
               </Button>
+              {forgeTrayAction}
               {cardActionTrigger}
             </div>
             <div className={styles.audioAssetMeta}>
@@ -377,16 +409,11 @@ export function SpaceBoard({
             )}
           </div>
         )}
-        {showCardActions && isCardMenuOpen && (
+        {showCardMenuActions && isCardMenuOpen && (
           <div
             className={styles.cardMenuPanel}
             data-space-board-panel-root
           >
-            {onAddToTray && displayVariant && isVariantForgeTrayReady(displayVariant) && (
-              <Button className={styles.menuButton} onClick={() => onAddToTray(displayVariant, asset)}>
-                Add to Forge Tray
-              </Button>
-            )}
             {onRegenerateVariant && displayVariant && isVariantAudioReady(displayVariant) && (
               <Button className={styles.menuButton} onClick={() => onRegenerateVariant(displayVariant)}>
                 Regenerate audio
