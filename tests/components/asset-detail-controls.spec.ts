@@ -125,6 +125,21 @@ async function expectNoOverlap(
   }).toBe(false);
 }
 
+async function visibleHeightInViewport(locator: import('@playwright/test').Locator) {
+  return locator.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    return Math.max(0, Math.min(window.innerHeight, box.bottom) - Math.max(0, box.top));
+  });
+}
+
+async function visibleRatioInViewport(locator: import('@playwright/test').Locator) {
+  return locator.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const visibleHeight = Math.max(0, Math.min(window.innerHeight, box.bottom) - Math.max(0, box.top));
+    return box.height > 0 ? visibleHeight / box.height : 0;
+  });
+}
+
 test('asset detail title rename uses shared inline field', async ({ page }) => {
   await page.setViewportSize({ width: 520, height: 180 });
   await mountComponent(page, 'AssetTitleInlineEditor', {
@@ -553,6 +568,8 @@ test('asset details dock renders the real expanded stack above ForgeTray', async
   });
   expect(dockGap).not.toBeNull();
   expect(dockGap!).toBeGreaterThanOrEqual(12);
+  await expect.poll(() => visibleHeightInViewport(page.getByLabel('Prompt'))).toBeGreaterThanOrEqual(56);
+  await expect.poll(() => visibleRatioInViewport(page.getByLabel('Prompt'))).toBeGreaterThanOrEqual(0.95);
 
   const stackMetrics = await page.evaluate(() => {
     const expanded = document.querySelector('[aria-label="Expanded asset details"]');
@@ -600,6 +617,8 @@ test('asset details dock keeps the real expanded stack usable on mobile', async 
   });
   expect(mobileDockGap).not.toBeNull();
   expect(mobileDockGap!).toBeGreaterThanOrEqual(12);
+  await expect.poll(() => visibleHeightInViewport(page.getByLabel('Prompt'))).toBeGreaterThanOrEqual(56);
+  await expect.poll(() => visibleRatioInViewport(page.getByLabel('Prompt'))).toBeGreaterThanOrEqual(0.95);
 
   await screenshot(page, 'asset-details-stack-mobile', { fullPage: true });
 });

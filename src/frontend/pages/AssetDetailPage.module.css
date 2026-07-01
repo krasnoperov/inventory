@@ -382,8 +382,9 @@
   display: grid;
   grid-auto-rows: max-content;
   gap: 0.55rem;
-  max-height: min(54vh, 480px);
+  max-height: min(46vh, 420px);
   overflow: auto;
+  overscroll-behavior: contain;
   padding-right: 0.125rem;
 }
 
@@ -825,7 +826,7 @@
   }
 
   .assetExpandedDetailsPanel {
-    max-height: 54vh;
+    max-height: min(38vh, 320px);
   }
 }
 
@@ -839,6 +840,6 @@
   }
 
   .assetExpandedDetailsPanel {
-    max-height: min(40vh, 320px);
+    max-height: min(30vh, 240px);
   }
 }
