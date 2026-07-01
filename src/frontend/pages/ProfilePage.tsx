@@ -11,7 +11,7 @@ import { BillingSection } from '../components/BillingSection';
 import { apiFetch } from '../../api/client';
 import type { ProviderKeyProvider, ProviderKeySummary, UserProfile } from '../../api/types';
 import { providerKeysQueryOptions, userProfileQueryOptions } from '../queries';
-import { Button, Checkbox, TextInput } from '../ui';
+import { Button, ButtonLink, Checkbox, TextInput } from '../ui';
 import styles from './ProfilePage.module.css';
 
 const providerHelp: Record<ProviderKeyProvider, string> = {
@@ -324,7 +324,7 @@ export default function ProfilePage() {
   const headerRightSlot = user ? (
     <HeaderNav userName={user.name} userEmail={user.email} />
   ) : (
-    <Link to="/login" className={styles.authButton}>Sign In</Link>
+    <ButtonLink to="/login" variant="primary">Sign In</ButtonLink>
   );
 
   return (

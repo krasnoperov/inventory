@@ -37,7 +37,7 @@ import { useImageUpload } from '../hooks/useImageUpload';
 import { TileSetPanel } from '../components/TileSetPanel/TileSetPanel';
 import { StylePanel } from '../components/ForgeTray/StylePanel';
 import { CompositionDetail } from '../components/CompositionDetail';
-import { IconButton } from '../ui';
+import { ButtonLink, IconButton } from '../ui';
 import {
   applyCompositionShortcut,
   type CompositionShortcut,
@@ -490,7 +490,7 @@ export default function SpacePage() {
       <HeaderNav userName={user.name} userEmail={user.email} />
     </div>
   ) : (
-    <Link to="/login" className={styles.authButton}>Sign In</Link>
+    <ButtonLink to="/login" variant="primary" size="sm">Sign In</ButtonLink>
   );
 
   if (isLoading) {

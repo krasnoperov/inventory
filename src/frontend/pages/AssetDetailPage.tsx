@@ -52,7 +52,7 @@ import type { CollectionItem, SpaceCollection } from '../space/protocol';
 import { formatMediaKind } from '../mediaKind';
 import { assetDetailsQueryOptions, sessionQueryOptions, spacePageQueryOptions } from '../queries';
 import { isWebRotationEnabled } from '../feature-flags';
-import { Button, IconButton, TextInput, UiSelect, type SelectOption } from '../ui';
+import { Button, ButtonLink, IconButton, TextInput, UiSelect, type SelectOption } from '../ui';
 import styles from './AssetDetailPage.module.css';
 
 // Confirmation dialog types
@@ -1215,7 +1215,7 @@ export default function AssetDetailPage() {
       <HeaderNav userName={user.name} userEmail={user.email} />
     </div>
   ) : (
-    <Link to="/login" className={styles.authButton}>Sign In</Link>
+    <ButtonLink to="/login" variant="primary" size="sm">Sign In</ButtonLink>
   );
 
   if (isLoading) {
