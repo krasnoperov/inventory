@@ -261,6 +261,21 @@
   font-size: var(--font-size-micro);
 }
 
+.cardAddControl {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+}
+
+.cardAddRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 .collectionMenuPanel label {
   grid-template-columns: 4rem minmax(0, 1fr);
   align-items: center;

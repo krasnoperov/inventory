@@ -398,25 +398,32 @@ export function SpaceBoard({
               </Button>
             )}
             {canEdit && orderedCollections.length > 0 && (
-              <>
-                <label>
-                  <span>Add to collection</span>
+              <div className={styles.cardAddControl}>
+                <span>Add to collection</span>
+                <div className={styles.cardAddRow}>
                   <UiSelect
-                    className={styles.select}
+                    className={`${styles.select} ${styles.addSelect}`}
                     fullWidth
                     label={`Collection target for ${asset.name}`}
                     value={targetCollectionId}
                     options={collectionOptions}
                     onValueChange={(value) => setCardTargets((prev) => ({ ...prev, [cardKey]: value }))}
                   />
-                </label>
-                <Button
-                  className={styles.menuButton}
-                  onClick={() => targetCollectionId && addAssetToCollection(targetCollectionId, asset.id, getCollectionRole(targetCollectionId, item?.role ?? 'custom'))}
-                >
-                  Add asset
-                </Button>
-              </>
+                  <IconButton
+                    className={styles.menuIconButton}
+                    onClick={() => targetCollectionId && addAssetToCollection(targetCollectionId, asset.id, getCollectionRole(targetCollectionId, item?.role ?? 'custom'))}
+                    title="Add asset to collection"
+                    aria-label="Add asset to collection"
+                    variant="secondary"
+                    size="sm"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M12 5v14" />
+                      <path d="M5 12h14" />
+                    </svg>
+                  </IconButton>
+                </div>
+              </div>
             )}
             {canEdit && onPlaceInComposition && displayVariant && isVariantReady(displayVariant) && compositions.length > 0 && (
               <CompositionPlacementControl
