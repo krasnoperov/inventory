@@ -91,6 +91,22 @@ async function resolvedColor(page: Page, value: string) {
   }, value);
 }
 
+async function boxesDoNotOverlap(
+  first: import('@playwright/test').Locator,
+  second: import('@playwright/test').Locator,
+) {
+  const [firstBox, secondBox] = await Promise.all([first.boundingBox(), second.boundingBox()]);
+  expect(firstBox).not.toBeNull();
+  expect(secondBox).not.toBeNull();
+  if (!firstBox || !secondBox) return;
+  const separated =
+    firstBox.x + firstBox.width <= secondBox.x ||
+    secondBox.x + secondBox.width <= firstBox.x ||
+    firstBox.y + firstBox.height <= secondBox.y ||
+    secondBox.y + secondBox.height <= firstBox.y;
+  expect(separated).toBe(true);
+}
+
 test('lineage tree uses shared controls for graph toggle and sever actions', async ({ page }) => {
   await mockImages(page);
   await mockLineageGraph(page);
@@ -99,22 +115,25 @@ test('lineage tree uses shared controls for graph toggle and sever actions', asy
 
   await expect(page.getByRole('heading', { name: 'Lineage' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Show Full Graph' })).toBeVisible();
-  const contrastText = await resolvedColor(page, 'var(--button-primary-text)');
-  await expect(page.getByText('Derived')).toHaveCSS('color', contrastText);
-  await expect(page.getByText('Refined')).toHaveCSS('color', contrastText);
-  await expect(page.getByText('Forked')).toHaveCSS('color', contrastText);
-  await expect(page.getByText('✂')).toHaveCSS('color', contrastText);
+  await expect(page.getByText('Derived')).toHaveCSS('background-color', await resolvedBackground(page, 'var(--color-surface)'));
+  await expect(page.getByText('Refined')).toHaveCSS('background-color', await resolvedBackground(page, 'var(--color-surface)'));
+  await expect(page.getByText('Forked')).toHaveCSS('background-color', await resolvedBackground(page, 'var(--color-surface)'));
+  await expect(page.getByText('Severed')).toBeVisible();
 
   const severAction = page.getByRole('button', { name: 'Sever this lineage link' }).first();
   await expect(severAction).toBeVisible();
   const lineageNode = page.getByAltText('Parent variant').locator('..');
+  await boxesDoNotOverlap(page.getByAltText('Parent variant'), page.getByText('Derived'));
+  await boxesDoNotOverlap(page.getByAltText('Child variant').last(), page.getByText('Severed'));
+  await expect(page.getByAltText('Child variant').last().locator('..')).toHaveCSS('border-top-style', 'dashed');
   await lineageNode.hover();
   await expect(lineageNode).toHaveCSS('transform', 'none');
   await severAction.hover();
   await expect(severAction).toHaveCSS('transform', 'none');
-  await expect(severAction).toHaveCSS('transition-property', 'background-color, color, opacity');
+  await expect(severAction).toHaveCSS('transition-property', 'background-color, color');
   await severAction.click();
   await expect.poll(() => page.evaluate(() => window.__componentHarnessCalls ?? [])).toContain('severLineage');
+  await screenshot(page, 'lineage-tree-direct-clean-media');
 
   await page.getByRole('button', { name: 'Show Full Graph' }).click();
   await expect(page.getByRole('heading', { name: 'Full Lineage Graph' })).toBeVisible();
