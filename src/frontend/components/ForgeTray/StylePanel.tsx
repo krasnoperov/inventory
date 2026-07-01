@@ -145,6 +145,7 @@ export function StylePanel({
                 <span>Set as space default</span>
               </label>
               <Button
+                className={styles.createAction}
                 onClick={handleCreatePreset}
                 disabled={!name.trim() || !selectedCollectionId || !createStylePreset}
                 variant="primary"
