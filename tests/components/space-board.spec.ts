@@ -39,6 +39,26 @@ const readyVariant = (assetId: string) => ({
   description: null,
 });
 
+const videoAsset = {
+  ...asset('video-asset', 'Gameplay trailer'),
+  type: 'video',
+  media_kind: 'video',
+  active_variant_id: 'video-variant',
+};
+
+const videoVariant = {
+  ...readyVariant('video-asset'),
+  id: 'video-variant',
+  media_kind: 'video',
+  image_key: null,
+  thumb_key: null,
+  media_key: 'media/space/video-variant.mp4',
+  media_mime_type: 'video/mp4',
+  media_width: 1280,
+  media_height: 720,
+  media_duration_ms: 6_200,
+};
+
 const pendingVariant = (assetId: string) => ({
   ...readyVariant(assetId),
   status: 'pending',
@@ -400,6 +420,57 @@ test('asset name triggers open image and audio assets', async ({ page }) => {
   expect(calls.map((call) => call.eventName)).toEqual(['assetClick', 'assetClick']);
   expect((calls[0].args[0] as { id: string }).id).toBe('hero');
   expect((calls[1].args[0] as { id: string }).id).toBe('audio-asset');
+});
+
+test('video cards expose chrome actions for opening details', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await mountComponent(page, 'SpaceBoard', {
+    spaceId: 'space-1',
+    assets: [videoAsset],
+    variants: [videoVariant],
+    collections: [deliverables],
+    collectionItems: [{
+      ...audioCollectionItem,
+      id: 'deliverable-video',
+      asset_id: videoAsset.id,
+      pinned_variant_id: videoVariant.id,
+      role: 'video',
+    }],
+    canEdit: true,
+    onAssetClick: '__record__:assetClick',
+    createCollection: '__noop__',
+    updateCollection: '__noop__',
+    deleteCollection: '__noop__',
+    addCollectionItem: '__noop__',
+    updateCollectionItem: '__noop__',
+    reorderCollectionItems: '__noop__',
+    deleteCollectionItem: '__noop__',
+  });
+
+  const mediaChrome = page.locator('div[class*="thumbnailButton"][title="Gameplay trailer"]');
+  const video = mediaChrome.locator('video');
+  const openDetails = page.getByRole('button', { name: 'Open Gameplay trailer details' });
+  const nameTrigger = page.getByRole('button', { name: 'Gameplay trailer', exact: true });
+
+  await expect(mediaChrome).toBeVisible();
+  await expect(video).toBeVisible();
+  await expect(page.locator('button[class*="thumbnailButton"][title="Gameplay trailer"]')).toHaveCount(0);
+  await expect(openDetails).toBeVisible();
+  await expect(nameTrigger).toBeVisible();
+  await expect(openDetails).toHaveCSS('border-top-width', '1px');
+  await expect(openDetails).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expectNoOverlap(openDetails, mediaChrome);
+
+  await video.click({ force: true });
+  await expect.poll(() => page.evaluate(() => window.__componentHarnessCallDetails ?? [])).toEqual([]);
+  await openDetails.click();
+  await nameTrigger.click();
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls.map((call) => call.eventName)).toEqual(['assetClick', 'assetClick']);
+  expect((calls[0].args[0] as { id: string }).id).toBe('video-asset');
+  expect((calls[1].args[0] as { id: string }).id).toBe('video-asset');
+  await screenshot(page, 'space-board-video-open-details-actions', { fullPage: true });
 });
 
 test('audio collection cards surface playback and compact metadata', async ({ page }) => {

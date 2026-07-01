@@ -18,6 +18,16 @@ function variant(assetId: string, w: number, h: number) {
     created_by: 'u1', created_at: t, updated_at: t,
   };
 }
+function videoVariant(assetId: string, w: number, h: number) {
+  return {
+    ...variant(assetId, w, h),
+    media_kind: 'video',
+    image_key: null,
+    media_key: `media/${assetId}.mp4`,
+    media_mime_type: 'video/mp4',
+    media_duration_ms: 6_200,
+  };
+}
 function collection(id: string, name: string, kind: string, color: string, sort: number) {
   return { id, name, kind, color, description: null, sort_index: sort, created_at: t, updated_at: t };
 }
@@ -369,6 +379,54 @@ test('space canvas frame card triggers open assets without changing media chrome
   expect((calls[0].args[1] as { id: string }).id).toBe('a0');
   expect((calls[1].args[0] as { id: string }).id).toBe('a0');
   expect((calls[2].args[0] as { id: string }).id).toBe('a0');
+});
+
+test('space canvas video cards expose details actions outside media controls', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const clipAsset = { ...asset('clip', 'Gameplay trailer'), type: 'video', media_kind: 'video' };
+  const clipVariant = videoVariant('clip', 1280, 720);
+  const clipCollection = collection('videos', 'Videos', 'deliverables', '#5a8fca', 0);
+  await mountComponent(page, 'SpaceCanvas', {
+    spaceId: 'space-1',
+    assets: [clipAsset],
+    variants: [clipVariant],
+    collections: [clipCollection],
+    collectionItems: [item('clip-item', 'videos', 'clip', 0)],
+    lineage: [],
+    isInitialSyncPending: false,
+    onAssetClick: '__record__:assetClick',
+    onAddToTray: '__record__:addToTray',
+  });
+
+  const card = page.locator('[data-asset-id="clip"]');
+  const mediaChrome = card.locator('div[class*="thumbnailButton"][title="Gameplay trailer"]');
+  const video = mediaChrome.locator('video');
+  const openDetails = page.getByRole('button', { name: 'Open Gameplay trailer details' });
+  const nameTrigger = card.locator('button[class*="assetName"]').filter({ hasText: 'Gameplay trailer' });
+  const trayTrigger = page.getByRole('button', { name: 'Add Gameplay trailer to Forge Tray' });
+
+  await expect(mediaChrome).toBeVisible();
+  await expect(video).toBeVisible();
+  await expect(card.locator('button[class*="thumbnailButton"][title="Gameplay trailer"]')).toHaveCount(0);
+  await expect(openDetails).toBeVisible();
+  await expect(nameTrigger).toBeVisible();
+  await expect(trayTrigger).toBeVisible();
+  await expectNoOverlap(openDetails, mediaChrome);
+  await expectNoOverlap(nameTrigger, mediaChrome);
+  await expectNoOverlap(trayTrigger, mediaChrome);
+
+  await video.click({ force: true });
+  await expect.poll(() => page.evaluate(() => window.__componentHarnessCallDetails ?? [])).toEqual([]);
+  await openDetails.click();
+  await nameTrigger.click();
+  await trayTrigger.click();
+
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls.map((call) => call.eventName)).toEqual(['assetClick', 'assetClick', 'addToTray']);
+  expect((calls[0].args[0] as { id: string }).id).toBe('clip');
+  expect((calls[1].args[0] as { id: string }).id).toBe('clip');
+  expect((calls[2].args[0] as { id: string }).id).toBe('clip-v');
+  await screenshot(page, 'space-canvas-video-open-details-actions', { fullPage: true });
 });
 
 test('space canvas confirms when an asset is already in Forge Tray', async ({ page }) => {

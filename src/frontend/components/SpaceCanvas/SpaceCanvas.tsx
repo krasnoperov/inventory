@@ -17,8 +17,10 @@ import {
 import { Thumbnail } from '../Thumbnail';
 import { Button } from '../../ui';
 import { ForgeTrayActionButton } from '../ForgeTrayActionButton';
+import { OpenAssetActionButton } from '../OpenAssetActionButton';
 import {
   isVariantForgeTrayReady,
+  isVariantVideoReady,
   type Asset,
   type CollectionItem,
   type Lineage,
@@ -109,6 +111,16 @@ const ROW_FILLERS = Array.from({ length: 8 });
 
 function FrameAssetCard({ card, data }: { card: FrameCard; data: FrameData }) {
   const isInForgeTray = Boolean(card.variant && data.isVariantInForgeTray?.(card.variant.id));
+  const isVideoCard = Boolean(card.variant && isVariantVideoReady(card.variant));
+  const thumbnail = (
+    <Thumbnail
+      variant={card.variant}
+      size="fill"
+      spaceId={data.spaceId}
+      className={boardStyles.thumbnail}
+      showVideoControls={isVideoCard}
+    />
+  );
 
   return (
     <article
@@ -116,25 +128,30 @@ function FrameAssetCard({ card, data }: { card: FrameCard; data: FrameData }) {
       data-asset-id={card.asset.id}
       style={{ '--card-aspect': card.aspect } as CSSProperties}
     >
-      <Button
-        className={boardStyles.thumbnailButton}
-        onClick={() => data.onAssetClick(card.asset)}
-        title={card.asset.name}
-        variant="ghost"
-        size="sm"
-      >
-        <Thumbnail
-          variant={card.variant}
-          size="fill"
-          spaceId={data.spaceId}
-          className={boardStyles.thumbnail}
-        />
-      </Button>
+      {isVideoCard ? (
+        <div className={boardStyles.thumbnailButton} title={card.asset.name}>
+          {thumbnail}
+        </div>
+      ) : (
+        <Button
+          className={boardStyles.thumbnailButton}
+          onClick={() => data.onAssetClick(card.asset)}
+          title={card.asset.name}
+          variant="ghost"
+          size="sm"
+        >
+          {thumbnail}
+        </Button>
+      )}
       <div className={boardStyles.caption}>
         <div className={boardStyles.cardCaptionHeader}>
           <Button className={boardStyles.assetName} onClick={() => data.onAssetClick(card.asset)} variant="ghost" size="sm">
             {card.asset.name}
           </Button>
+          <OpenAssetActionButton
+            onClick={() => data.onAssetClick(card.asset)}
+            subjectName={card.asset.name}
+          />
           {data.onAddToTray && card.variant && isVariantForgeTrayReady(card.variant) && (
             <ForgeTrayActionButton
               added={isInForgeTray}
