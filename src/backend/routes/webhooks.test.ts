@@ -8,6 +8,8 @@ import type { AppContext } from './types';
 import { webhookRoutes } from './webhooks';
 
 const webhookSecret = 'polar-webhook-secret';
+const scheduledCancellationPeriodStart = '2099-06-01T00:00:00.000Z';
+const scheduledCancellationPeriodEnd = '2099-07-01T00:00:00.000Z';
 
 function routeApp(deps: Map<unknown, unknown>, envOverrides: Partial<AppContext['Bindings']> = {}) {
   const app = new Hono<AppContext>();
@@ -58,7 +60,8 @@ function signHeaders(body: string, timestamp = new Date()) {
 function subscriptionCanceledPayload(
   externalId = '42',
   status = 'canceled',
-  periodEnd = '2026-07-01T00:00:00.000Z'
+  periodEnd = scheduledCancellationPeriodEnd,
+  periodStart = scheduledCancellationPeriodStart,
 ) {
   return {
     type: 'subscription.canceled',
@@ -66,7 +69,7 @@ function subscriptionCanceledPayload(
     data: {
       id: 'sub_123',
       status,
-      current_period_start: '2026-06-01T00:00:00.000Z',
+      current_period_start: periodStart,
       current_period_end: periodEnd,
       canceled_at: '2026-06-17T00:00:00.000Z',
       customer: {
@@ -195,9 +198,9 @@ describe('Polar webhook route', () => {
       quota_limits: string;
     };
     assert.equal(update.paid_generation_entitlement, 'paid');
-    assert.equal(update.polar_current_period_start, '2026-06-01T00:00:00.000Z');
-    assert.equal(update.polar_current_period_end, '2026-07-01T00:00:00.000Z');
-    assert.equal(update.polar_paid_access_expires_at, '2026-07-01T00:00:00.000Z');
+    assert.equal(update.polar_current_period_start, scheduledCancellationPeriodStart);
+    assert.equal(update.polar_current_period_end, scheduledCancellationPeriodEnd);
+    assert.equal(update.polar_paid_access_expires_at, scheduledCancellationPeriodEnd);
     assert.deepEqual(JSON.parse(update.quota_limits), {
       gemini_images: 25,
     });
@@ -343,9 +346,9 @@ describe('Polar webhook route', () => {
     assert.equal(update.paid_generation_entitlement, 'paid');
     assert.equal('quota_limits' in update, false);
     assert.equal('quota_limits_updated_at' in update, false);
-    assert.equal(update.polar_current_period_start, '2026-06-01T00:00:00.000Z');
-    assert.equal(update.polar_current_period_end, '2026-07-01T00:00:00.000Z');
-    assert.equal(update.polar_paid_access_expires_at, '2026-07-01T00:00:00.000Z');
+    assert.equal(update.polar_current_period_start, scheduledCancellationPeriodStart);
+    assert.equal(update.polar_current_period_end, scheduledCancellationPeriodEnd);
+    assert.equal(update.polar_paid_access_expires_at, scheduledCancellationPeriodEnd);
   });
 
   test('preserves internal entitlement on active Polar subscription refresh', async () => {
