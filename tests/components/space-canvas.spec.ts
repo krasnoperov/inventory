@@ -226,6 +226,36 @@ test('space canvas renders collection frames without overlap', async ({ page }) 
   await screenshot(page, 'space-canvas-flat-collection-zones', { fullPage: true });
 });
 
+test('space canvas keeps empty collection zones header-only', async ({ page }) => {
+  await page.setViewportSize({ width: 960, height: 620 });
+  const emptyCollection = collection('empty', 'Props', 'custom', '#777777', 0);
+  const filledCollection = collection('filled', 'Cast', 'cast', '#5a8fca', 1);
+  await mountComponent(page, 'SpaceCanvas', {
+    spaceId: 'space-1',
+    assets: [assets[0]],
+    variants: [variants[0]],
+    collections: [emptyCollection, filledCollection],
+    collectionItems: [item('filled-a0', 'filled', 'a0', 0)],
+    lineage: [],
+    isInitialSyncPending: false,
+    onAssetClick: '__noop__',
+  });
+
+  await expect(page.getByRole('heading', { name: 'Props' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Cast' })).toBeVisible();
+  await expect(page.getByText('No items')).toHaveCount(0);
+
+  const propsFrame = page.locator('.react-flow__node').filter({ has: page.getByRole('heading', { name: 'Props' }) }).locator('> div').first();
+  await expect(propsFrame.locator('[class*="frameCount"]')).toHaveText('0');
+  await expect(propsFrame.locator('[data-asset-id]')).toHaveCount(0);
+  await expect(propsFrame.locator('[class*="frameBody"]')).toHaveCount(0);
+  await expect(propsFrame).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(propsFrame).toHaveCSS('border-top-width', '1px');
+  await expect(page.locator('.react-flow__node')).toHaveCount(2);
+  expect(noOverlap(await frameBoxes(page))).toBe(true);
+  await screenshot(page, 'space-canvas-empty-zone-header-only', { fullPage: true });
+});
+
 test('space canvas frame card triggers open assets without changing media chrome', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await mountComponent(page, 'SpaceCanvas', {

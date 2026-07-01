@@ -14,6 +14,7 @@ const CARDS_PER_ROW = 3.2;
 // Rough per-frame height before React Flow has measured the real DOM. Used to
 // seed the masonry and pick a column count on first paint.
 export function estimateFrameHeight(count: number): number {
+  if (count === 0) return HEADER_H;
   const rows = Math.max(1, Math.ceil(count / CARDS_PER_ROW));
   return HEADER_H + rows * (ROW_H + 9) + 16;
 }
