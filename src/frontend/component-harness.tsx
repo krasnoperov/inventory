@@ -35,7 +35,7 @@ import { BillingPlanActions, UsageBar } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
 import { WorkspaceChrome } from './components/WorkspaceChrome';
 import { AuthContext, type AuthContextType } from './contexts/AuthContextProvider';
-import { Button, ButtonLink, Checkbox, IconButton, TextArea, TextInput, UiSelect, type SelectOption } from './ui';
+import { Button, ButtonLink, Checkbox, IconButton, SegmentedControl, TextArea, TextInput, UiSelect, type SelectOption } from './ui';
 import type { MeterStatus } from './hooks/useBillingStatus';
 import { AdminSpendView } from './pages/AdminSpendPage';
 import { AuthorizationDecisionActions } from './pages/AuthorizationApprovalPage';
@@ -760,6 +760,23 @@ function UiTextFieldPreview() {
   );
 }
 
+function SegmentedControlPreview() {
+  return (
+    <div style={{ padding: '2rem' }}>
+      <SegmentedControl
+        label="Preview mode"
+        value="story"
+        options={[
+          { value: 'story', label: 'Story' },
+          { value: 'graph', label: 'Graph' },
+          { value: 'raw', label: 'Raw' },
+        ]}
+        onValueChange={() => undefined}
+      />
+    </div>
+  );
+}
+
 function FormContainerPreview() {
   return (
     <div style={{ width: 'min(520px, 100%)', padding: '2rem' }}>
@@ -994,6 +1011,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   ProfileSignInButton: ProfileSignInButtonPreview,
   PublicNav: PublicNavPreview,
   PublicThemeToggle: PublicThemeToggle as unknown as ComponentType<Record<string, unknown>>,
+  SegmentedControl: SegmentedControlPreview,
   ProductionControls: ProductionControlsHarness,
   ProductionHandoffControls: ProductionHandoffHarness,
   RelationsPanel: RelationsPanel as unknown as ComponentType<Record<string, unknown>>,

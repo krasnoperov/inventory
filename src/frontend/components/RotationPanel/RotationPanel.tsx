@@ -8,10 +8,11 @@ import type {
   RotationRequestParams,
 } from '../../hooks/useSpaceWebSocket';
 import { getR2ImageUrl } from '../../media-cdn';
-import { Button, Checkbox, IconButton, TextInput, UiSelect, type SelectOption } from '../../ui';
+import { Button, Checkbox, IconButton, SegmentedControl, TextInput, UiSelect, type SelectOption } from '../../ui';
 import styles from './RotationPanel.module.css';
 
 type GenerationMode = 'sequential' | 'single-shot';
+type QualityRating = 'approved' | 'rejected';
 
 const CONFIG_OPTIONS: Array<SelectOption<RotationConfig>> = [
   { value: '4-directional', label: '4-Dir · 4 views' },
@@ -21,6 +22,10 @@ const CONFIG_OPTIONS: Array<SelectOption<RotationConfig>> = [
 const GENERATION_MODE_OPTIONS: Array<SelectOption<GenerationMode>> = [
   { value: 'sequential', label: 'Sequential' },
   { value: 'single-shot', label: 'Single-Shot' },
+];
+const RATING_OPTIONS: Array<{ value: QualityRating; label: string; tone?: 'danger' }> = [
+  { value: 'approved', label: 'Approve' },
+  { value: 'rejected', label: 'Reject', tone: 'danger' },
 ];
 
 function CloseIcon() {
@@ -248,6 +253,8 @@ export function RotationPanel({
       ? variants.find((variant) => variant.id === selectedView.variant_id && variant.status === 'completed')
       : undefined;
     const selectedRating = selectedVariant?.quality_rating;
+    const selectedQualityRating: QualityRating | null =
+      selectedRating === 'approved' || selectedRating === 'rejected' ? selectedRating : null;
 
     return (
       <div className={styles.backdrop} onClick={handleBackdropClick}>
@@ -289,24 +296,14 @@ export function RotationPanel({
               })}
             </div>
             {onRateVariant && selectedVariant && (
-              <div className={styles.ratingActions} aria-label="Selected rotation view rating">
+              <div className={styles.ratingActions}>
                 <span className={styles.ratingContext}>{selectedView?.direction}</span>
-                <Button
-                  size="sm"
-                  variant={selectedRating === 'approved' ? 'primary' : 'secondary'}
-                  onClick={() => onRateVariant(selectedVariant.id, 'approved')}
-                  aria-pressed={selectedRating === 'approved'}
-                >
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant={selectedRating === 'rejected' ? 'danger' : 'secondary'}
-                  onClick={() => onRateVariant(selectedVariant.id, 'rejected')}
-                  aria-pressed={selectedRating === 'rejected'}
-                >
-                  Reject
-                </Button>
+                <SegmentedControl
+                  label="Selected rotation view rating"
+                  value={selectedQualityRating}
+                  options={RATING_OPTIONS}
+                  onValueChange={(rating) => onRateVariant(selectedVariant.id, rating)}
+                />
               </div>
             )}
           </div>

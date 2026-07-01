@@ -26,7 +26,7 @@ import type {
   Variant,
 } from '../../space/protocol';
 import type { CompositionLike } from './relationsModel';
-import { Button } from '../../ui';
+import { Button, SegmentedControl } from '../../ui';
 import {
   buildRelationsGraph,
   isCompositionNodeId,
@@ -74,6 +74,15 @@ const GROUPINGS: { id: GroupingAxis; label: string }[] = [
   { id: 'type', label: 'Type' },
   { id: 'none', label: 'None' },
 ];
+const STORY_MODE_OPTIONS = [
+  { value: 'story', label: 'Story', title: 'Source -> final pipeline, noise hidden' },
+  { value: 'graph', label: 'Graph', title: 'Raw graph: every asset and layout control' },
+] as const;
+const LAYOUT_MODE_OPTIONS: Array<{ value: LayoutMode; label: string; title: string }> = [
+  { value: 'force', label: 'Clusters', title: 'Organic clusters' },
+  { value: 'layered', label: 'Flow', title: 'Top-down provenance flow' },
+];
+const GROUPING_OPTIONS = GROUPINGS.map((g) => ({ value: g.id, label: g.label }));
 
 type FamilyColors = Record<RelationFamily, string>;
 
@@ -547,24 +556,13 @@ function RelationsCanvasInner({
         ) : (
         <>
         <div className={styles.segment}>
-          <Button
-            className={`${styles.dockButton} ${storyMode ? styles.dockButtonActive : ''}`}
-            variant={storyMode ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => setStoryMode(true)}
-            title="Source → final pipeline, noise hidden"
-          >
-            Story
-          </Button>
-          <Button
-            className={`${styles.dockButton} ${!storyMode ? styles.dockButtonActive : ''}`}
-            variant={!storyMode ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => setStoryMode(false)}
-            title="Raw graph: every asset and layout control"
-          >
-            Graph
-          </Button>
+          <SegmentedControl
+            className={styles.dockSegmented}
+            label="Relations canvas mode"
+            value={storyMode ? 'story' : 'graph'}
+            options={STORY_MODE_OPTIONS}
+            onValueChange={(mode) => setStoryMode(mode === 'story')}
+          />
         </div>
         <span className={styles.dockDivider} />
 
@@ -584,7 +582,7 @@ function RelationsCanvasInner({
               <>
                 <span className={styles.dockDivider} />
                 <Button
-                  className={`${styles.dockButton} ${showAttempts ? styles.dockButtonActive : ''}`}
+                  className={`${styles.dockButton} ${showAttempts ? styles.dockToggleActive : ''}`}
                   variant={showAttempts ? 'secondary' : 'ghost'}
                   size="sm"
                   onClick={() => setShowAttempts((v) => !v)}
@@ -603,39 +601,24 @@ function RelationsCanvasInner({
           <>
             <div className={styles.segment}>
               <span className={styles.segLabel}>Layout</span>
-              <Button
-                className={`${styles.dockButton} ${layoutMode === 'force' ? styles.dockButtonActive : ''}`}
-                variant={layoutMode === 'force' ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => setLayoutMode('force')}
-                title="Organic clusters"
-              >
-                Clusters
-              </Button>
-              <Button
-                className={`${styles.dockButton} ${layoutMode === 'layered' ? styles.dockButtonActive : ''}`}
-                variant={layoutMode === 'layered' ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => setLayoutMode('layered')}
-                title="Top-down provenance flow"
-              >
-                Flow
-              </Button>
+              <SegmentedControl
+                className={styles.dockSegmented}
+                label="Relations layout"
+                value={layoutMode}
+                options={LAYOUT_MODE_OPTIONS}
+                onValueChange={setLayoutMode}
+              />
             </div>
             <span className={styles.dockDivider} />
             <div className={styles.segment}>
               <span className={styles.segLabel}>Group</span>
-              {GROUPINGS.map((g) => (
-                <Button
-                  key={g.id}
-                  className={`${styles.dockButton} ${grouping === g.id ? styles.dockButtonActive : ''}`}
-                  variant={grouping === g.id ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setGrouping(g.id)}
-                >
-                  {g.label}
-                </Button>
-              ))}
+              <SegmentedControl
+                className={styles.dockSegmented}
+                label="Relations grouping"
+                value={grouping}
+                options={GROUPING_OPTIONS}
+                onValueChange={setGrouping}
+              />
             </div>
             <span className={styles.dockDivider} />
             <div className={styles.segment}>

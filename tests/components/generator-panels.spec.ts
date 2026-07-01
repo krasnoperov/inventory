@@ -246,8 +246,9 @@ test('rotation panel keeps rating controls in footer chrome', async ({ page }) =
 
   await expect(page.getByRole('heading', { name: 'Rotation Complete' })).toBeVisible();
   await expectTransparentBackdrop(page);
-  await expect(page.getByRole('button', { name: 'Approve' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByRole('button', { name: 'Reject' })).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('radiogroup', { name: 'Selected rotation view rating' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Approve' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('radio', { name: 'Reject' })).toHaveAttribute('aria-checked', 'false');
 
   const approvedDirection = page.getByRole('button', { name: /North/ });
   await expectLocatorAfterShadow(page, approvedDirection, 'var(--selection-ring)');
@@ -263,14 +264,14 @@ test('rotation panel keeps rating controls in footer chrome', async ({ page }) =
   await expectLocatorAfterShadow(page, eastDirection, 'none');
   await eastDirection.click();
   await eastDirection.hover();
-  await expect(page.getByRole('button', { name: 'Approve' })).toHaveCount(1);
-  await expect(page.getByRole('button', { name: 'Reject' })).toHaveCount(1);
+  await expect(page.getByRole('radio', { name: 'Approve' })).toHaveCount(1);
+  await expect(page.getByRole('radio', { name: 'Reject' })).toHaveCount(1);
   await expect(page.locator('[class*="ratingBadge"], [class*="ratingButtons"]')).toHaveCount(0);
 
   await resetScrollablePanels(page);
   await screenshot(page, 'rotation-panel-rating-chrome', { fullPage: true });
 
-  await page.getByRole('button', { name: 'Reject' }).click();
+  await page.getByRole('radio', { name: 'Reject' }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
   expect(calls).toContainEqual(expect.objectContaining({

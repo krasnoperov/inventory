@@ -1,0 +1,44 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  min-width: 0;
+  padding: 0.125rem;
+  border: 1px solid var(--ctl-line, var(--color-border));
+  border-radius: var(--radius-md);
+  background: var(--ctl-track, var(--color-bg));
+}
+
+.option.option {
+  --ui-button-height: var(--ui-segmented-height, 1.75rem);
+  --ui-button-pad-x: var(--ui-segmented-pad-x, 0.625rem);
+  --ui-button-font-size: var(--ui-segmented-font-size, var(--font-size-small-sm));
+
+  min-width: 0;
+  border-color: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.option.option:hover:not(:disabled) {
+  color: var(--color-text);
+  background: var(--ctl-hover, var(--button-ghost-bg-hover));
+}
+
+.selected.selected {
+  color: var(--color-text);
+  background: var(--ctl-surface, var(--color-surface));
+  border-color: var(--color-primary);
+}
+
+.selected.selected:hover:not(:disabled) {
+  color: var(--color-text);
+  background: var(--ctl-surface, var(--color-surface));
+  border-color: var(--color-primary);
+}
+
+.selectedDanger.selectedDanger {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}

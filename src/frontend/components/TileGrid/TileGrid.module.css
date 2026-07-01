@@ -173,23 +173,10 @@
   color: var(--color-text);
 }
 
-.ratingActions {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.ratingAction {
-  --ui-button-height: 1.875rem;
-  --ui-button-pad-x: 0.75rem;
-  --ui-button-font-size: 0.75rem;
-}
-
-.ratingActionActive {
-  --ctl-surface: var(--color-status-processing-bg);
-
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+.ratingSegmented {
+  --ui-segmented-height: 1.875rem;
+  --ui-segmented-pad-x: 0.75rem;
+  --ui-segmented-font-size: 0.75rem;
 }
 
 .failedHint {

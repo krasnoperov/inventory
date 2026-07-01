@@ -66,13 +66,13 @@ test('relations canvas dock uses shared controls for graph options', async ({ pa
   const dock = page.getByRole('toolbar', { name: 'Relations canvas controls' });
   await expect(dock).toBeVisible();
   await expect(dock).toHaveCSS('box-shadow', 'none');
-  await expect(page.getByRole('button', { name: 'Story' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Story' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Graph' }).click();
-  await expect(page.getByRole('button', { name: 'Clusters' })).toBeVisible();
+  await page.getByRole('radio', { name: 'Graph' }).click();
+  await expect(page.getByRole('radio', { name: 'Clusters' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Flow' }).click();
-  await page.getByRole('button', { name: 'Type' }).click();
+  await page.getByRole('radio', { name: 'Flow' }).click();
+  await page.getByRole('radio', { name: 'Type' }).click();
   await page.getByRole('button', { name: /Relation/ }).click();
   await expect(page.locator('[class*="specimen"]').first()).toHaveCSS('box-shadow', 'none');
   await expect(page.locator('[class*="assembler"]').first()).toHaveCSS('box-shadow', 'none');
@@ -101,8 +101,8 @@ test('relations canvas dock uses shared controls for graph options', async ({ pa
   await page.locator('.react-flow__controls-zoomin').click();
   await screenshot(page, 'relations-canvas-shared-dock', { fullPage: true });
 
-  await expect(page.getByRole('button', { name: 'Flow' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Type' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Flow' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Type' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Relation/ })).toBeVisible();
 });
 
@@ -129,8 +129,8 @@ test('relations canvas dock wraps controls on mobile', async ({ page }) => {
     onAssetClick: '__record__:assetClick',
   });
 
-  await page.getByRole('button', { name: 'Graph' }).click();
-  await expect(page.getByRole('button', { name: 'Type' })).toBeVisible();
+  await page.getByRole('radio', { name: 'Graph' }).click();
+  await expect(page.getByRole('radio', { name: 'Type' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Composition/ })).toBeVisible();
 
   const dock = page.getByRole('toolbar', { name: 'Relations canvas controls' });

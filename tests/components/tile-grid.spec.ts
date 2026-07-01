@@ -138,8 +138,9 @@ test('tile grid actions use shared button styling', async ({ page }) => {
 
   await expect(page.getByRole('button', { name: 'Refine Edges' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Export Training Data' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Approve' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByRole('button', { name: 'Reject' })).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('radiogroup', { name: 'Selected tile rating' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Approve' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('radio', { name: 'Reject' })).toHaveAttribute('aria-checked', 'false');
   const selectedTile = page.getByRole('button', { name: 'Tile 0,0, selected' });
   await expect(selectedTile).toHaveAttribute('aria-pressed', 'true');
   await expectAfterShadow(page, 'button[aria-label="Tile 0,0, selected"]', 'var(--selection-ring)');
@@ -153,13 +154,13 @@ test('tile grid actions use shared button styling', async ({ page }) => {
   await unselectedTile.focus();
   await expectAfterShadow(page, 'button[aria-label="Tile 1,0"]', 'var(--focus-ring)');
   await selectedTile.hover();
-  await expect(page.getByRole('button', { name: 'Approve' })).toHaveCount(1);
-  await expect(page.getByRole('button', { name: 'Reject' })).toHaveCount(1);
+  await expect(page.getByRole('radio', { name: 'Approve' })).toHaveCount(1);
+  await expect(page.getByRole('radio', { name: 'Reject' })).toHaveCount(1);
   await screenshot(page, 'tile-grid-shared-actions', { fullPage: true });
 
   await page.getByRole('button', { name: 'Refine Edges' }).click();
   await page.getByRole('button', { name: 'Export Training Data' }).click();
-  await page.getByRole('button', { name: 'Reject' }).click();
+  await page.getByRole('radio', { name: 'Reject' }).click();
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
   expect(calls.map((call) => call.eventName)).toEqual(['refine', 'export', 'rate']);
   expect(calls[2].args).toEqual(['tile-a', 'rejected']);
