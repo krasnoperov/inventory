@@ -283,14 +283,21 @@ export function CompositionDetail({
                 </Button>
               )}
               {canEdit && onDeleteComposition && (
-                <Button
-                  className={styles.actionButton}
-                  variant="danger"
+                <IconButton
+                  className={styles.titleDeleteButton}
+                  variant="ghost"
                   size="sm"
+                  aria-label={`Delete ${selectedComposition.name}`}
+                  title={`Delete ${selectedComposition.name}`}
                   onClick={() => onDeleteComposition(selectedComposition.id)}
                 >
-                  Delete
-                </Button>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                    <path d="M4 7h16" />
+                    <path d="M10 11v6M14 11v6" />
+                    <path d="M6 7l1 13h10l1-13" />
+                    <path d="M9 7V4h6v3" />
+                  </svg>
+                </IconButton>
               )}
             </div>
 

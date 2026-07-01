@@ -262,7 +262,8 @@
 
 .panelIconAction,
 .rowIconButton,
-.slotAddButton {
+.slotAddButton,
+.titleDeleteButton {
   --ui-button-height: 32px;
   --ui-button-pad-x: 0;
   border-radius: var(--radius-sm);
@@ -270,21 +271,33 @@
 }
 
 .rowIconButton,
-.slotAddButton {
+.slotAddButton,
+.titleDeleteButton {
   --ui-button-height: 28px;
 }
 
 .panelIconAction svg,
 .rowIconButton svg,
-.slotAddButton svg {
+.slotAddButton svg,
+.titleDeleteButton svg {
   width: 16px;
   height: 16px;
 }
 
 .rowIconButton svg,
-.slotAddButton svg {
+.slotAddButton svg,
+.titleDeleteButton svg {
   width: 14px;
   height: 14px;
+}
+
+.titleDeleteButton {
+  color: var(--color-text-muted);
+}
+
+.titleDeleteButton:hover:not(:disabled),
+.titleDeleteButton:focus-visible {
+  color: var(--color-error);
 }
 
 .emptyText {
