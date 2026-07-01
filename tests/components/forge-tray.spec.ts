@@ -649,6 +649,8 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   await expect(page.getByLabel(`Description for ${russafaPreset.name}`, { exact: true })).toHaveCount(0);
   await expect(page.getByText(russafaPreset.style_prompt)).toBeVisible();
   await expect(page.getByText(russafaPreset.description)).toBeVisible();
+  await expect(page.getByLabel('Enabled', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Set default' })).toHaveCount(0);
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-style-sheet', { fullPage: true });
   await page.getByRole('button', { name: /Close/i }).click();
@@ -926,6 +928,8 @@ test('style library sets a preset as default', async ({ page }) => {
 
   await revealOptions(page);
   await selectDropdown(page, 'Style selector', 'Manage styles...');
+  await expect(page.getByLabel('Enabled', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Set default' })).toBeVisible();
   await page.getByRole('button', { name: 'Set default' }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);

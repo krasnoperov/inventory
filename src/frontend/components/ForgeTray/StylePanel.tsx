@@ -229,14 +229,16 @@ export function StylePanel({
                       </div>
                     )}
                     <div className={styles.presetActions}>
-                      <label className={styles.checkRow}>
-                        <Checkbox
-                          checked={enabled}
-                          disabled={isDefault || !updateStylePreset}
-                          onChange={(event) => updateStylePreset?.(preset.id, { enabled: event.target.checked })}
-                        />
-                        <span>Enabled</span>
-                      </label>
+                      {!isDefault && (
+                        <label className={styles.checkRow}>
+                          <Checkbox
+                            checked={enabled}
+                            disabled={!updateStylePreset}
+                            onChange={(event) => updateStylePreset?.(preset.id, { enabled: event.target.checked })}
+                          />
+                          <span>Enabled</span>
+                        </label>
+                      )}
                       <Button
                         onClick={() => setEditingPresetId((current) => current === preset.id ? null : preset.id)}
                         aria-expanded={isEditing}
@@ -248,14 +250,16 @@ export function StylePanel({
                       >
                         {isEditing ? 'Hide' : 'Edit'}
                       </Button>
-                      <Button
-                        onClick={() => updateStylePreset?.(preset.id, { isDefault: true, enabled: true })}
-                        disabled={isDefault || !enabled || !updateStylePreset}
-                        variant="secondary"
-                        size="sm"
-                      >
-                        Set default
-                      </Button>
+                      {!isDefault && (
+                        <Button
+                          onClick={() => updateStylePreset?.(preset.id, { isDefault: true, enabled: true })}
+                          disabled={!enabled || !updateStylePreset}
+                          variant="secondary"
+                          size="sm"
+                        >
+                          Set default
+                        </Button>
+                      )}
                       <Button
                         onClick={() => deleteStylePreset?.(preset.id)}
                         disabled={!deleteStylePreset}
