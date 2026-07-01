@@ -73,35 +73,35 @@ export function CompositionPlacementControl({
   return (
     <div className={`${styles.control} ${className ?? ''}`.trim()}>
       <span className={styles.title}>Add to composition</span>
-      <div className={styles.field}>
-        <span>Composition</span>
-        <UiSelect
-          className={styles.select}
-          value={selectedComposition.id}
-          options={compositionOptions}
-          label="Composition"
-          onValueChange={(nextCompositionId) => {
-            setCompositionId(nextCompositionId);
-            setPlacedLabel(null);
-          }}
-        />
+      <div className={styles.controlRow}>
+        <div className={styles.field}>
+          <UiSelect
+            className={styles.compositionSelect}
+            value={selectedComposition.id}
+            options={compositionOptions}
+            label="Composition"
+            onValueChange={(nextCompositionId) => {
+              setCompositionId(nextCompositionId);
+              setPlacedLabel(null);
+            }}
+          />
+        </div>
+        <div className={styles.field}>
+          <UiSelect
+            className={styles.roleSelect}
+            value={role}
+            options={roleOptions}
+            label="Composition role"
+            onValueChange={(nextRole) => {
+              setRole(nextRole);
+              setPlacedLabel(null);
+            }}
+          />
+        </div>
+        <Button className={styles.placeButton} onClick={handlePlace} variant="secondary" size="sm">
+          Place
+        </Button>
       </div>
-      <div className={styles.field}>
-        <span>Role</span>
-        <UiSelect
-          className={styles.select}
-          value={role}
-          options={roleOptions}
-          label="Composition role"
-          onValueChange={(nextRole) => {
-            setRole(nextRole);
-            setPlacedLabel(null);
-          }}
-        />
-      </div>
-      <Button className={styles.placeButton} onClick={handlePlace} variant="secondary" size="sm">
-        Place
-      </Button>
       {placedLabel && <span className={styles.placed}>{placedLabel}</span>}
     </div>
   );

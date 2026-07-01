@@ -55,6 +55,11 @@ test('places a finished variant into the chosen composition and role', async ({ 
   await page.getByLabel('Composition role').click();
   await page.getByRole('option', { name: 'Character' }).click();
   await page.mouse.move(0, 0);
+  const controlWidth = await page.getByRole('button', { name: 'Place' }).evaluate((button) => {
+    const control = button.closest('div')?.parentElement;
+    return control?.getBoundingClientRect().width ?? 0;
+  });
+  expect(controlWidth).toBeLessThanOrEqual(306);
   await screenshot(page, 'composition-placement-control', { fullPage: true });
   await page.getByRole('button', { name: 'Place' }).click();
 
