@@ -98,6 +98,7 @@ interface AssetCollectionsPanelProps {
   assetPlacementDrafts: CollectionPlacementInput[];
   collections: SpaceCollection[];
   collectionItems: CollectionItem[];
+  hideWhenEmpty?: boolean;
   onAssetPlacementControlsOpenChange?: (open: boolean) => void;
   onApplyAssetPlacements: () => void;
   onApplyVariantPlacements: () => void;
@@ -227,6 +228,7 @@ export function AssetCollectionsPanel({
   assetPlacementDrafts,
   collections,
   collectionItems,
+  hideWhenEmpty = false,
   onAssetPlacementControlsOpenChange,
   onApplyAssetPlacements,
   onApplyVariantPlacements,
@@ -273,6 +275,7 @@ export function AssetCollectionsPanel({
   }, [variants]);
 
   if (collections.length === 0) return null;
+  if (hideWhenEmpty && totalMembershipCount === 0 && !showManagement) return null;
 
   if (!showManagement) {
     return (
@@ -1561,6 +1564,7 @@ export default function AssetDetailPage() {
                     ...assetCollectionMemberships,
                     ...selectedVariantCollectionMemberships,
                   ]}
+                  hideWhenEmpty
                   onApplyAssetPlacements={handleApplyAssetPlacements}
                   onApplyVariantPlacements={handleApplyVariantPlacements}
                   onAssetPlacementDraftsChange={setAssetPlacementDrafts}
