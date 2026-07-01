@@ -1,0 +1,49 @@
+.button {
+  --forge-tray-action-size: 24px;
+  --ui-button-height: var(--forge-tray-action-size);
+  --ui-button-pad-x: 0;
+  --ctl-hover: var(--button-ghost-bg-hover);
+
+  flex: 0 0 var(--forge-tray-action-size);
+  width: var(--forge-tray-action-size);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  box-shadow: none;
+}
+
+.button svg {
+  width: calc(var(--forge-tray-action-size) * 0.55);
+  height: calc(var(--forge-tray-action-size) * 0.55);
+}
+
+.button:hover:not(:disabled),
+.button:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.added,
+.added:disabled {
+  border-color: var(--color-success);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  opacity: 1;
+}
+
+.card {
+  --forge-tray-action-size: var(--thumb-action-size);
+  background: var(--thumb-action-bg);
+}
+
+.card:hover:not(:disabled),
+.card:focus-visible {
+  background: var(--color-primary);
+  color: var(--button-primary-text);
+}
+
+.panel {
+  --forge-tray-action-size: 30px;
+  background: transparent;
+}

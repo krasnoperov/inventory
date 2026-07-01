@@ -612,43 +612,6 @@
   color: var(--color-text-muted);
 }
 
-.cardTrayButton {
-  --ui-button-height: 24px;
-  --ui-button-pad-x: 0;
-  --ctl-hover: var(--button-ghost-bg-hover);
-
-  flex: 0 0 24px;
-  width: 24px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-muted);
-  background: var(--color-surface);
-}
-
-.cardTrayButton svg {
-  width: 13px;
-  height: 13px;
-}
-
-.cardTrayButton:hover:not(:disabled),
-.cardTrayButton:focus-visible {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.cardTrayButtonAdded {
-  border-color: var(--color-success);
-  color: var(--color-success);
-  background: var(--color-success-bg);
-}
-
-.cardTrayButtonAdded:disabled {
-  border-color: var(--color-success);
-  color: var(--color-success);
-  background: var(--color-success-bg);
-  opacity: 1;
-}
-
 .cardMenuPanel {
   position: static;
   width: 100%;
