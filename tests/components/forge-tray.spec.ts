@@ -613,6 +613,9 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
     requestChatHistory: '__noop__',
     clearChatSession: '__noop__',
     stylePresets: [russafaPreset],
+    createStylePreset: '__record__:style-create',
+    collections: [styleCollection],
+    collectionItems: [styleCollectionItem],
   });
   await disableAnimations(page);
 
@@ -642,7 +645,8 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
   expect(styleDockGap!).toBeGreaterThanOrEqual(8);
   await expect(page.locator('[class*="defaultBadge"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.getByText('Create preset')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'New preset' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'New preset' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'New preset' })).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByLabel('Preset name', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel('Style prompt', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel('Set as space default', { exact: true })).toHaveCount(0);
@@ -905,8 +909,11 @@ test('style library creates a preset from a style collection', async ({ page }) 
   await selectDropdown(page, 'Style selector', 'Manage styles...');
   await expect(page.getByRole('button', { name: 'New preset' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'New preset' })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByText('Create preset')).toHaveCount(0);
   await page.getByRole('button', { name: 'New preset' }).click();
-  await expect(page.getByRole('button', { name: 'Hide' })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: 'Hide create' })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('heading', { name: 'Create preset' })).toBeVisible();
+  await screenshot(page, 'forge-tray-style-create-form', { fullPage: true });
   await page.getByLabel('Preset name').fill('Painterly market');
   await page.getByLabel('Style prompt').fill('sun-washed watercolor with ink outlines');
   await page.getByLabel('Style description').fill('For the market scene');
