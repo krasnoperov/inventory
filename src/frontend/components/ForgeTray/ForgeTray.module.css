@@ -580,13 +580,23 @@
   --ui-text-field-font-size: 0.75rem;
   max-width: 7rem;
   min-width: 3.5rem;
+  border-color: transparent;
+  background: transparent;
   font-family: var(--mono);
   color: var(--color-text-muted);
   text-overflow: ellipsis;
   transition: color 0.15s ease;
 }
 
-.nameChip:hover:not(:disabled),
-.nameChip:focus {
+.nameChip:hover:not(:disabled) {
+  border-color: var(--ctl-line);
+  background: var(--ctl-surface);
+  color: var(--color-text);
+}
+
+.nameChip:focus,
+.nameChip:focus-visible {
+  border-color: var(--color-primary);
+  background: var(--ctl-surface);
   color: var(--color-text);
 }

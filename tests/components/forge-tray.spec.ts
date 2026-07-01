@@ -340,6 +340,10 @@ test('forge tray auto-names by media group and stays editable', async ({ page })
 
   const name = page.getByLabel('Asset name');
   await expect(name).toHaveValue('Image 1');
+  await expect(name).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(name).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)');
+  await name.focus();
+  await expect(name).toHaveCSS('border-top-color', await resolvedColor(page, 'var(--color-primary)'));
 
   await selectMediaGroup(page, 'Audio');
   await expect(name).toHaveValue('Audio 1');
