@@ -43,6 +43,12 @@
   right: auto;
   bottom: auto;
   width: 100%;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.tray.embedded.dragOver {
+  box-shadow: var(--focus-ring);
 }
 
 .contextSlot {

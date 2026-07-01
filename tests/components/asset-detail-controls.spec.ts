@@ -553,6 +553,9 @@ test('asset details dock renders the real expanded stack above ForgeTray', async
   });
   expect(compositionBeforeRelations).toBe(true);
   await expect(page.getByLabel('Prompt')).toBeVisible();
+  const embeddedTray = page.locator('[class*="tray"]').first();
+  await expect(embeddedTray).toHaveCSS('box-shadow', 'none');
+  await expect(embeddedTray).toHaveCSS('border-radius', '8px');
 
   const detailsBeforePrompt = await page.evaluate(() => {
     const details = document.querySelector('[aria-label="Asset details"]');
@@ -609,6 +612,9 @@ test('asset details dock keeps the real expanded stack usable on mobile', async 
   await expect(page.getByRole('region', { name: 'Composition usage' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Scene Bar composition/ })).toBeVisible();
   await expect(page.getByLabel('Prompt')).toBeVisible();
+  const embeddedTray = page.locator('[class*="tray"]').first();
+  await expect(embeddedTray).toHaveCSS('box-shadow', 'none');
+  await expect(embeddedTray).toHaveCSS('border-radius', '8px');
   const mobileDockGap = await page.evaluate(() => {
     const details = document.querySelector('[aria-label="Expanded asset details"]');
     const tray = document.querySelector('[class*="tray"]');
