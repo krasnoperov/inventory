@@ -160,21 +160,18 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.5rem;
-  max-width: 280px;
+  max-width: min(340px, 100%);
   margin: 0 auto;
 }
 
 .directionCell {
-  --rotation-label-band: 1.45rem;
-
   box-sizing: border-box;
   aspect-ratio: 1;
   min-height: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.25rem;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: stretch;
+  justify-items: stretch;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-bg);
@@ -184,7 +181,7 @@
   color: var(--color-text-muted);
   overflow: hidden;
   position: relative;
-  padding: 0 0.35rem 0.2rem;
+  padding: 0;
   cursor: default;
 }
 
@@ -255,23 +252,31 @@
 }
 
 .directionThumb {
+  grid-row: 1;
   width: 100%;
-  height: calc(100% - var(--rotation-label-band));
+  height: 100%;
+  min-height: 0;
   object-fit: cover;
-  position: absolute;
-  inset: 0 0 auto;
+  position: relative;
 }
 
 .directionLabel {
+  grid-row: 2;
+  box-sizing: border-box;
   position: relative;
   z-index: 1;
+  width: 100%;
   max-width: 100%;
-  overflow: hidden;
+  padding: 0.2rem 0.25rem;
+  border-top: 1px solid var(--color-border);
+  background: var(--workspace-panel-bg);
   color: var(--color-text-muted);
   font-size: var(--font-size-micro);
   font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  text-align: center;
+  white-space: normal;
 }
 
 .ratingActions {
@@ -286,10 +291,9 @@
   color: var(--color-text-muted);
   font-size: 0.75rem;
   font-weight: 600;
-  max-width: 8rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 /* Error section */
@@ -335,7 +339,9 @@
   font-size: 0.75rem;
   color: var(--color-text-muted);
   cursor: pointer;
-  white-space: nowrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .noStyleCheckbox {

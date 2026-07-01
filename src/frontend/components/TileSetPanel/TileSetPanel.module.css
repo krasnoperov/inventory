@@ -198,7 +198,9 @@
   font-size: 0.75rem;
   color: var(--color-text-muted);
   cursor: pointer;
-  white-space: nowrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .noStyleCheckbox {

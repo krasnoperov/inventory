@@ -1,9 +1,11 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  display: flex;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  justify-items: center;
   align-items: center;
-  justify-content: center;
+  gap: 0.75rem;
   padding: 2rem;
   background: var(--color-bg);
   z-index: 2000;
@@ -18,7 +20,7 @@
 
 .image {
   max-width: 95vw;
-  max-height: 90vh;
+  max-height: calc(100vh - 7rem);
   width: auto;
   height: auto;
   object-fit: contain;
@@ -49,18 +51,15 @@
 }
 
 .caption {
-  position: fixed;
-  bottom: 1.25rem;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: 90vw;
+  max-width: min(90vw, 56rem);
   padding: 0.375rem 0.75rem;
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   color: var(--color-text-muted);
   font-size: var(--font-size-micro);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-align: center;
+  white-space: normal;
 }
