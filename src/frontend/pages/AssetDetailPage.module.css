@@ -422,15 +422,14 @@
 }
 
 .collectionPanelCompact .collectionPanelHeaderText span:last-child {
-  min-width: 1.35rem;
-  min-height: 1.35rem;
-  display: inline-grid;
-  place-items: center;
-  padding: 0 0.35rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
+  min-width: 0;
+  min-height: 0;
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .collectionPanelIconAction {
@@ -473,7 +472,7 @@
   min-width: 0;
   color: var(--color-text);
   font-size: var(--font-size-small-sm);
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
@@ -516,13 +515,12 @@
 
 .collectionSummaryMeta {
   max-width: 12rem;
-  padding: 0.08rem 0.35rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  padding: 0;
+  border: 0;
   color: var(--color-text-muted);
-  background: var(--color-surface);
+  background: transparent;
   font-size: var(--font-size-micro);
-  font-weight: 650;
+  font-weight: 560;
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
