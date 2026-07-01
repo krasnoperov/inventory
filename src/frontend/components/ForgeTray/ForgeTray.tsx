@@ -1137,7 +1137,8 @@ export function ForgeTray({
     slots.length > 0 ||
     showStylePanel ||
     showChat;
-  const showNameChip = showNameInput && (isTrayExpanded || nameEdited || showDestinationToggle);
+  const hasCreationIntent = hasPrompt || slots.length > 0 || nameEdited || showDestinationToggle;
+  const showNameChip = showNameInput && hasCreationIntent;
   const destinationToggle = showDestinationToggle ? (
     <UiSelect
       className={styles.selectDestination}
