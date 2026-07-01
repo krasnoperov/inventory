@@ -247,6 +247,7 @@ test('space canvas keeps empty collection zones header-only', async ({ page }) =
 
   const propsFrame = page.locator('.react-flow__node').filter({ has: page.getByRole('heading', { name: 'Props' }) }).locator('> div').first();
   await expect(propsFrame.locator('[class*="frameCount"]')).toHaveText('0');
+  await expect(propsFrame.locator('[class*="frameEyebrow"]')).not.toContainText('Custom');
   await expect(propsFrame.locator('[data-asset-id]')).toHaveCount(0);
   await expect(propsFrame.locator('[class*="frameBody"]')).toHaveCount(0);
   await expect(propsFrame).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');

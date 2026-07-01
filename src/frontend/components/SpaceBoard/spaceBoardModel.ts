@@ -50,6 +50,13 @@ export const COLLECTION_KIND_COLORS: Record<typeof COLLECTION_KINDS[number], str
   custom: '#6f7480',
 };
 
+export function getVisibleCollectionKindLabel(collection: Pick<SpaceCollection, 'kind' | 'name'>): string | null {
+  const label = COLLECTION_KIND_LABELS[collection.kind];
+  if (collection.kind === 'custom') return null;
+  if (label.toLowerCase() === collection.name.toLowerCase()) return null;
+  return label;
+}
+
 export function sortCollections(collections: SpaceCollection[]): SpaceCollection[] {
   return [...collections].sort((a, b) => a.sort_index - b.sort_index || a.created_at - b.created_at);
 }
