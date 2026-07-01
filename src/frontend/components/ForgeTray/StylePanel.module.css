@@ -163,10 +163,9 @@
 }
 
 .presetMain strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 0.8125rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .presetMain span,
@@ -194,11 +193,10 @@
 }
 
 .presetSummary span {
-  overflow: hidden;
   color: var(--color-text-muted);
   font-size: var(--font-size-small-sm);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .presetEditFields {
@@ -236,9 +234,7 @@
 
 .refRow span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .emptyState {

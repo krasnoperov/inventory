@@ -468,8 +468,8 @@ test('asset details strip makes video facts and details disclosure visible', asy
   await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCSS('border-left-width', '0px');
   await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCSS('border-radius', '0px');
   await expect(page.getByText('Hero reveal video')).toBeVisible();
-  await expect(page.getByLabel('Asset scope', { exact: true })).toContainText('Details Space');
-  await expect(page.getByText('Asset scope', { exact: true })).toHaveCSS('text-transform', 'none');
+  await expect(page.getByLabel('Asset scope', { exact: true })).toContainText('Details');
+  await expect(page.getByText('Asset', { exact: true })).toHaveCSS('text-transform', 'none');
   await expect(page.getByLabel('Variants scope')).toContainText('Variants');
   await expect(page.getByLabel('Variants scope')).toContainText('Variant 1/3');
   await expect(page.getByText('Video', { exact: true })).toBeVisible();
@@ -557,6 +557,26 @@ test('asset details strip keeps variant focus visible without a selected variant
   await expectNoOverlap(page.getByLabel('Asset scope', { exact: true }), page.getByRole('button', { name: 'Expand asset scope details' }));
   await expectNoOverlap(page.getByLabel('Variants scope'), page.getByRole('button', { name: 'Expand asset scope details' }));
   await screenshot(page, 'asset-details-strip-no-variant', { fullPage: true });
+});
+
+test('asset details dock avoids ellipsis in screenshot-like audio summary', async ({ page }) => {
+  await page.setViewportSize({ width: 1040, height: 620 });
+  await mountComponent(page, 'AssetGenerationDockAudioNoEllipsis', {});
+
+  const summary = page.getByRole('region', { name: 'Details scoped space summary', exact: true });
+  await expect(summary).toBeVisible();
+  await expect(summary).toContainText('Shorts outro - living room narration with a longer readable name');
+  await expect(summary).toContainText('Variant 1/1 · Audio · Completed');
+  await expect(summary).toContainText('Duration');
+  await expect(summary).toContainText('4.8s');
+  await expect(summary.locator('[class*="assetDetailsName"]')).toHaveCSS('white-space', 'normal');
+  await expect(summary.locator('[class*="variantFocusValue"]')).toHaveCSS('white-space', 'normal');
+  await expect(summary.locator('[class*="assetDetailsName"]')).not.toHaveCSS('text-overflow', 'ellipsis');
+  await expect(summary.locator('[class*="variantFocusValue"]')).not.toHaveCSS('text-overflow', 'ellipsis');
+  await expect(summary).not.toContainText('Details...');
+  await expect(summary).not.toContainText('Asset...');
+  await expect(summary).not.toContainText('A...');
+  await screenshot(page, 'asset-details-dock-audio-no-ellipsis', { fullPage: true });
 });
 
 test('asset details strip names audio details explicitly', async ({ page }) => {

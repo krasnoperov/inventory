@@ -333,7 +333,7 @@ export function ForgeChat({
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type a message..."
+          placeholder="Type a message"
           disabled={isLoading}
           fullWidth
         />

@@ -625,7 +625,7 @@ test('forge tray opens Style and Chat as separate full sheets', async ({ page })
     'Keep the mood calm and grounded while preserving readable silhouettes for game production review.',
   ].join(' '));
 
-  await selectDropdown(page, 'Style selector', 'Manage styles...');
+  await selectDropdown(page, 'Style selector', 'Manage styles');
   await expect(page.getByText('Style Library')).toBeVisible();
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
@@ -832,7 +832,7 @@ test('forge chat actions send messages and apply suggested prompts', async ({ pa
   await expect(page.getByText('A blue crystal gate with a clean silhouette.')).toBeVisible();
   await screenshot(page, 'forge-tray-chat-analysis-expanded', { fullPage: true });
 
-  await page.getByPlaceholder('Type a message...').fill('Make it moodier');
+  await page.getByPlaceholder('Type a message').fill('Make it moodier');
   await page.getByRole('button', { name: 'Send message' }).click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -906,7 +906,7 @@ test('style library creates a preset from a style collection', async ({ page }) 
   });
 
   await revealOptions(page);
-  await selectDropdown(page, 'Style selector', 'Manage styles...');
+  await selectDropdown(page, 'Style selector', 'Manage styles');
   await expect(page.getByRole('button', { name: 'New preset' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'New preset' })).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByText('Create preset')).toHaveCount(0);
@@ -946,7 +946,7 @@ test('style library sets a preset as default', async ({ page }) => {
   });
 
   await revealOptions(page);
-  await selectDropdown(page, 'Style selector', 'Manage styles...');
+  await selectDropdown(page, 'Style selector', 'Manage styles');
   await expect(page.getByLabel('Enabled', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Set default' })).toBeVisible();
   await page.getByRole('button', { name: 'Set default' }).click();
@@ -972,7 +972,7 @@ test('style library edits preset details after opening the preset editor', async
   });
 
   await revealOptions(page);
-  await selectDropdown(page, 'Style selector', 'Manage styles...');
+  await selectDropdown(page, 'Style selector', 'Manage styles');
   await expect(page.getByLabel(`Style prompt for ${russafaPreset.name}`, { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Delete' })).toBeVisible();
   await page.getByRole('button', { name: `Edit ${russafaPreset.name}` }).click();

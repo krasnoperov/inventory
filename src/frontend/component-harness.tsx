@@ -531,6 +531,52 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
   );
 }
 
+function AssetGenerationDockAudioNoEllipsisPreview() {
+  const audioAsset: Asset = {
+    ...stackAsset('audio-outro', 'Shorts outro - living room narration with a longer readable name', 'speech'),
+    media_kind: 'audio',
+    active_variant_id: 'audio-outro-variant',
+  };
+  const audioVariant: Variant = {
+    ...stackVariant('audio-outro', 'audio-outro-variant'),
+    media_kind: 'audio',
+    image_key: null,
+    thumb_key: null,
+    media_key: 'audio/shorts-outro-living-room.wav',
+    media_mime_type: 'audio/wav',
+    media_width: null,
+    media_height: null,
+    media_duration_ms: 4800,
+  };
+
+  return (
+    <AssetGenerationDockHarness
+      details={(
+        <AssetDetailsContextHarness
+          asset={audioAsset}
+          assetCollectionCount={0}
+          fullDetailsOpen={false}
+          onToggleFullDetails={() => undefined}
+          selectedVariant={audioVariant}
+          selectedVariantIndex={0}
+          selectedVariantCollectionCount={0}
+          variantCount={1}
+        />
+      )}
+      tray={(
+        <ForgeTray
+          allAssets={[audioAsset]}
+          allVariants={[audioVariant]}
+          onSubmit={() => undefined}
+          onBrandBackground={false}
+          floating={false}
+          currentAsset={audioAsset}
+        />
+      )}
+    />
+  );
+}
+
 function AssetGenerationDockWithVariantInspectorPreview(props: Record<string, unknown>) {
   const selectedVariant = stackVariants.find((variant) => variant.id === 'hero-variant') ?? stackVariants[0];
   const selectedVariantIndex = stackVariants.filter((variant) => variant.asset_id === 'hero').findIndex((variant) => variant.id === selectedVariant.id);
@@ -1100,6 +1146,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AssetDetailControls: AssetDetailControlsHarness,
   AssetTitleInlineEditor: AssetTitleInlineEditorPreview,
   AssetGenerationDock: AssetGenerationDockPreview,
+  AssetGenerationDockAudioNoEllipsis: AssetGenerationDockAudioNoEllipsisPreview,
   AssetGenerationDockWithVariantInspector: AssetGenerationDockWithVariantInspectorPreview,
   AssetDetailOverlayChrome: AssetDetailOverlayChromePreview,
   AssetDetailsContext: AssetDetailsContextPreview,

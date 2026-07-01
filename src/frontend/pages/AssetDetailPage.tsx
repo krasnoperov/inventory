@@ -592,8 +592,8 @@ export function AssetDetailsStrip({
     <section className={styles.assetDetailsStrip} aria-label="Details scoped space summary">
       <div className={styles.assetDetailsIdentity} aria-label="Asset scope">
         <div className={styles.assetDetailsEyebrow}>
-          <span>Details Space</span>
-          <span>Asset scope</span>
+          <span>Details</span>
+          <span>Asset</span>
           <span>{formatMediaKind(asset.media_kind)}</span>
         </div>
         <div className={styles.assetDetailsName} title={asset.name}>
@@ -1311,7 +1311,7 @@ export default function AssetDetailPage() {
           statusSlot={<UsageIndicator />}
         />
         <div className={styles.loadingPage}>
-          <div className={styles.loading}>Loading asset...</div>
+          <div className={styles.loading}>Loading asset</div>
         </div>
       </div>
     );
@@ -1515,7 +1515,7 @@ export default function AssetDetailPage() {
                     <span className={styles.jobTitle}>{JOB_STATUS_LABELS[job.status]}</span>
                     {job.prompt && job.status !== 'completed' && (
                       <span className={styles.jobPrompt}>
-                        "{job.prompt.length > 60 ? job.prompt.slice(0, 60) + '...' : job.prompt}"
+                        "{job.prompt}"
                       </span>
                     )}
                     {job.error && <span className={styles.jobError}>{job.error}</span>}
