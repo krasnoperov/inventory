@@ -712,10 +712,21 @@ test('forge tray control bar keeps compact icon actions interactive', async ({ p
     buffer: Buffer.from('fake image'),
   });
   await expect(page.getByText('Create New Asset')).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Create New Asset' })).toBeVisible();
+  await expect(page.getByText('Name the asset before upload.')).toBeVisible();
   await expect(page.locator('[class*="uploadPromptOverlay"]')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('[class*="uploadPromptOverlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.locator('[class*="uploadPromptModal"]')).toHaveCSS('box-shadow', 'none');
   await expect(page.locator('[class*="uploadPromptModal"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(page.locator('[class*="uploadPromptModal"]')).toHaveCSS('border-radius', '8px');
+  const uploadPromptDockGap = await page.evaluate(() => {
+    const prompt = document.querySelector('[class*="uploadPromptModal"]');
+    const tray = document.querySelector('[class*="tray"]');
+    if (!prompt || !tray) return null;
+    return tray.getBoundingClientRect().top - prompt.getBoundingClientRect().bottom;
+  });
+  expect(uploadPromptDockGap).not.toBeNull();
+  expect(uploadPromptDockGap!).toBeGreaterThanOrEqual(8);
   await expect(page.getByRole('button', { name: 'Create Asset' })).toBeEnabled();
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-upload-prompt', { fullPage: true });
