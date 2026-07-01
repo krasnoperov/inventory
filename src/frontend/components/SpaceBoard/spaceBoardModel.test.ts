@@ -6,6 +6,7 @@ import {
   getItemAsset,
   getPinnedVariantIdForAssetCollection,
   getUnfiledAssets,
+  getVisibleCollectionKindLabel,
   moveId,
   sortCollections,
 } from './spaceBoardModel';
@@ -143,5 +144,20 @@ describe('space board model', () => {
     assert.equal(getPinnedVariantIdForAssetCollection(styleCollection, anna), 'variant-1');
     assert.equal(getPinnedVariantIdForAssetCollection(castCollection, anna), null);
     assert.equal(getPinnedVariantIdForAssetCollection(styleCollection, asset({ active_variant_id: null })), null);
+  });
+
+  test('shows collection kind labels only when they add useful signal', () => {
+    assert.equal(getVisibleCollectionKindLabel({
+      name: 'Props',
+      kind: 'custom',
+    }), null);
+    assert.equal(getVisibleCollectionKindLabel({
+      name: 'Cast',
+      kind: 'cast',
+    }), null);
+    assert.equal(getVisibleCollectionKindLabel({
+      name: 'Heroes',
+      kind: 'cast',
+    }), 'Cast');
   });
 });

@@ -30,11 +30,11 @@ import { FRAME_WIDTH, FRAME_GAP, columnCountForLayout, estimateFrameHeight } fro
 import {
   aspectRatioForVariant,
   COLLECTION_KIND_COLORS,
-  COLLECTION_KIND_LABELS,
   getCollectionItems,
   getDisplayVariant,
   getItemAsset,
   getUnfiledAssets,
+  getVisibleCollectionKindLabel,
   sortCollections,
 } from '../SpaceBoard/spaceBoardModel';
 import boardStyles from '../SpaceBoard/SpaceBoard.module.css';
@@ -71,6 +71,7 @@ interface FrameData extends Record<string, unknown> {
   count: number;
   cards: FrameCard[];
   spaceId: string;
+  showColorDot: boolean;
   onAssetClick: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   isVariantInForgeTray?: (variantId: string) => boolean;
@@ -171,14 +172,13 @@ function FrameAssetCard({ card, data }: { card: FrameCard; data: FrameData }) {
 }
 
 function FrameNodeView({ data }: NodeProps<FrameNode>) {
-  const showKindText = Boolean(data.kindLabel && data.kindLabel.toLowerCase() !== data.title.toLowerCase());
   return (
     <div className={styles.frame} style={{ '--collection-color': data.color } as CSSProperties}>
       <header className={styles.frameHeader}>
-        {data.kindLabel && (
+        {(data.showColorDot || data.kindLabel) && (
           <span className={styles.frameEyebrow}>
-            <span className={styles.colorDot} />
-            {showKindText && <span>{data.kindLabel}</span>}
+            {data.showColorDot && <span className={styles.colorDot} />}
+            {data.kindLabel && <span>{data.kindLabel}</span>}
           </span>
         )}
         <h2 className={styles.frameTitle}>{data.title}</h2>
@@ -281,6 +281,7 @@ function SpaceCanvasInner({
       title: string;
       kindLabel: string | null;
       color: string;
+      showColorDot: boolean;
       cards: FrameCard[];
       count: number;
     };
@@ -291,8 +292,9 @@ function SpaceCanvasInner({
       return {
         id: collection.id,
         title: collection.name,
-        kindLabel: COLLECTION_KIND_LABELS[collection.kind],
+        kindLabel: getVisibleCollectionKindLabel(collection),
         color,
+        showColorDot: true,
         cards: buildCards(items, assets, variants),
         count: items.length,
       };
@@ -304,6 +306,7 @@ function SpaceCanvasInner({
         title: 'Unfiled',
         kindLabel: null,
         color: COLLECTION_KIND_COLORS.custom,
+        showColorDot: false,
         cards: unfiled.map((asset) => {
           const variant = getDisplayVariant(null, asset, variants);
           return { key: asset.id, asset, variant, aspect: aspectRatioForVariant(variant) };
@@ -324,6 +327,7 @@ function SpaceCanvasInner({
         count: frame.count,
         cards: frame.cards,
         spaceId,
+        showColorDot: frame.showColorDot,
         onAssetClick,
         onAddToTray,
         isVariantInForgeTray,

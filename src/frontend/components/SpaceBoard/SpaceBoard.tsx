@@ -28,6 +28,7 @@ import {
   getItemAsset,
   getPinnedVariantIdForAssetCollection,
   getUnfiledAssets,
+  getVisibleCollectionKindLabel,
   moveId,
   sortCollections,
 } from './spaceBoardModel';
@@ -542,6 +543,7 @@ export function SpaceBoard({
     const style = { '--collection-color': color } as CSSProperties;
     const previewItems = items.slice(0, 6);
     const isCollectionMenuOpen = openCollectionMenuId === collection.id;
+    const visibleKindLabel = getVisibleCollectionKindLabel(collection);
 
     return (
       <section
@@ -553,7 +555,7 @@ export function SpaceBoard({
           <div className={styles.collectionTitleGroup}>
             <div className={styles.collectionEyebrow}>
               <span className={styles.colorDot} />
-              <span>{COLLECTION_KIND_LABELS[collection.kind]}</span>
+              {visibleKindLabel && <span>{visibleKindLabel}</span>}
             </div>
             <h2>{collection.name}</h2>
             <p>{items.length} {items.length === 1 ? 'asset' : 'assets'}</p>

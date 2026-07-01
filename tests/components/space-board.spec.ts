@@ -254,6 +254,62 @@ test('composition placement is gated to finished variants', async ({ page }) => 
   await screenshot(page, 'space-board-starter-panel', { fullPage: true });
 });
 
+test('collection headers hide generic or duplicate kind labels', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 560 });
+  const propsCollection = {
+    id: 'props',
+    name: 'Props',
+    kind: 'custom',
+    color: '#777777',
+    description: null,
+    sort_index: 0,
+    created_at: baseTime,
+    updated_at: baseTime,
+  };
+  const castCollection = {
+    id: 'cast',
+    name: 'Cast',
+    kind: 'cast',
+    color: '#5a8fca',
+    description: null,
+    sort_index: 1,
+    created_at: baseTime,
+    updated_at: baseTime,
+  };
+  const heroesCollection = {
+    ...castCollection,
+    id: 'heroes',
+    name: 'Heroes',
+    sort_index: 2,
+  };
+
+  await mountComponent(page, 'SpaceBoard', {
+    spaceId: 'space-1',
+    assets: [asset('hero', 'Hero sprite')],
+    variants: [readyVariant('hero')],
+    collections: [propsCollection, castCollection, heroesCollection],
+    collectionItems: [],
+    canEdit: true,
+    onAssetClick: '__noop__',
+    createCollection: '__noop__',
+    updateCollection: '__noop__',
+    deleteCollection: '__noop__',
+    addCollectionItem: '__noop__',
+    updateCollectionItem: '__noop__',
+    reorderCollectionItems: '__noop__',
+    deleteCollectionItem: '__noop__',
+  });
+
+  const propsHeader = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Props' }) }).locator('[class*="collectionHeader"]');
+  const castHeader = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Cast' }) }).locator('[class*="collectionHeader"]');
+  const heroesHeader = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Heroes' }) }).locator('[class*="collectionHeader"]');
+  await expect(propsHeader).not.toContainText('Custom');
+  await expect(castHeader).not.toContainText(/Cast\s+Cast/);
+  await expect(heroesHeader.locator('[class*="collectionEyebrow"]')).toContainText('Cast');
+  await expect(propsHeader.locator('[class*="colorDot"]')).toBeVisible();
+  await screenshot(page, 'space-board-quiet-kind-labels', { fullPage: true });
+});
+
 test('media triggers open image assets without changing thumbnail chrome', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await mountComponent(page, 'SpaceBoard', {
