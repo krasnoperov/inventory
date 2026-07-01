@@ -198,8 +198,8 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-micro);
   font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .colorDot {
