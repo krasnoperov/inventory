@@ -121,7 +121,11 @@ test('lineage tree uses shared controls for graph toggle and sever actions', asy
   const currentGraphNode = page.locator('[class*="currentNode"]');
   await expect(currentGraphNode).toHaveCSS(
     'background-color',
-    await resolvedBackground(page, 'var(--color-status-processing-bg)'),
+    await resolvedBackground(page, 'var(--color-surface)'),
+  );
+  await expect(currentGraphNode).toHaveCSS(
+    'border-color',
+    await resolvedColor(page, 'var(--color-primary)'),
   );
   await currentGraphNode.hover();
   await expect(currentGraphNode).toHaveCSS('transform', 'none');
