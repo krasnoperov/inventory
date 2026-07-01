@@ -133,6 +133,8 @@ test('composition detail creates compositions and sets an exact output variant',
   await expect(page.getByRole('button', { name: /Scene Bar composition draft/ }).first()).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('complementary', { name: 'Composition detail' })).toHaveCSS('box-shadow', 'none');
   await expect(page.getByRole('complementary', { name: 'Composition detail' })).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  const panelBox = await page.getByRole('complementary', { name: 'Composition detail' }).boundingBox();
+  expect(panelBox?.width).toBeLessThanOrEqual(700);
   await expect(page.getByText('Composition Detail', { exact: true })).toHaveCSS('text-transform', 'none');
   await expect(page.getByText('Compositions', { exact: true })).toHaveCSS('text-transform', 'none');
   await expect(page.getByText('New', { exact: true })).toHaveCount(0);
@@ -153,13 +155,14 @@ test('composition detail creates compositions and sets an exact output variant',
 
   const output = page.getByRole('heading', { name: 'Output' }).locator('xpath=ancestor::section[1]');
   await output.getByRole('button', { name: 'Add Output variant' }).click();
-  await expect(page.locator('[class*="pickerOverlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('[class*="pickerOverlay"]')).toHaveCount(0);
+  await expect(page.getByRole('complementary', { name: 'Choose exact variant' })).not.toHaveCSS('position', 'absolute');
   await page.getByLabel('Search exact variants').fill('Scene Bar');
   await expect(
-    page.getByRole('dialog', { name: 'Choose exact variant' }).getByRole('button', { name: /Scene Bar/ }).first(),
+    page.getByRole('complementary', { name: 'Choose exact variant' }).getByRole('button', { name: /Scene Bar/ }).first(),
   ).toHaveCSS('grid-template-columns', /48px /);
   await screenshot(page, 'composition-variant-picker', { fullPage: true });
-  await page.getByRole('dialog', { name: 'Choose exact variant' }).getByRole('button', { name: /Scene Bar/ }).click();
+  await page.getByRole('complementary', { name: 'Choose exact variant' }).getByRole('button', { name: /Scene Bar/ }).click();
 
   await expect.poll(() => calls(page)).toContainEqual(expect.stringContaining(
     'update-composition:["composition-1",{"outputAssetId":"scene","outputVariantId":"scene-v1"}]',
@@ -203,7 +206,7 @@ test('composition detail adds, replaces, removes, and reorders slot items withou
   const props = page.getByRole('heading', { name: 'Props' }).locator('xpath=ancestor::section[1]');
   await props.getByRole('button', { name: 'Add Props variant' }).click();
   await page.getByLabel('Search exact variants').fill('Anna');
-  await page.getByRole('dialog', { name: 'Choose exact variant' }).getByRole('button', { name: /Anna/ }).first().click();
+  await page.getByRole('complementary', { name: 'Choose exact variant' }).getByRole('button', { name: /Anna/ }).first().click();
   await expect.poll(() => calls(page)).toContainEqual(expect.stringContaining(
     'create-item:["composition-1",{"role":"prop","assetId":"anna","variantId":"anna-v1"',
   ));
@@ -211,7 +214,7 @@ test('composition detail adds, replaces, removes, and reorders slot items withou
   const annaRow = page.getByText('Exact variant anna-v1').locator('xpath=ancestor::div[contains(@class, "usageRow")]').first();
   await annaRow.getByRole('button', { name: 'Replace Anna variant' }).click();
   await page.getByLabel('Search exact variants').fill('Pilar');
-  await page.getByRole('dialog', { name: 'Choose exact variant' }).getByRole('button', { name: /Pilar/ }).click();
+  await page.getByRole('complementary', { name: 'Choose exact variant' }).getByRole('button', { name: /Pilar/ }).click();
   await expect.poll(() => calls(page)).toContainEqual(expect.stringContaining(
     'update-item:["composition-1","item-1",{"assetId":"pilar","variantId":"pilar-v1"}]',
   ));
