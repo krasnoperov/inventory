@@ -70,6 +70,10 @@ test('variant details panel uses shared action controls', async ({ page }) => {
   await expect(page.getByRole('complementary', { name: 'Variant details' })).not.toHaveCSS('animation-name', /slideIn/);
   await expect(page.getByRole('heading', { name: 'Crystal Gate' })).toBeVisible();
   await expect(page.getByText('Details · Variant 1/2 · Image · Completed')).toBeVisible();
+  await expect(page.locator('[class*="titleBlock"] h2')).toHaveCSS('white-space', 'normal');
+  await expect(page.locator('[class*="titleBlock"] h2')).toHaveCSS('text-overflow', 'clip');
+  await expect(page.locator('[class*="titleBlock"] p')).toHaveCSS('white-space', 'normal');
+  await expect(page.locator('[class*="titleBlock"] p')).toHaveCSS('text-overflow', 'clip');
   await expect(page.getByText('variant-')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Close variant details' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Close variant details' })).toHaveCSS('position', 'static');

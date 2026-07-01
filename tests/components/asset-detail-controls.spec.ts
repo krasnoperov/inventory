@@ -834,10 +834,13 @@ test('asset detail overlays use flat chrome', async ({ page }) => {
   await page.setViewportSize({ width: 760, height: 460 });
   await mountComponent(page, 'AssetDetailOverlayChrome', {});
 
-  await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('Details');
-  await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('Asset');
-  await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('2 variants');
-  await expect(page.getByRole('toolbar', { name: 'Scoped asset canvas controls' })).toContainText('Crystal Gate');
+  const toolbar = page.getByRole('toolbar', { name: 'Scoped asset canvas controls' });
+  await expect(toolbar).not.toContainText('Details');
+  await expect(toolbar).not.toContainText('Asset');
+  await expect(toolbar).not.toContainText('2 variants');
+  await expect(toolbar).toContainText('Crystal Gate with readable scoped title');
+  await expect(toolbar).toHaveCSS('flex-wrap', 'wrap');
+  await expect(toolbar.locator('[class*="assetTitleSlot"]')).toHaveCSS('text-overflow', 'clip');
   await expect(page.getByRole('region', { name: 'Tile grid overlay' })).toHaveCSS('box-shadow', 'none');
   const generationJobs = page.getByRole('region', { name: 'Generation jobs' });
   await expect(generationJobs.locator('[class*="jobCard"]')).toHaveCSS('box-shadow', 'none');

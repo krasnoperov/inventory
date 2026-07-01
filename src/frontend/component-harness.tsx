@@ -10,7 +10,7 @@ import { CollectionPlacementPicker } from './components/CollectionPlacementPicke
 import { CompositionDetail, CompositionUsageList } from './components/CompositionDetail';
 import { CompositionPlacementControl } from './components/CompositionPlacementControl';
 import { CanvasDropHint } from './components/CanvasDropHint';
-import { CanvasToolbar, CanvasToolbarBadge, CanvasToolbarButton, CanvasToolbarDivider, CanvasToolbarLink, CanvasToolbarTitle } from './components/CanvasToolbar';
+import { CanvasToolbar, CanvasToolbarButton, CanvasToolbarDivider, CanvasToolbarLink, CanvasToolbarTitle } from './components/CanvasToolbar';
 import { CreateSpaceDialog } from './components/CreateSpaceDialog';
 import { ForgeTray } from './components/ForgeTray';
 import { FormContainer, FormTitle } from './components/forms';
@@ -661,17 +661,8 @@ function AssetDetailOverlayChromePreview() {
             </svg>
           </CanvasToolbarLink>
           <CanvasToolbarTitle className={assetDetailStyles.assetTitleSlot}>
-            Crystal Gate
+            Crystal Gate with readable scoped title
           </CanvasToolbarTitle>
-          <CanvasToolbarBadge tone="neutral">
-            Details
-          </CanvasToolbarBadge>
-          <CanvasToolbarBadge tone="neutral" className={assetDetailStyles.assetScopeBadge}>
-            Asset
-          </CanvasToolbarBadge>
-          <CanvasToolbarBadge tone="neutral" className={assetDetailStyles.variantScopeBadge}>
-            2 variants
-          </CanvasToolbarBadge>
         </CanvasToolbar>
       </div>
       <section className={assetDetailStyles.tileGridOverlay} role="region" aria-label="Tile grid overlay">

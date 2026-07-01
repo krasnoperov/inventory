@@ -114,22 +114,14 @@
 
 .detailToolbar {
   position: static;
-  max-width: 100%;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  max-width: min(680px, 100%);
 }
 
 .assetTitleSlot {
-  max-width: 220px;
-}
-
-.assetScopeBadge {
-  border-left: 2px solid var(--color-primary);
-}
-
-.variantScopeBadge {
-  color: var(--color-text);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0;
-  text-transform: none;
+  flex: 1 1 18rem;
+  max-width: min(30rem, 100%);
 }
 
 /* Breadcrumb */
@@ -170,7 +162,7 @@
   font-weight: 600;
   color: var(--color-text);
   justify-content: flex-start;
-  max-width: min(320px, 45vw);
+  max-width: 100%;
   line-height: 1.2;
   white-space: normal;
   overflow-wrap: anywhere;
