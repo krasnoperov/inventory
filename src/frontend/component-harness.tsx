@@ -716,10 +716,12 @@ function UiSelectPreview() {
 
 function UiButtonPreview() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '2rem' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', padding: '2rem' }}>
       <Button variant="primary">Primary</Button>
       <Button variant="secondary">Secondary</Button>
       <Button variant="ghost" size="sm">Ghost small</Button>
+      <Button variant="primary" disabled>Primary disabled</Button>
+      <Button variant="secondary" disabled>Secondary disabled</Button>
       <IconButton variant="secondary" size="sm" aria-label="Preview icon action">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
           <path d="M12 5v14M5 12h14" />
