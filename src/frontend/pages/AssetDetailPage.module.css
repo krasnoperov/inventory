@@ -36,17 +36,6 @@
   min-width: 0;
 }
 
-.authButton {
-  padding: 0.35rem 0.65rem;
-  border-radius: var(--radius-sm);
-  background: var(--button-primary-bg);
-  color: var(--button-primary-text);
-  text-decoration: none;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  box-shadow: none;
-}
-
 /* Loading and error states */
 .loadingPage,
 .errorPage {

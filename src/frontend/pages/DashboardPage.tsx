@@ -9,7 +9,7 @@ import { ErrorMessage } from '../components/forms';
 import { apiFetch } from '../../api/client';
 import type { Space } from '../../api/types';
 import { formatUtcDate } from '../lib/dates';
-import { Button, IconButton, TextInput } from '../ui';
+import { Button, ButtonLink, IconButton, TextInput } from '../ui';
 import styles from './DashboardPage.module.css';
 
 interface CreateSpaceDialogProps {
@@ -175,7 +175,7 @@ export default function DashboardPage() {
   const headerRightSlot = user ? (
     <HeaderNav userName={user.name} userEmail={user.email} />
   ) : (
-    <Link to="/login" className={styles.authButton}>Sign In</Link>
+    <ButtonLink to="/login" variant="primary">Sign In</ButtonLink>
   );
 
   return (

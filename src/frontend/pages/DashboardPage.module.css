@@ -32,24 +32,6 @@
   color: var(--color-primary);
 }
 
-.authButton {
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-md);
-  background: var(--button-primary-bg);
-  color: var(--button-primary-text);
-  border: var(--button-primary-border);
-  box-shadow: none;
-  text-decoration: none;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.authButton:hover {
-  background: var(--button-primary-bg-hover);
-  transform: none;
-}
-
 /* Dashboard Header */
 .header {
   display: flex;

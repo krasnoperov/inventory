@@ -28,7 +28,7 @@ import {
   type ProductionRecord,
 } from '../productionHandoff';
 import { productionRecordsQueryOptions, spacePageQueryOptions } from '../queries';
-import { Button, IconButton, TextArea, TextInput, UiSelect, type SelectOption } from '../ui';
+import { Button, ButtonLink, IconButton, TextArea, TextInput, UiSelect, type SelectOption } from '../ui';
 import styles from './ProductionPage.module.css';
 
 interface PlacementFormState {
@@ -500,7 +500,7 @@ export default function ProductionPage() {
       <HeaderNav userName={user.name} userEmail={user.email} />
     </div>
   ) : (
-    <Link to="/login" className={styles.authButton}>Sign In</Link>
+    <ButtonLink to="/login" variant="primary" size="sm">Sign In</ButtonLink>
   );
 
   if (isLoadingSpace) {

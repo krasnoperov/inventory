@@ -34,7 +34,7 @@ import { BillingPlanActions, UsageBar } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
 import { WorkspaceChrome } from './components/WorkspaceChrome';
 import { AuthContext, type AuthContextType } from './contexts/AuthContextProvider';
-import { Button, Checkbox, IconButton, TextArea, TextInput, UiSelect, type SelectOption } from './ui';
+import { Button, ButtonLink, Checkbox, IconButton, TextArea, TextInput, UiSelect, type SelectOption } from './ui';
 import type { MeterStatus } from './hooks/useBillingStatus';
 import { AdminSpendView } from './pages/AdminSpendPage';
 import { AuthorizationDecisionActions } from './pages/AuthorizationApprovalPage';
@@ -51,7 +51,6 @@ import PricingPage from './pages/PricingPage';
 import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
 import profileStyles from './pages/ProfilePage.module.css';
 import { ProductionHandoffControls, ProductionPlacementControls } from './pages/ProductionPage';
-import productionStyles from './pages/ProductionPage.module.css';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
 import spacePageStyles from './pages/SpacePage.module.css';
 import UnknownPage from './pages/UnknownPage';
@@ -777,7 +776,7 @@ function DashboardHoverChromePreview() {
     <div className={dashboardStyles.container} style={{ padding: '2rem', maxWidth: '680px' }}>
       <div className={dashboardStyles.header}>
         <h1 className={dashboardStyles.title}>Spaces</h1>
-        <a className={dashboardStyles.authButton} href="/profile">Profile</a>
+        <ButtonLink to="/profile" variant="primary">Profile</ButtonLink>
       </div>
       <div className={dashboardStyles.spacesList}>
         <a className={dashboardStyles.spaceCard} href="/spaces/preview">
@@ -915,10 +914,10 @@ function SpacePageOverlayChromePreview() {
 function AppPrimaryActionChromePreview() {
   return (
     <div style={{ display: 'grid', gap: '0.75rem', padding: '2rem', width: '320px' }}>
-      <a href="/dashboard" className={dashboardStyles.authButton}>Dashboard primary</a>
-      <a href="/spaces/space-1" className={spacePageStyles.authButton}>Space primary</a>
-      <a href="/production" className={productionStyles.authButton}>Production primary</a>
-      <a href="/assets/asset-1" className={assetDetailStyles.authButton}>Asset primary</a>
+      <ButtonLink to="/dashboard" variant="primary">Dashboard primary</ButtonLink>
+      <ButtonLink to="/spaces/space-1" variant="primary" size="sm">Space primary</ButtonLink>
+      <ButtonLink to="/production" variant="primary" size="sm">Production primary</ButtonLink>
+      <ButtonLink to="/assets/asset-1" variant="primary" size="sm">Asset primary</ButtonLink>
     </div>
   );
 }
@@ -932,7 +931,7 @@ function ProfileSignInButtonPreview() {
             Make Effects
           </a>
         )}
-        rightSlot={<a href="/login" className={profileStyles.authButton}>Sign In</a>}
+        rightSlot={<ButtonLink to="/login" variant="primary">Sign In</ButtonLink>}
       />
     </div>
   );
