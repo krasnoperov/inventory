@@ -361,6 +361,7 @@ test('audio collection cards surface playback and compact metadata', async ({ pa
 
   await expect(page.getByRole('button', { name: 'Play' })).toHaveCount(2);
   await expect(page.locator('section[class*="collection"]').first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('article[class*="audioAssetCard"]').first()).toHaveCSS('border-top-color', await resolvedBackground(page, 'var(--color-border)'));
   await expect(page.getByRole('button', { name: 'Merchant greeting', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Legacy ambience', exact: true })).toBeVisible();
   await expect(page.locator('[title="Rachel"]')).toBeVisible();
