@@ -66,6 +66,7 @@ test('variant details panel uses shared action controls', async ({ page }) => {
 
   await expect(page.getByRole('complementary', { name: 'Variant details' })).toBeVisible();
   await expect(page.getByRole('complementary', { name: 'Variant details' })).toHaveCSS('box-shadow', 'none');
+  await expect(page.getByRole('complementary', { name: 'Variant details' })).toHaveCSS('border-radius', '12px');
   await expect(page.getByRole('complementary', { name: 'Variant details' })).toHaveCSS('transform', 'none');
   await expect(page.getByRole('complementary', { name: 'Variant details' })).not.toHaveCSS('animation-name', /slideIn/);
   await expect(page.getByRole('heading', { name: 'Crystal Gate' })).toBeVisible();

@@ -54,6 +54,7 @@ const TIER_PREFIXES = {
     '--landing-',
     '--terminal-',
     '--canvas-',
+    '--workspace-panel-',
   ],
 };
 
@@ -261,6 +262,9 @@ const GROUPS = [
   // ---- component: forge tray. Heterogeneous (gradients, borders, shadows,
   // colours, dimension aliases). Type undefined → inferTypeFromValue / alias. ----
   { match: /^--forge-(.+)$/, group: 'forge', leaf: ($1) => kebabToCamel($1), type: undefined },
+
+  // ---- component: workspace panels. Shared chrome for toolbars, trays, sheets. ----
+  { match: /^--workspace-panel-(.+)$/, group: 'workspace.panel', leaf: ($1) => kebabToCamel($1), type: undefined },
 
   // ---- component: thumbnail action buttons & selection badge. ----
   { match: /^--thumb-action-(.+)$/, group: 'thumbAction', leaf: ($1) => kebabToCamel($1), type: undefined },

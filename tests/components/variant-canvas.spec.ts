@@ -156,6 +156,68 @@ test('variant canvas shows derivatives as lineage nodes', async ({ page }) => {
   await screenshot(page, 'variant-canvas-flat-flow-controls', { fullPage: true });
 });
 
+test('asset-scoped variant details dock beside the clicked node', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 720 });
+  await mockMedia(page);
+  await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
+  await sizeCanvasHarness(page);
+  const scopedAsset = asset('icon', 'App Icon');
+  const scopedVariant = variant('icon');
+  await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
+    spaceId: 'space-1',
+    canvasLabel: 'Details canvas',
+    scope: 'asset-details',
+    avoidGenerationDock: true,
+    asset: scopedAsset,
+    variants: [scopedVariant],
+    lineage: [],
+    selectedVariantId: scopedVariant.id,
+    allVariants: [scopedVariant],
+    allAssets: [scopedAsset],
+    onVariantClick: '__noop__',
+  });
+
+  await page.waitForSelector('.react-flow__node');
+  await expect(page.locator('.react-flow__minimap')).toHaveCount(0);
+  const node = page.locator('.react-flow__node').first();
+  await node.click();
+  const detailsPanel = page.getByRole('complementary', { name: 'Variant details' });
+  await expect(detailsPanel).toBeVisible();
+  await expect(detailsPanel).toHaveCSS('position', 'fixed');
+  await expect(detailsPanel).toHaveCSS('border-radius', '12px');
+
+  const overlaps = await page.evaluate(() => {
+    const node = document.querySelector('.react-flow__node');
+    const panel = document.querySelector('[aria-label="Variant details"]');
+    if (!node || !panel) return true;
+    const a = node.getBoundingClientRect();
+    const b = panel.getBoundingClientRect();
+    return !(
+      a.right <= b.left ||
+      b.right <= a.left ||
+      a.bottom <= b.top ||
+      b.bottom <= a.top
+    );
+  });
+  expect(overlaps).toBe(false);
+  const overlapsControls = await page.evaluate(() => {
+    const controls = document.querySelector('.react-flow__controls');
+    const panel = document.querySelector('[aria-label="Variant details"]');
+    if (!controls || !panel) return true;
+    const a = controls.getBoundingClientRect();
+    const b = panel.getBoundingClientRect();
+    return !(
+      a.right <= b.left ||
+      b.right <= a.left ||
+      a.bottom <= b.top ||
+      b.bottom <= a.top
+    );
+  });
+  expect(overlapsControls).toBe(false);
+  await page.waitForTimeout(200);
+  await screenshot(page, 'variant-canvas-details-docked-beside-node', { fullPage: true });
+});
+
 test('variant canvas retries failed audio variants and renders queued state', async ({ page }) => {
   const audioAsset = {
     ...asset('audio', 'Door knock'),

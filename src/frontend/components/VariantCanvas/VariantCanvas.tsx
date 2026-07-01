@@ -635,17 +635,23 @@ function VariantCanvasInner({
     );
   }
 
-  const canvasClassName = [
-    styles.canvas,
-    scope === 'asset-details' ? styles.assetScoped : '',
-    isReady ? styles.ready : styles.loading,
-  ].filter(Boolean).join(' ');
   const expandedVariant = expandedVariantId
     ? variants.find((v) => v.id === expandedVariantId) ?? null
     : null;
+  const canvasClassName = [
+    styles.canvas,
+    scope === 'asset-details' ? styles.assetScoped : '',
+    expandedVariant && avoidGenerationDock ? styles.detailsOpen : '',
+    isReady ? styles.ready : styles.loading,
+  ].filter(Boolean).join(' ');
 
   return (
-    <div className={canvasClassName} role="region" aria-label={canvasLabel} data-canvas-scope={scope}>
+    <div
+      className={canvasClassName}
+      role="region"
+      aria-label={canvasLabel}
+      data-canvas-scope={scope}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -658,16 +664,16 @@ function VariantCanvasInner({
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border)" />
         <Controls className={styles.controls} position="bottom-left" />
-        {/* Minimap: shows every variant regardless of zoom; click/drag to jump
-            to off-screen nodes without zooming the main view out. */}
-        <MiniMap
-          className={styles.minimap}
-          position="bottom-right"
-          pannable
-          zoomable
-          nodeColor="var(--color-accent)"
-          maskColor="var(--canvas-minimap-mask)"
-        />
+        {scope !== 'asset-details' && (
+          <MiniMap
+            className={styles.minimap}
+            position="bottom-right"
+            pannable
+            zoomable
+            nodeColor="var(--color-accent)"
+            maskColor="var(--canvas-minimap-mask)"
+          />
+        )}
       </ReactFlow>
 
       {expandedVariant && (
@@ -676,6 +682,7 @@ function VariantCanvasInner({
           asset={asset}
           spaceId={spaceId}
           avoidGenerationDock={avoidGenerationDock}
+          dockWithinCanvas={avoidGenerationDock}
           isActive={expandedVariant.id === asset.active_variant_id}
           variantIndex={variants.findIndex((variant) => variant.id === expandedVariant.id)}
           variantCount={variants.length}

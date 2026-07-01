@@ -5,7 +5,6 @@ import {
   Background,
   BackgroundVariant,
   Controls,
-  MiniMap,
   ViewportPortal,
   getNodesBounds,
   useNodesInitialized,
@@ -374,8 +373,7 @@ function SpaceCanvasInner({
   // Set the opening view once the frames have first been measured. If the whole
   // space fits at a readable zoom, fit it. Otherwise — a dense space — don't
   // shrink everything into an unreadable sliver: open at a readable zoom anchored
-  // at the top, and let the rest sit off-screen (the minimap is the "there's more
-  // down here" indicator).
+  // at the top, and let the rest sit off-screen for the user to pan naturally.
   const nodesInitialized = useNodesInitialized();
   const didFitRef = useRef(false);
   useEffect(() => {
@@ -492,14 +490,6 @@ function SpaceCanvasInner({
         </ViewportPortal>
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border)" />
         <Controls className={styles.controls} position="bottom-left" showInteractive={false} />
-        <MiniMap
-          className={styles.minimap}
-          position="bottom-right"
-          pannable
-          zoomable
-          nodeColor={(node) => (node.data as FrameData).color}
-          maskColor="var(--canvas-minimap-mask)"
-        />
       </ReactFlow>
     </div>
   );

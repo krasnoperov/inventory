@@ -41,6 +41,8 @@ export interface VariantDetailsPanelProps {
   spaceId?: string;
   /** Shift the viewport inspector away from the asset generation dock. */
   avoidGenerationDock?: boolean;
+  /** Dock inside the scoped canvas instead of viewport when opened from a node. */
+  dockWithinCanvas?: boolean;
   isActive?: boolean;
   /** Zero-based position of this variant inside the scoped asset canvas. */
   variantIndex?: number;
@@ -156,6 +158,7 @@ export function VariantDetailsPanel({
   asset,
   spaceId,
   avoidGenerationDock = false,
+  dockWithinCanvas = false,
   isActive,
   variantIndex,
   variantCount = 0,
@@ -340,7 +343,7 @@ export function VariantDetailsPanel({
 
   return createPortal(
     <aside
-      className={`${styles.panel} ${avoidGenerationDock ? styles.panelAvoidGenerationDock : ''}`}
+      className={`${styles.panel} ${avoidGenerationDock ? styles.panelAvoidGenerationDock : ''} ${dockWithinCanvas ? styles.panelCanvasDock : ''}`}
       aria-label="Variant details"
     >
       <div className={styles.header}>
