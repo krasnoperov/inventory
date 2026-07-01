@@ -200,7 +200,7 @@ test('asset-scoped variant details dock below the clicked node', async ({ page }
   await node.click();
   const detailsPanel = page.getByRole('complementary', { name: 'Variant details' });
   await expect(detailsPanel).toBeVisible();
-  await expect(detailsPanel).toHaveCSS('position', 'absolute');
+  await expect(detailsPanel).toHaveCSS('position', 'static');
   await expect(detailsPanel).toHaveCSS('border-radius', '8px');
 
   const overlaps = await page.evaluate(() => {
@@ -220,14 +220,17 @@ test('asset-scoped variant details dock below the clicked node', async ({ page }
   const verticalOrder = await page.evaluate(() => {
     const node = document.querySelector('.react-flow__node');
     const panel = document.querySelector('[aria-label="Variant details"]');
-    if (!node || !panel) return null;
+    const flowPane = document.querySelector('[class*="flowPane"]');
+    if (!node || !panel || !flowPane) return null;
     return {
       nodeBottom: node.getBoundingClientRect().bottom,
       panelTop: panel.getBoundingClientRect().top,
+      flowPaneBottom: flowPane.getBoundingClientRect().bottom,
     };
   });
   expect(verticalOrder).not.toBeNull();
   expect(verticalOrder!.panelTop).toBeGreaterThanOrEqual(verticalOrder!.nodeBottom);
+  expect(verticalOrder!.panelTop).toBeGreaterThanOrEqual(verticalOrder!.flowPaneBottom + 8);
   const overlapsControls = await page.evaluate(() => {
     const controls = document.querySelector('.react-flow__controls');
     const panel = document.querySelector('[aria-label="Variant details"]');
@@ -271,14 +274,15 @@ test('space-level variant details dock below the clicked node', async ({ page })
   await node.click();
   const detailsPanel = page.getByRole('complementary', { name: 'Variant details' });
   await expect(detailsPanel).toBeVisible();
-  await expect(detailsPanel).toHaveCSS('position', 'absolute');
+  await expect(detailsPanel).toHaveCSS('position', 'static');
   await expect(page.locator('.react-flow__minimap')).toHaveCount(0);
 
   const geometry = await page.evaluate(() => {
     const node = document.querySelector('.react-flow__node');
     const panel = document.querySelector('[aria-label="Variant details"]');
     const controls = document.querySelector('.react-flow__controls');
-    if (!node || !panel || !controls) return null;
+    const flowPane = document.querySelector('[class*="flowPane"]');
+    if (!node || !panel || !controls || !flowPane) return null;
     const nodeBox = node.getBoundingClientRect();
     const panelBox = panel.getBoundingClientRect();
     const controlsBox = controls.getBoundingClientRect();
@@ -293,12 +297,14 @@ test('space-level variant details dock below the clicked node', async ({ page })
       panelOverlapsControls: overlaps(controlsBox, panelBox),
       panelTop: panelBox.top,
       nodeBottom: nodeBox.bottom,
+      flowPaneBottom: flowPane.getBoundingClientRect().bottom,
     };
   });
   expect(geometry).not.toBeNull();
   expect(geometry!.panelOverlapsNode).toBe(false);
   expect(geometry!.panelOverlapsControls).toBe(false);
   expect(geometry!.panelTop).toBeGreaterThanOrEqual(geometry!.nodeBottom);
+  expect(geometry!.panelTop).toBeGreaterThanOrEqual(geometry!.flowPaneBottom + 8);
 
   await page.waitForTimeout(200);
   await screenshot(page, 'variant-canvas-space-details-docked-below-node', { fullPage: true });
@@ -330,13 +336,14 @@ test('asset-scoped variant details keep the clicked node visible on tablet width
   await node.click();
   const detailsPanel = page.getByRole('complementary', { name: 'Variant details' });
   await expect(detailsPanel).toBeVisible();
-  await expect(detailsPanel).toHaveCSS('position', 'absolute');
+  await expect(detailsPanel).toHaveCSS('position', 'static');
 
   const geometry = await page.evaluate(() => {
     const node = document.querySelector('.react-flow__node');
     const panel = document.querySelector('[aria-label="Variant details"]');
     const controls = document.querySelector('.react-flow__controls');
-    if (!node || !panel || !controls) return null;
+    const flowPane = document.querySelector('[class*="flowPane"]');
+    if (!node || !panel || !controls || !flowPane) return null;
     const nodeBox = node.getBoundingClientRect();
     const panelBox = panel.getBoundingClientRect();
     const controlsBox = controls.getBoundingClientRect();
@@ -351,12 +358,14 @@ test('asset-scoped variant details keep the clicked node visible on tablet width
       panelOverlapsControls: overlaps(controlsBox, panelBox),
       panelTop: panelBox.top,
       nodeBottom: nodeBox.bottom,
+      flowPaneBottom: flowPane.getBoundingClientRect().bottom,
     };
   });
   expect(geometry).not.toBeNull();
   expect(geometry!.panelOverlapsNode).toBe(false);
   expect(geometry!.panelOverlapsControls).toBe(false);
   expect(geometry!.panelTop).toBeGreaterThan(geometry!.nodeBottom);
+  expect(geometry!.panelTop).toBeGreaterThanOrEqual(geometry!.flowPaneBottom + 4);
 
   await page.waitForTimeout(200);
   await screenshot(page, 'variant-canvas-details-tablet-visible-node', { fullPage: true });

@@ -660,54 +660,58 @@ function VariantCanvasInner({
       aria-label={canvasLabel}
       data-canvas-scope={scope}
     >
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes}
-        minZoom={0.3}
-        maxZoom={maxZoom}
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border)" />
-        <Controls className={styles.controls} position="bottom-left" />
-        {scope !== 'asset-details' && !expandedVariant && (
-          <MiniMap
-            className={styles.minimap}
-            position="bottom-right"
-            pannable
-            zoomable
-            nodeColor="var(--color-accent)"
-            maskColor="var(--canvas-minimap-mask)"
-          />
-        )}
-      </ReactFlow>
+      <div className={styles.flowPane}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          nodeTypes={nodeTypes}
+          minZoom={0.3}
+          maxZoom={maxZoom}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border)" />
+          <Controls className={styles.controls} position="bottom-left" />
+          {scope !== 'asset-details' && !expandedVariant && (
+            <MiniMap
+              className={styles.minimap}
+              position="bottom-right"
+              pannable
+              zoomable
+              nodeColor="var(--color-accent)"
+              maskColor="var(--canvas-minimap-mask)"
+            />
+          )}
+        </ReactFlow>
+      </div>
 
       {expandedVariant && (
-        <VariantDetailsPanel
-          variant={expandedVariant}
-          asset={asset}
-          spaceId={spaceId}
-          avoidGenerationDock={avoidGenerationDock}
-          dockWithinCanvas
-          isActive={expandedVariant.id === asset.active_variant_id}
-          variantIndex={variants.findIndex((variant) => variant.id === expandedVariant.id)}
-          variantCount={variants.length}
-          lineage={lineage}
-          allVariants={allVariants}
-          allAssets={allAssets}
-          onClose={closeExpanded}
-          onStarVariant={onStarVariant}
-          onDeleteVariant={onDeleteVariant}
-          onCreateRelation={onCreateRelation}
-          onAddVariantToCollection={onAddVariantToCollection}
-          onAddToTray={onAddToTray}
-          onSetActive={onSetActive}
-          compositions={compositions}
-          compositionItems={compositionItems}
-          onPlaceInComposition={onPlaceInComposition}
-        />
+        <div className={styles.detailsDock}>
+          <VariantDetailsPanel
+            variant={expandedVariant}
+            asset={asset}
+            spaceId={spaceId}
+            avoidGenerationDock={avoidGenerationDock}
+            dockWithinCanvas
+            isActive={expandedVariant.id === asset.active_variant_id}
+            variantIndex={variants.findIndex((variant) => variant.id === expandedVariant.id)}
+            variantCount={variants.length}
+            lineage={lineage}
+            allVariants={allVariants}
+            allAssets={allAssets}
+            onClose={closeExpanded}
+            onStarVariant={onStarVariant}
+            onDeleteVariant={onDeleteVariant}
+            onCreateRelation={onCreateRelation}
+            onAddVariantToCollection={onAddVariantToCollection}
+            onAddToTray={onAddToTray}
+            onSetActive={onSetActive}
+            compositions={compositions}
+            compositionItems={compositionItems}
+            onPlaceInComposition={onPlaceInComposition}
+          />
+        </div>
       )}
     </div>
   );

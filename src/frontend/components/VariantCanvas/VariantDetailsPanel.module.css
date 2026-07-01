@@ -26,14 +26,15 @@
 }
 
 .panelCanvasDock {
-  position: absolute;
+  position: static;
   top: auto;
-  right: 1rem;
-  bottom: calc(var(--variant-details-generation-dock-clearance, 0px) + 1rem);
-  left: 1rem;
+  right: auto;
+  bottom: auto;
+  left: auto;
   width: auto;
   max-width: none;
-  max-height: min(var(--variant-details-dock-height, min(32vh, 18rem)), calc(100% - 2rem));
+  height: 100%;
+  max-height: none;
   min-height: 0;
 }
 
@@ -45,8 +46,6 @@
   }
 
   .panelCanvasDock {
-    right: 1rem;
-    left: 1rem;
     width: auto;
   }
 }
@@ -62,14 +61,15 @@
   }
 
   .panelCanvasDock.panelAvoidGenerationDock {
-    position: absolute;
+    position: static;
     top: auto;
-    right: 1rem;
-    bottom: calc(var(--variant-details-generation-dock-clearance, 0px) + 1rem);
-    left: 1rem;
+    right: auto;
+    bottom: auto;
+    left: auto;
     width: auto;
     max-width: none;
-    max-height: min(var(--variant-details-dock-height, min(22vh, 11rem)), calc(100% - 2rem));
+    height: 100%;
+    max-height: none;
   }
 }
 

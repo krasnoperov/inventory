@@ -292,6 +292,7 @@ export interface GenerateStarted {
   jobId: string; // This is the variantId
   assetId: string;
   assetName: string;
+  prompt?: string;
 }
 
 interface GenerateError {
@@ -314,6 +315,7 @@ interface RefineStarted {
   jobId: string; // This is the variantId
   assetId: string;
   assetName: string;
+  prompt?: string;
 }
 
 export interface BatchStarted {

@@ -735,6 +735,9 @@ export default function SpacePage() {
                     {job.assetName && (
                       <span className={styles.jobAssetName}>{job.assetName}</span>
                     )}
+                    {job.prompt && job.status !== 'completed' && (
+                      <span className={styles.jobPrompt}>"{job.prompt}"</span>
+                    )}
                     {job.error && <span className={styles.jobError}>{job.error}</span>}
                   </div>
                   {(job.status === 'completed' || job.status === 'failed') && (

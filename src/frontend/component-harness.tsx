@@ -54,6 +54,7 @@ import profileStyles from './pages/ProfilePage.module.css';
 import { ProductionHandoffControls, ProductionPlacementControls } from './pages/ProductionPage';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
 import spacePageStyles from './pages/SpacePage.module.css';
+import variantCanvasStyles from './components/VariantCanvas/VariantCanvas.module.css';
 import UnknownPage from './pages/UnknownPage';
 import type {
   Asset,
@@ -518,7 +519,14 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
       style={{ height: '100vh' }}
     >
       <div className={assetDetailStyles.canvasStage}>
-        {variantInspector}
+        {variantInspector ? (
+          <div className={`${variantCanvasStyles.canvas} ${variantCanvasStyles.assetScoped} ${variantCanvasStyles.detailsOpen} ${variantCanvasStyles.ready}`}>
+            <div className={variantCanvasStyles.flowPane} />
+            <div className={variantCanvasStyles.detailsDock}>
+              {variantInspector}
+            </div>
+          </div>
+        ) : null}
         <AssetGenerationDockHarness
           details={(
             <AssetDetailsContextHarness
@@ -1079,17 +1087,31 @@ function SpacePageOverlayChromePreview() {
   return (
     <div className={spacePageStyles.page}>
       <div className={spacePageStyles.canvasContainer}>
+        <CanvasToolbar ariaLabel="Space controls">
+          <CanvasToolbarTitle>
+            <h1 className={spacePageStyles.spaceTitle}>Cinematic Marketplace Space With Readable Production Asset Names</h1>
+          </CanvasToolbarTitle>
+          <CanvasToolbarDivider />
+          <CanvasToolbarButton title="Open compositions" aria-label="Open compositions">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="4" y="4" width="7" height="7" rx="1" />
+              <rect x="13" y="4" width="7" height="7" rx="1" />
+              <rect x="8.5" y="13" width="7" height="7" rx="1" />
+            </svg>
+          </CanvasToolbarButton>
+        </CanvasToolbar>
         <div className={spacePageStyles.jobsOverlay}>
           <div className={`${spacePageStyles.jobCard} ${spacePageStyles.processing}`}>
             <span className={spacePageStyles.jobStatus} aria-label="Generating job" />
             <div className={spacePageStyles.jobInfo}>
-              <span className={spacePageStyles.jobAssetName}>Crystal Gate</span>
+              <span className={spacePageStyles.jobAssetName}>Crystal Gate With Very Long Readable Generation Name</span>
+              <span className={spacePageStyles.jobPrompt}>"clean asset detail chrome without hiding important production wording"</span>
             </div>
           </div>
           <div className={`${spacePageStyles.jobCard} ${spacePageStyles.completed}`}>
             <span className={spacePageStyles.jobStatus} aria-label="Done job" />
             <div className={spacePageStyles.jobInfo}>
-              <span className={spacePageStyles.jobAssetName}>Scout Variant</span>
+              <span className={spacePageStyles.jobAssetName}>Scout Variant Ready For Review With Long Name</span>
             </div>
           </div>
         </div>
