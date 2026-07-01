@@ -647,20 +647,22 @@ export function CompositionUsageList({
           <span className={styles.usageCount}>{usages.length}</span>
         </h2>
       </div>
-      {usages.map(({ composition, exactItems, outputMatches }) => (
-        <Button
-          key={composition.id}
-          className={styles.usageButton}
-          variant="ghost"
-          size="sm"
-          onClick={() => onOpenComposition(composition.id)}
-        >
-          <strong>{composition.name}</strong>
-          <span className={styles.usageRole}>
-            {outputMatches ? 'output' : exactItems.map((item) => roleLabel(item.role)).join(', ')}
-          </span>
-        </Button>
-      ))}
+      <div className={styles.usageItems}>
+        {usages.map(({ composition, exactItems, outputMatches }) => (
+          <Button
+            key={composition.id}
+            className={styles.usageButton}
+            variant="ghost"
+            size="sm"
+            onClick={() => onOpenComposition(composition.id)}
+          >
+            <strong>{composition.name}</strong>
+            <span className={styles.usageRole}>
+              {outputMatches ? 'output' : exactItems.map((item) => roleLabel(item.role)).join(', ')}
+            </span>
+          </Button>
+        ))}
+      </div>
     </section>
   );
 }

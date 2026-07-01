@@ -301,10 +301,17 @@ test('composition reverse lookup includes exact variant and asset matches', asyn
   await expect(page.getByRole('button', { name: /Output variant scene/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Other cast scene/ })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Composition usage' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Composition usage' })).toHaveCSS('display', 'flex');
   await expect(page.getByText('Composition usage')).toBeVisible();
   await expect(page.getByText('3', { exact: true })).toBeVisible();
   await expect(page.getByText('Thumbnails', { exact: true })).toHaveCSS('text-transform', 'none');
   await expect(page.getByText('output', { exact: true })).toHaveCSS('text-transform', 'none');
+  await expect.poll(async () => {
+    const regionBox = await page.getByRole('region', { name: 'Composition usage' }).boundingBox();
+    const buttonBox = await page.getByRole('button', { name: /Scene Bar composition/ }).boundingBox();
+    if (!regionBox || !buttonBox) return false;
+    return buttonBox.width < regionBox.width / 2;
+  }).toBe(true);
 
   await page.getByRole('button', { name: /Pinned variant scene/ }).click();
   await expect.poll(() => calls(page)).toContainEqual(expect.stringContaining('open-composition:["composition-2"]'));

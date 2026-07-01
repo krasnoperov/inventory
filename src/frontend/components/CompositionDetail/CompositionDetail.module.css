@@ -428,8 +428,10 @@
 .usageList {
   width: min(760px, 100%);
   max-height: 220px;
-  display: grid;
-  gap: 0.4rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   overflow: auto;
   padding: 0;
   border: 0;
@@ -437,10 +439,10 @@
 }
 
 .usageHeader {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
   gap: 0.5rem;
+  flex: 0 0 auto;
 }
 
 .usageTitle {
@@ -467,28 +469,44 @@
 }
 
 .usageList .usageButton {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  width: auto;
+  max-width: min(18rem, 100%);
+  display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.35rem 0;
-  border: 0;
-  border-top: 1px solid var(--color-border);
-  border-radius: 0;
+  flex-direction: row;
+  gap: 0.35rem;
+  min-height: 1.5rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
 }
 
 .usageList .usageButton:hover {
-  background: transparent;
+  background: var(--ctl-hover, var(--button-ghost-bg-hover));
   border-color: var(--color-border);
 }
 
 .usageList .usageButton strong {
+  min-width: 0;
+  overflow: hidden;
   font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usageItems {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 0.25rem;
 }
 
 .usageRole {
-  justify-self: end;
-  max-width: 10rem;
+  flex: none;
+  max-width: 8rem;
   overflow: hidden;
   color: var(--color-text-muted);
   font-size: var(--font-size-micro);

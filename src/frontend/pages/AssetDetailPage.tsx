@@ -1533,6 +1533,17 @@ export default function AssetDetailPage() {
               outputs={styleUsage.outputs}
             />
 
+            {assetId && (
+              <CompositionUsageList
+                targetAssetId={assetId}
+                assets={wsAssets}
+                variants={wsVariants}
+                compositions={compositions}
+                compositionItems={compositionItems}
+                onOpenComposition={handleOpenComposition}
+              />
+            )}
+
             {relationSubjects.length > 0 && (
               <RelationsPanel
                 assets={relationAssets}
@@ -1543,17 +1554,6 @@ export default function AssetDetailPage() {
                 onCreate={handleOpenCreateRelation}
                 onEdit={handleOpenEditRelation}
                 onDelete={deleteRelation}
-              />
-            )}
-
-            {assetId && (
-              <CompositionUsageList
-                targetAssetId={assetId}
-                assets={wsAssets}
-                variants={wsVariants}
-                compositions={compositions}
-                compositionItems={compositionItems}
-                onOpenComposition={handleOpenComposition}
               />
             )}
           </AssetDetailsContext>
