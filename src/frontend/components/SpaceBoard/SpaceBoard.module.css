@@ -115,7 +115,9 @@
 }
 
 .createPanel {
-  grid-template-columns: minmax(0, 1fr) minmax(8rem, auto) auto auto;
+  top: 0;
+  right: calc(100% + 0.4rem);
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
 }
 
@@ -234,7 +236,12 @@
 }
 
 .createKindSelect {
+  width: 100%;
   min-width: 8rem;
+}
+
+.createPanel > :first-child {
+  grid-column: 1 / -1;
 }
 
 .menuButton {
@@ -643,6 +650,8 @@
   .createPanel {
     left: 0;
     right: auto;
+    top: calc(100% + 0.4rem);
+    width: calc(100vw - 1.5rem);
     grid-template-columns: 1fr;
   }
 

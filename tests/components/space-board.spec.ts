@@ -473,7 +473,13 @@ test('collection menus use shared form controls', async ({ page }) => {
   await expect(createTrigger).toHaveAttribute('aria-haspopup', 'dialog');
   await expect(createTrigger).toHaveCSS('backdrop-filter', 'none');
   await expect(createTrigger).toHaveCSS('background-color', await resolvedBackground(page, 'var(--button-ghost-bg-hover)'));
-  await expect(page.locator('[class*="createPanel"]')).toHaveCSS('box-shadow', 'none');
+  const createPanel = page.locator('[class*="createPanel"]');
+  const createNameInput = page.getByPlaceholder('Collection name');
+  await expect(createPanel).toHaveCSS('box-shadow', 'none');
+  await expect(createNameInput).toHaveCSS('grid-column-start', '1');
+  await expect(createNameInput).toHaveCSS('grid-column-end', '-1');
+  await expect.poll(async () => (await createNameInput.boundingBox())?.width ?? 0).toBeGreaterThan(240);
+  await screenshot(page, 'space-board-create-panel', { fullPage: true });
   await page.keyboard.press('Escape');
   await expect(createTrigger).toHaveAttribute('aria-expanded', 'false');
   await createTrigger.click();
@@ -565,4 +571,41 @@ test('collection menus use shared form controls', async ({ page }) => {
   })).toBe(true);
   expect(calls.some((call) => call.eventName === 'addCollectionItem')).toBe(true);
   expect(calls.some((call) => call.eventName === 'updateCollectionItem')).toBe(true);
+});
+
+test('collection create panel stacks cleanly on narrow screens', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 740 });
+  await mountComponent(page, 'SpaceBoard', {
+    spaceId: 'space-1',
+    assets: [asset('hero', 'Hero sprite')],
+    variants: [readyVariant('hero')],
+    collections: [],
+    collectionItems: [],
+    canEdit: true,
+    onAssetClick: '__noop__',
+    createCollection: '__record__:createCollection',
+    updateCollection: '__noop__',
+    deleteCollection: '__noop__',
+    addCollectionItem: '__noop__',
+    updateCollectionItem: '__noop__',
+    reorderCollectionItems: '__noop__',
+    deleteCollectionItem: '__noop__',
+  });
+
+  const createTrigger = page.getByRole('button', { name: 'Create collection' });
+  await createTrigger.click();
+  const createPanel = page.locator('[class*="createPanel"]');
+  await expect(createPanel).toBeVisible();
+  await expect(page.getByPlaceholder('Collection name')).toBeVisible();
+  await expect.poll(async () => (await page.getByPlaceholder('Collection name').boundingBox())?.width ?? 0).toBeGreaterThan(280);
+  await expect(page.getByLabel('New collection kind')).toBeVisible();
+  await expect(page.getByLabel('New collection color')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create', exact: true })).toBeVisible();
+  await screenshot(page, 'space-board-create-panel-mobile', { fullPage: true });
+
+  await page.getByPlaceholder('Collection name').fill('Props');
+  await page.getByRole('button', { name: 'Create', exact: true }).click();
+  await expect(createTrigger).toHaveAttribute('aria-expanded', 'false');
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls.some((call) => call.eventName === 'createCollection')).toBe(true);
 });
