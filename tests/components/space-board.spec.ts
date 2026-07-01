@@ -512,6 +512,7 @@ test('collection menus use shared form controls', async ({ page }) => {
   await expect(page.locator('[class*="collectionMenuPanel"]').first().getByRole('button', { name: 'Move collection down' })).toBeVisible();
   await expect(page.locator('[class*="collectionMenuPanel"]').first().getByText('Move up', { exact: true })).toHaveCount(0);
   await expect(page.locator('[class*="collectionMenuPanel"]').first().getByText('Move down', { exact: true })).toHaveCount(0);
+  await expect(collectionMenuPanel.getByRole('button', { name: 'Delete collection' })).toHaveCSS('justify-content', 'flex-start');
   const emptyCollectionState = page.locator('[class*="emptyCollection"]').first();
   await expect(emptyCollectionState).toHaveText('No items yet');
   await expect(emptyCollectionState).toHaveCSS('flex-basis', '100%');
@@ -537,6 +538,7 @@ test('collection menus use shared form controls', async ({ page }) => {
   await expect(cardMenuPanel.getByRole('button', { name: 'Move down' })).toBeVisible();
   await expect(cardMenuPanel.getByText('Move up', { exact: true })).toHaveCount(0);
   await expect(cardMenuPanel.getByText('Move down', { exact: true })).toHaveCount(0);
+  await expect(cardMenuPanel.getByRole('button', { name: 'Remove from collection' })).toHaveCSS('justify-content', 'flex-start');
   await expect(cardMenuPanel.locator('label').filter({ hasText: 'Pinned variant' })).toHaveCSS('grid-template-columns', /80px/);
   const heroCard = cardMenuTrigger.locator('xpath=ancestor::article[1]');
   const cardPreview = heroCard.locator('[class*="thumbnailButton"]').first();
