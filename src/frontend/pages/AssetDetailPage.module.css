@@ -407,6 +407,11 @@
   color: var(--color-text);
 }
 
+.collectionPanelIconAction svg {
+  width: 1rem;
+  height: 1rem;
+}
+
 .collectionMembershipRow {
   display: grid;
   grid-template-columns: minmax(7rem, 1fr) minmax(7rem, 0.8fr) minmax(8rem, 0.9fr) auto;
@@ -435,9 +440,8 @@
 }
 
 .collectionPanelCompact .collectionSummaryList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+  display: grid;
+  gap: 0.2rem;
 }
 
 .collectionSummaryRow {
@@ -451,11 +455,10 @@
 }
 
 .collectionPanelCompact .collectionSummaryRow {
-  min-height: 28px;
-  padding: 0.2rem 0.4rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
+  min-height: 1.35rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .collectionSummaryName {

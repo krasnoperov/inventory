@@ -414,6 +414,11 @@ test('asset details dock renders the real expanded stack above ForgeTray', async
   await expect(page.getByRole('region', { name: 'Manual relations' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Composition usage' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Collection membership' }).getByText('Collections', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Manage collections' }).locator('svg')).toHaveCSS('width', '16px');
+  const collectionRows = page.getByRole('region', { name: 'Collection membership' }).locator('[class*="collectionSummaryRow"]');
+  await expect(collectionRows.first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(collectionRows.first()).toHaveCSS('border-top-width', '0px');
+  await expect(collectionRows.first()).toHaveCSS('border-left-width', '0px');
   await expect(page.getByRole('region', { name: 'Style reference usage' }).getByText('Style usage')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Manual relations' }).getByText('Relations')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Composition usage' }).getByText('Composition usage')).toBeVisible();
