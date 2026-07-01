@@ -468,7 +468,11 @@ test('asset details strip makes video facts visible without dock disclosure chro
   await expect(page.getByText('Hero reveal video')).toBeVisible();
   await expect(page.getByLabel('Asset scope', { exact: true })).toContainText('Details');
   await expect(page.getByText('Asset', { exact: true })).toHaveCSS('text-transform', 'none');
+  await expect(page.getByText('Asset', { exact: true })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.getByText('Asset', { exact: true })).toHaveCSS('border-top-width', '0px');
+  await expect(page.getByText('Video', { exact: true })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.getByLabel('Variants scope')).toContainText('Variants');
+  await expect(page.getByLabel('Variants scope')).toHaveCSS('border-left-width', '0px');
   await expect(page.getByLabel('Variants scope')).toContainText('Variant 1/3');
   await expect(page.getByText('Video', { exact: true })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Asset type' })).toBeVisible();
