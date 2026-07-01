@@ -45,6 +45,10 @@ test('voice picker dialogue actions use shared icon controls', async ({ page }) 
   });
 
   await expect(page.getByRole('button', { name: 'Add speaker voice' })).toBeVisible();
+  await expect(page.getByText('S1', { exact: true })).toBeVisible();
+  await expect(page.getByText('S2', { exact: true })).toBeVisible();
+  await expect(page.getByText('1.', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add speaker voice' })).toHaveCSS('border-top-width', '1px');
   await selectDropdown(page, 'Speaker 1 voice', 'Noah');
   await page.getByRole('button', { name: 'Remove voice' }).first().click();
   await page.getByRole('button', { name: 'Add speaker voice' }).click();
