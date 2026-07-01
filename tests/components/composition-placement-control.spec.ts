@@ -60,6 +60,8 @@ test('places a finished variant into the chosen composition and role', async ({ 
     return control?.getBoundingClientRect().width ?? 0;
   });
   expect(controlWidth).toBeLessThanOrEqual(306);
+  await expect(page.getByText('Add to composition')).toHaveCSS('text-transform', 'none');
+  await expect(page.getByText('Add to composition')).toHaveCSS('letter-spacing', 'normal');
   await screenshot(page, 'composition-placement-control', { fullPage: true });
   await page.getByRole('button', { name: 'Place' }).click();
 
