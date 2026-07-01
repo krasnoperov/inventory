@@ -287,7 +287,7 @@ test('relations panel shows incoming reverse links and clears relations separate
   expect(panelChrome).toEqual({
     backgroundColor: 'rgba(0, 0, 0, 0)',
     borderTopWidth: '0px',
-    width: 520,
+    width: 760,
   });
   await expect(page.locator('article')).toHaveCount(2);
   await expect(page.getByRole('button', { name: 'Edit relation' })).toHaveCount(2);
@@ -319,7 +319,8 @@ test('relations panel keeps empty state compact with create action available', a
   });
 
   await expect(page.getByRole('region', { name: 'Manual relations' })).toBeVisible();
-  await expect(page.getByText('No manual relations')).toBeVisible();
+  await expect(page.getByText('None', { exact: true })).toBeVisible();
+  await expect(page.getByText('No manual relations')).toHaveCount(0);
   await expect(page.getByText('No outgoing relations')).toHaveCount(0);
   await expect(page.getByText('No incoming relations')).toHaveCount(0);
   await expect(page.getByText('Outgoing')).toHaveCount(0);

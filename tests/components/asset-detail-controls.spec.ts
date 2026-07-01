@@ -617,11 +617,11 @@ test('asset details dock renders the real expanded stack above ForgeTray', async
   await expect(collectionRows.first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(collectionRows.first()).toHaveCSS('border-top-width', '0px');
   await expect(collectionRows.first()).toHaveCSS('border-left-width', '0px');
-  await expect(page.getByRole('region', { name: 'Style reference usage' }).getByText('Style usage')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Style reference usage' }).getByRole('heading', { name: /Style/ })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Manual relations' }).getByText('Relations')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Manual relations' }).getByText('Outgoing')).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Manual relations' }).getByText('Incoming')).toHaveCount(0);
-  await expect(page.getByRole('region', { name: 'Composition usage' }).getByText('Composition usage')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Composition usage' }).getByRole('heading', { name: /Compositions/ })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Scene Bar composition/ })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Pinned variant scene/ })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Composition usage' })).toHaveCSS('border-top-width', '0px');

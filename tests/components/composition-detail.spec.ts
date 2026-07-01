@@ -302,7 +302,8 @@ test('composition reverse lookup includes exact variant and asset matches', asyn
   await expect(page.getByRole('button', { name: /Other cast scene/ })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Composition usage' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Composition usage' })).toHaveCSS('display', 'flex');
-  await expect(page.getByText('Composition usage')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Compositions/ })).toBeVisible();
+  await expect(page.getByText('Composition usage')).toHaveCount(0);
   await expect(page.getByText('3', { exact: true })).toBeVisible();
   await expect(page.getByText('Thumbnails', { exact: true })).toHaveCSS('text-transform', 'none');
   await expect(page.getByText('output', { exact: true })).toHaveCSS('text-transform', 'none');
