@@ -58,17 +58,13 @@ export function AssetPicker({
           <Thumbnail variant={variant} size="xs" className={styles.thumbnail} />
           <div className={styles.optionInfo}>
             <span className={styles.optionName}>{asset.name}</span>
-            <span className={styles.optionType}>
-              {asset.type} / {formatMediaKind(asset.media_kind)}
+            <span className={styles.optionMeta}>
+              <span className={styles.optionType}>
+                {asset.type} / {formatMediaKind(asset.media_kind)}
+              </span>
+              {isSelected && <span className={styles.selectionStatus}>Selected</span>}
             </span>
           </div>
-          {isSelected && (
-            <span className={styles.checkmark}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </span>
-          )}
         </Button>
       </div>
     );

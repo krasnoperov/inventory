@@ -91,6 +91,8 @@ test('asset picker uses shared search field and filters selectable assets', asyn
   await expect(page.getByLabel('Search assets')).toBeVisible();
   const selectedOption = page.getByRole('button', { name: /Forest Gate/ });
   await expect(selectedOption).toBeVisible();
+  await expect(selectedOption).toContainText('Selected');
+  await expect(page.locator('[class*="checkmark"]')).toHaveCount(0);
   await expect(selectedOption).toHaveCSS(
     'background-color',
     await resolvedBackground(page, 'var(--color-status-processing-bg)'),

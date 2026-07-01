@@ -191,15 +191,13 @@ export function AssetPickerModal({
                           showAudioControls
                           className={styles.assetThumbnail}
                         />
-                        <span className={styles.checkmark}>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" width="12" height="12">
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        </span>
                       </div>
                       <div className={styles.assetInfo}>
                         <span className={styles.assetName}>{slot.asset.name}</span>
-                        <span className={styles.assetType}>{slot.asset.type}</span>
+                        <span className={styles.assetMeta}>
+                          <span className={styles.assetType}>{slot.asset.type}</span>
+                          <span className={styles.selectionStatus}>In tray</span>
+                        </span>
                       </div>
                     </Button>
                   );
@@ -255,18 +253,12 @@ export function AssetPickerModal({
                           showAudioControls
                           className={styles.assetThumbnail}
                         />
-                        {isInTray && (
-                          <span className={styles.checkmark}>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" width="12" height="12">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          </span>
-                        )}
                       </div>
                       <div className={styles.assetInfo}>
                         <span className={styles.assetName}>{asset.name}</span>
                         <span className={styles.assetMeta}>
                           <span className={styles.assetType}>{assetMediaLabel}</span>
+                          {isInTray && <span className={styles.selectionStatus}>In tray</span>}
                           {disabledReason && <span className={styles.unavailableBadge}>Unavailable</span>}
                         </span>
                       </div>

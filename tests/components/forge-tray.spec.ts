@@ -410,10 +410,14 @@ test('forge tray image model selection enforces reference budget', async ({ page
   await page.getByLabel('Prompt').fill('Combine these references');
   await page.getByTitle('Add reference').click();
   await page.getByRole('button', { name: /Image Ref One/ }).click();
-  await expect(page.locator('[class*="checkmark"]').first()).toHaveCSS(
-    'color',
-    await resolvedColor(page, 'var(--button-primary-text)'),
+  const selectedRef = page.getByRole('button', { name: /Image Ref One/, pressed: true });
+  await expect(selectedRef).toContainText('In tray');
+  await expectLocatorAfterShadow(
+    page,
+    selectedRef.locator('[class*="thumbnailWrapper"]').first(),
+    'var(--selection-ring)',
   );
+  await expect(page.locator('[class*="checkmark"]')).toHaveCount(0);
   await page.getByRole('button', { name: /Image Ref Two/ }).click();
   await page.getByRole('button', { name: /Done/i }).click();
 
@@ -1307,6 +1311,8 @@ test('forge tray picker disables references incompatible with the selected media
   await expect(page.getByText('Character (1)', { exact: true })).toHaveCount(0);
   const inTrayChoice = page.getByRole('button', { name: /Hero Image\s+Character/i });
   await expect(inTrayChoice).toHaveCount(1);
+  await expect(inTrayChoice).toContainText('In tray');
+  await expect(page.locator('[class*="checkmark"]')).toHaveCount(0);
   const inTrayThumbnail = inTrayChoice.locator('[class*="thumbnailWrapper"]').first();
   await expectLocatorAfterShadow(
     page,
