@@ -73,6 +73,20 @@ interface ProductionHandoffControlsProps {
   sortedRecords: ProductionRecord[];
 }
 
+interface ProductionRecordsPanelProps {
+  activeProductionId: string;
+  assetById: Map<string, Asset>;
+  canEdit: boolean;
+  isDeleting: boolean;
+  isLoading: boolean;
+  hasError: boolean;
+  onDeletePlacement: (recordId: string) => void;
+  onEditPlacement: (record: ProductionRecord) => void;
+  sortedRecords: ProductionRecord[];
+  spaceId: string;
+  variantById: Map<string, Variant>;
+}
+
 const emptyForm: PlacementFormState = {
   id: '',
   variantId: '',
@@ -325,6 +339,98 @@ export function ProductionHandoffControls({
         </div>
       </div>
       <pre className={styles.handoffPreview}>{handoffJson || 'No handoff data loaded.'}</pre>
+    </section>
+  );
+}
+
+export function ProductionRecordsPanel({
+  activeProductionId,
+  assetById,
+  canEdit,
+  isDeleting,
+  isLoading,
+  hasError,
+  onDeletePlacement,
+  onEditPlacement,
+  sortedRecords,
+  spaceId,
+  variantById,
+}: ProductionRecordsPanelProps) {
+  return (
+    <section className={styles.recordsPanel}>
+      <div className={styles.panelHeader}>
+        <h2>Timeline Records</h2>
+        <span className={styles.countBadge}>{sortedRecords.length}</span>
+      </div>
+
+      {!activeProductionId ? (
+        <div className={styles.emptyState}>Enter a production ID to load placements.</div>
+      ) : isLoading ? (
+        <div className={styles.emptyState}>Loading placements...</div>
+      ) : hasError ? (
+        <div className={styles.emptyState}>Failed to load production records.</div>
+      ) : sortedRecords.length === 0 ? (
+        <div className={styles.emptyState}>No placements saved for this production.</div>
+      ) : (
+        <div className={styles.recordList}>
+          {sortedRecords.map((record) => {
+            const asset = assetById.get(record.asset_id);
+            const variant = variantById.get(record.variant_id) || null;
+            return (
+              <article key={record.id} className={styles.recordRow}>
+                <Thumbnail
+                  variant={variant}
+                  size="sm"
+                  spaceId={spaceId}
+                  showAudioControls
+                  showVideoControls
+                />
+                <div className={styles.recordBody}>
+                  <div className={styles.recordTopline}>
+                    <strong>{record.scene_label}</strong>
+                    <span>{formatTimelineOffset(record.timeline_start_ms)}</span>
+                  </div>
+                  <div className={styles.recordMeta}>
+                    <span>{record.shot_id || 'No shot ID'}</span>
+                    <span>{asset?.name || record.asset_id}</span>
+                    <span>{formatMediaKind(record.media_kind)}</span>
+                    <span>{formatDuration(record.duration_ms)}</span>
+                  </div>
+                  {record.motion_prompt && <p>{record.motion_prompt}</p>}
+                </div>
+                <div className={styles.recordActions}>
+                  <IconButton
+                    className={styles.recordIconButton}
+                    onClick={() => onEditPlacement(record)}
+                    aria-label="Edit placement"
+                    title="Edit placement"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                    </svg>
+                  </IconButton>
+                  {canEdit && (
+                    <IconButton
+                      className={styles.recordIconButton}
+                      onClick={() => onDeletePlacement(record.id)}
+                      disabled={isDeleting}
+                      aria-label="Delete placement"
+                      title="Delete placement"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6l-1 14H6L5 6" />
+                        <path d="M10 11v6M14 11v6" />
+                      </svg>
+                    </IconButton>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }
@@ -583,81 +689,19 @@ export default function ProductionPage() {
             variantOptions={variantOptions}
           />
 
-          <section className={styles.recordsPanel}>
-            <div className={styles.panelHeader}>
-              <h2>Timeline Records</h2>
-              <span className={styles.countBadge}>{sortedRecords.length}</span>
-            </div>
-
-            {!activeProductionId ? (
-              <div className={styles.emptyState}>Enter a production ID to load placements.</div>
-            ) : recordsQuery.isPending ? (
-              <div className={styles.emptyState}>Loading placements...</div>
-            ) : recordsQuery.error ? (
-              <div className={styles.emptyState}>Failed to load production records.</div>
-            ) : sortedRecords.length === 0 ? (
-              <div className={styles.emptyState}>No placements saved for this production.</div>
-            ) : (
-              <div className={styles.recordList}>
-                {sortedRecords.map((record) => {
-                  const asset = assetById.get(record.asset_id);
-                  const variant = variantById.get(record.variant_id) || null;
-                  return (
-                    <article key={record.id} className={styles.recordRow}>
-                      <Thumbnail
-                        variant={variant}
-                        size="sm"
-                        spaceId={spaceId}
-                        showAudioControls
-                        showVideoControls
-                      />
-                      <div className={styles.recordBody}>
-                        <div className={styles.recordTopline}>
-                          <strong>{record.scene_label}</strong>
-                          <span>{formatTimelineOffset(record.timeline_start_ms)}</span>
-                        </div>
-                        <div className={styles.recordMeta}>
-                          <span>{record.shot_id || 'No shot ID'}</span>
-                          <span>{asset?.name || record.asset_id}</span>
-                          <span>{formatMediaKind(record.media_kind)}</span>
-                          <span>{formatDuration(record.duration_ms)}</span>
-                        </div>
-                        {record.motion_prompt && <p>{record.motion_prompt}</p>}
-                      </div>
-                      <div className={styles.recordActions}>
-                        <IconButton
-                          className={styles.recordIconButton}
-                          onClick={() => setForm(recordToForm(record))}
-                          aria-label="Edit placement"
-                          title="Edit placement"
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M12 20h9" />
-                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-                          </svg>
-                        </IconButton>
-                        {canEdit && (
-                          <IconButton
-                            className={styles.recordIconButton}
-                            onClick={() => deleteMutation.mutate(record.id)}
-                            disabled={deleteMutation.isPending}
-                            aria-label="Delete placement"
-                            title="Delete placement"
-                          >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="3 6 5 6 21 6" />
-                              <path d="M19 6l-1 14H6L5 6" />
-                              <path d="M10 11v6M14 11v6" />
-                            </svg>
-                          </IconButton>
-                        )}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+          <ProductionRecordsPanel
+            activeProductionId={activeProductionId}
+            assetById={assetById}
+            canEdit={canEdit}
+            isDeleting={deleteMutation.isPending}
+            isLoading={recordsQuery.isPending}
+            hasError={Boolean(recordsQuery.error)}
+            onDeletePlacement={(recordId) => deleteMutation.mutate(recordId)}
+            onEditPlacement={(record) => setForm(recordToForm(record))}
+            sortedRecords={sortedRecords}
+            spaceId={spaceId}
+            variantById={variantById}
+          />
 
           <ProductionHandoffControls
             copyStatus={copyStatus}

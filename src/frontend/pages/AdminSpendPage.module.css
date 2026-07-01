@@ -207,9 +207,9 @@
 
 .primaryCell,
 .secondaryCell {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .primaryCell {

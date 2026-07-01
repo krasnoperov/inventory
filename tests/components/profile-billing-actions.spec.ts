@@ -58,3 +58,45 @@ test('profile and billing actions use shared buttons', async ({ page }) => {
     expect.objectContaining({ eventName: 'deleteAccount', args: [] }),
   ]));
 });
+
+test('profile provider status wraps long key hints without ellipsis', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 620 });
+  const longHint = 'sk-live-provider-key-with-a-long-readable-fingerprint-9abc';
+  await mountComponent(page, 'ProfileBillingActions', {
+    provider: { ...provider, keyHint: longHint },
+    draft: '',
+    isSaving: false,
+    isDeleting: false,
+    onDraftChange: '__record__:draft',
+    onSave: '__record__:saveProvider',
+    onDelete: '__record__:deleteProvider',
+    canManagePlan: false,
+    canStartPlan: false,
+    isOpeningPortal: false,
+    isStartingCheckout: false,
+    onManageBilling: '__record__:manageBilling',
+    onUpgrade: '__record__:upgrade',
+    planDisplayName: 'Pro',
+    canDeleteAccount: false,
+    deleteAcknowledged: false,
+    deleteEmail: '',
+    deleteError: null,
+    isDeletingAccount: false,
+    onAcknowledgedChange: '__record__:acknowledgeDelete',
+    onDeleteAccount: '__record__:deleteAccount',
+    onDeleteEmailChange: '__record__:deleteEmail',
+    profileEmail: 'owner@example.test',
+  });
+
+  const status = page.getByText(longHint);
+  await expect(status).toBeVisible();
+  await expect(status).toHaveCSS('white-space', 'normal');
+  await expect(status).toHaveCSS('text-overflow', 'clip');
+  await expect.poll(async () => (await status.boundingBox())?.height ?? 0).toBeGreaterThan(18);
+  const metrics = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
+  await screenshot(page, 'profile-provider-status-readable-long-key', { fullPage: true });
+});

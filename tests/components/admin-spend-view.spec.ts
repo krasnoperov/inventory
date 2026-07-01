@@ -73,3 +73,40 @@ test('admin spend view uses shared filter controls', async ({ page }) => {
     expect.objectContaining({ eventName: 'clear', args: [] }),
   ]));
 });
+
+test('admin spend tables wrap long identifiers without ellipsis', async ({ page }) => {
+  await page.setViewportSize({ width: 760, height: 760 });
+  const longModel = 'gemini-3-pro-image-preview-with-a-long-readable-provider-model-name';
+  const longAsset = 'asset-with-a-long-readable-admin-cost-identifier-for-review';
+  await mountComponent(page, 'AdminSpendView', {
+    summary: {
+      ...summary,
+      byModel: [
+        { provider: 'gemini-production-provider-with-readable-name', providerModel: longModel, ...aggregate },
+      ],
+      byAsset: [
+        { assetId: longAsset, spaceId: 'space-with-long-readable-admin-cost-identifier', ...aggregate },
+      ],
+    },
+    draftFilters: {
+      from: '2026-06-01',
+      to: '2026-06-29',
+      provider: 'gemini',
+      mediaKind: 'image',
+    },
+    onDraftChange: '__record__:draft',
+    onApplyFilters: '__record__:apply',
+    onClearFilters: '__record__:clear',
+  });
+
+  const modelCell = page.getByText(longModel);
+  const assetCell = page.getByText(longAsset);
+  await expect(modelCell).toBeVisible();
+  await expect(modelCell).toHaveCSS('white-space', 'normal');
+  await expect(modelCell).toHaveCSS('text-overflow', 'clip');
+  await expect(assetCell).toBeVisible();
+  await expect(assetCell).toHaveCSS('white-space', 'normal');
+  await expect(assetCell).toHaveCSS('text-overflow', 'clip');
+  await expect.poll(async () => (await modelCell.boundingBox())?.height ?? 0).toBeGreaterThan(16);
+  await screenshot(page, 'admin-spend-readable-long-identifiers', { fullPage: true });
+});

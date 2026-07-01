@@ -52,7 +52,7 @@ import { HyperbolicCanvas } from './components/HyperbolicCanvas/HyperbolicCanvas
 import PricingPage from './pages/PricingPage';
 import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
 import profileStyles from './pages/ProfilePage.module.css';
-import { ProductionHandoffControls, ProductionPlacementControls } from './pages/ProductionPage';
+import { ProductionHandoffControls, ProductionPlacementControls, ProductionRecordsPanel } from './pages/ProductionPage';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
 import spacePageStyles from './pages/SpacePage.module.css';
 import variantCanvasStyles from './components/VariantCanvas/VariantCanvas.module.css';
@@ -81,6 +81,7 @@ declare global {
 
 const ProductionPlacementHarness = ProductionPlacementControls as unknown as ComponentType<Record<string, unknown>>;
 const ProductionHandoffHarness = ProductionHandoffControls as unknown as ComponentType<Record<string, unknown>>;
+const ProductionRecordsHarness = ProductionRecordsPanel as unknown as ComponentType<Record<string, unknown>>;
 const AssetTypeSelectHarness = AssetTypeSelect as unknown as ComponentType<Record<string, unknown>>;
 const AssetTitleInlineEditorHarness = AssetTitleInlineEditor as unknown as ComponentType<Record<string, unknown>>;
 const AssetCollectionsPanelHarness = AssetCollectionsPanel as unknown as ComponentType<Record<string, unknown>>;
@@ -345,6 +346,29 @@ function ProductionControlsHarness(props: Record<string, unknown>) {
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 380px) minmax(320px, 1fr)', gap: '16px', alignItems: 'start' }}>
       <ProductionPlacementHarness {...props} />
       <ProductionHandoffHarness {...props} />
+    </div>
+  );
+}
+
+function ProductionRecordsPanelPreview(props: Record<string, unknown>) {
+  const assetById = new Map(stackAssets.map((asset) => [asset.id, asset]));
+  const variantById = new Map(stackVariants.map((variant) => [variant.id, variant]));
+  return (
+    <div style={{ maxWidth: '560px' }}>
+      <ProductionRecordsHarness
+        activeProductionId="episode-01"
+        assetById={assetById}
+        canEdit
+        isDeleting={false}
+        isLoading={false}
+        hasError={false}
+        onDeletePlacement={() => undefined}
+        onEditPlacement={() => undefined}
+        sortedRecords={[]}
+        spaceId="space-1"
+        variantById={variantById}
+        {...props}
+      />
     </div>
   );
 }
@@ -1363,6 +1387,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   SegmentedControl: SegmentedControlPreview,
   ProductionControls: ProductionControlsHarness,
   ProductionHandoffControls: ProductionHandoffHarness,
+  ProductionRecordsPanel: ProductionRecordsPanelPreview,
   RelationsPanel: RelationsPanel as unknown as ComponentType<Record<string, unknown>>,
   RelationEditorDialog: RelationEditorDialog as unknown as ComponentType<Record<string, unknown>>,
   RelationsCanvas: RelationsCanvasPreview,
