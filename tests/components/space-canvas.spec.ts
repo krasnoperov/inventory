@@ -294,6 +294,39 @@ test('space canvas collection zone titles wrap without ellipsis', async ({ page 
   await screenshot(page, 'space-canvas-readable-zone-title', { fullPage: true });
 });
 
+test('space canvas asset card captions wrap without ellipsis', async ({ page }) => {
+  await page.setViewportSize({ width: 760, height: 560 });
+  const longName = 'Storyboard hero sprite with readable production handoff title';
+  const longAsset = asset('long-card', longName);
+  const longVariant = variant('long-card', 512, 512);
+  const longCollection = collection('cast-long', 'Cast', 'cast', '#5a8fca', 0);
+
+  await mountComponent(page, 'SpaceCanvas', {
+    spaceId: 'space-1',
+    assets: [longAsset],
+    variants: [longVariant],
+    collections: [longCollection],
+    collectionItems: [item('long-card-item', 'cast-long', 'long-card', 0)],
+    lineage: [],
+    isInitialSyncPending: false,
+    onAssetClick: '__noop__',
+    onAddToTray: '__record__:addToTray',
+  });
+
+  const card = page.locator('[data-asset-id="long-card"]');
+  const thumbnailTrigger = card.locator('button[class*="thumbnailButton"]').first();
+  const nameTrigger = card.locator('button[class*="assetName"]').first();
+  const trayTrigger = page.getByRole('button', { name: `Add ${longName} to Forge Tray` });
+
+  await expect(nameTrigger).toBeVisible();
+  await expect(nameTrigger).toHaveCSS('white-space', 'normal');
+  await expect(nameTrigger).toHaveCSS('text-overflow', 'clip');
+  await expect.poll(async () => (await nameTrigger.boundingBox())?.height ?? 0).toBeGreaterThan(30);
+  await expectNoOverlap(nameTrigger, thumbnailTrigger);
+  await expectNoOverlap(trayTrigger, thumbnailTrigger);
+  await screenshot(page, 'space-canvas-readable-card-caption', { fullPage: true });
+});
+
 test('space canvas frame card triggers open assets without changing media chrome', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await mountComponent(page, 'SpaceCanvas', {
