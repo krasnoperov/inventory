@@ -523,9 +523,55 @@ function VariantUsageRow({
             </svg>
           </IconButton>
         )}
-        {onOpenAsset && <Button className={styles.actionButton} size="sm" onClick={() => onOpenAsset(asset.id)}>Open</Button>}
-        {canEdit && <Button className={styles.actionButton} size="sm" onClick={onReplace}>Replace</Button>}
-        {canEdit && <Button className={styles.actionButton} size="sm" onClick={onRemove}>Remove</Button>}
+        {onOpenAsset && (
+          <IconButton
+            className={styles.rowIconButton}
+            size="sm"
+            variant="ghost"
+            onClick={() => onOpenAsset(asset.id)}
+            title={`Open ${asset.name} asset`}
+            aria-label={`Open ${asset.name} asset`}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M7 17 17 7" />
+              <path d="M9 7h8v8" />
+            </svg>
+          </IconButton>
+        )}
+        {canEdit && (
+          <IconButton
+            className={styles.rowIconButton}
+            size="sm"
+            variant="ghost"
+            onClick={onReplace}
+            title={`Replace ${asset.name} variant`}
+            aria-label={`Replace ${asset.name} variant`}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M3 12a9 9 0 0 1 14.5-7.1" />
+              <path d="M17 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-14.5 7.1" />
+              <path d="M7 21v-5h5" />
+            </svg>
+          </IconButton>
+        )}
+        {canEdit && (
+          <IconButton
+            className={`${styles.rowIconButton} ${styles.rowRemoveButton}`}
+            size="sm"
+            variant="ghost"
+            onClick={onRemove}
+            title={`Remove ${asset.name} from composition`}
+            aria-label={`Remove ${asset.name} from composition`}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+              <path d="M4 7h16" />
+              <path d="M10 11v6M14 11v6" />
+              <path d="M6 7l1 13h10l1-13" />
+              <path d="M9 7V4h6v3" />
+            </svg>
+          </IconButton>
+        )}
       </div>
     </div>
   );
