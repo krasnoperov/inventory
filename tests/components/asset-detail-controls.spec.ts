@@ -426,8 +426,16 @@ test('asset details dock renders the real expanded stack above ForgeTray', async
   await expect(page.getByRole('region', { name: 'Style reference usage' }).getByText('Style usage')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Manual relations' }).getByText('Relations')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Composition usage' }).getByText('Composition usage')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Scene Bar composition/ })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Pinned variant scene/ })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Composition usage' })).toHaveCSS('border-top-width', '0px');
   await expect(page.getByRole('region', { name: 'Composition usage' })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  const compositionBeforeRelations = await page.evaluate(() => {
+    const composition = document.querySelector('[aria-label="Composition usage"]');
+    const relations = document.querySelector('[aria-label="Manual relations"]');
+    return Boolean(composition && relations && composition.compareDocumentPosition(relations) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  expect(compositionBeforeRelations).toBe(true);
   await expect(page.getByLabel('Prompt')).toBeVisible();
 
   const detailsBeforePrompt = await page.evaluate(() => {
@@ -481,6 +489,7 @@ test('asset details dock keeps the real expanded stack usable on mobile', async 
   await expect(page.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Manual relations' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Composition usage' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Scene Bar composition/ })).toBeVisible();
   await expect(page.getByLabel('Prompt')).toBeVisible();
   const mobileDockGap = await page.evaluate(() => {
     const details = document.querySelector('[aria-label="Expanded asset details"]');

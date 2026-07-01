@@ -491,6 +491,14 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
             presets={[stackStylePreset]}
             outputs={[stackAssets[4]]}
           />
+          <CompositionUsageList
+            targetAssetId="hero"
+            assets={stackAssets}
+            variants={stackVariants}
+            compositions={stackCompositions}
+            compositionItems={stackCompositionItems}
+            onOpenComposition={() => undefined}
+          />
           <RelationsPanel
             assets={stackAssets}
             variants={stackVariants}
@@ -503,14 +511,6 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
             onCreate={() => undefined}
             onEdit={() => undefined}
             onDelete={() => undefined}
-          />
-          <CompositionUsageList
-            targetAssetId="hero"
-            assets={stackAssets}
-            variants={stackVariants}
-            compositions={stackCompositions}
-            compositionItems={stackCompositionItems}
-            onOpenComposition={() => undefined}
           />
         </AssetDetailsContextHarness>
       )}
