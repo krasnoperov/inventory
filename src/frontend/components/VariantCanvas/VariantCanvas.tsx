@@ -614,6 +614,14 @@ function VariantCanvasInner({
     }
   }, [dimensionsReady, nodes.length, fitView]);
 
+  useEffect(() => {
+    if (dimensionsReady && expandedVariantId && nodes.length > 0) {
+      requestAnimationFrame(() => {
+        fitView({ padding: 0.14, maxZoom: 1 });
+      });
+    }
+  }, [dimensionsReady, expandedVariantId, nodes.length, fitView]);
+
   // Close the details panel if its variant disappears (deleted, filtered out).
   useEffect(() => {
     if (expandedVariantId && !variants.some((v) => v.id === expandedVariantId)) {
@@ -641,7 +649,7 @@ function VariantCanvasInner({
   const canvasClassName = [
     styles.canvas,
     scope === 'asset-details' ? styles.assetScoped : '',
-    expandedVariant && avoidGenerationDock ? styles.detailsOpen : '',
+    expandedVariant ? styles.detailsOpen : '',
     isReady ? styles.ready : styles.loading,
   ].filter(Boolean).join(' ');
 

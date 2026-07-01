@@ -1,11 +1,9 @@
 /**
- * VariantDetailsPanel - fixed inspector for a selected variant.
+ * VariantDetailsPanel - inspector for a selected variant.
  *
- * Rendered through a portal to document.body so it escapes the React Flow
- * canvas transform: it stays pinned to the viewport and, crucially, does NOT
- * scale with canvas zoom — so the prompt and creation history stay readable no
- * matter how far the image is zoomed. The on-canvas node owns zoom; this panel
- * owns legibility.
+ * Space-level details render through a portal to document.body so they escape
+ * the React Flow transform and never scale with zoom. Asset-scoped details stay
+ * inside the local canvas stage so layout can reserve space above Forge Tray.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -341,7 +339,7 @@ export function VariantDetailsPanel({
     variantCount,
   ]);
 
-  return createPortal(
+  const panel = (
     <aside
       className={`${styles.panel} ${avoidGenerationDock ? styles.panelAvoidGenerationDock : ''} ${dockWithinCanvas ? styles.panelCanvasDock : ''}`}
       aria-label="Variant details"
@@ -543,9 +541,10 @@ export function VariantDetailsPanel({
           onClose={() => setLightboxOpen(false)}
         />
       )}
-    </aside>,
-    document.body,
+    </aside>
   );
+
+  return dockWithinCanvas ? panel : createPortal(panel, document.body);
 }
 
 function parseJsonObject(value: string | null | undefined): Record<string, unknown> | null {

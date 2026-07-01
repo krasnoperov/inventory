@@ -3,9 +3,10 @@
   max-height: min(52vh, 480px);
   overflow: auto;
   display: grid;
-  gap: 0.35rem;
-  padding: 0;
+  gap: var(--inspector-section-gap, 0.35rem);
+  padding: var(--inspector-section-padding-block, 0.55rem) 0 0;
   border: 0;
+  border-top: var(--inspector-section-border, 1px solid var(--color-border));
   border-radius: 0;
   background: transparent;
 }
@@ -30,7 +31,7 @@
   align-items: center;
   gap: 0.35rem;
   margin: 0;
-  font-size: 0.75rem;
+  font-size: var(--inspector-section-title-size, var(--font-size-small-sm));
   font-weight: 650;
   color: var(--color-text);
 }
@@ -43,7 +44,7 @@
   background: transparent;
   border: 0;
   color: var(--color-text-muted);
-  font-size: var(--font-size-micro);
+  font-size: var(--inspector-section-meta-size, var(--font-size-micro));
   font-weight: 560;
   line-height: 1.2;
   text-align: center;
@@ -73,7 +74,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 0.5rem;
-  padding: 0.45rem 0;
+  padding: var(--inspector-section-row-padding, 0.45rem 0);
   border-top: 1px solid var(--color-border);
 }
 

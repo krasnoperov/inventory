@@ -1,4 +1,4 @@
-import { StrictMode, type ComponentProps, type ComponentType } from 'react';
+import { StrictMode, type ComponentProps, type ComponentType, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AppHeader } from './components/AppHeader';
 import { AudioPlayer } from './components/AudioPlayer/AudioPlayer';
@@ -459,6 +459,8 @@ function AssetDetailsContextPreview(props: Record<string, unknown>) {
 }
 
 function AssetGenerationDockPreview(props: Record<string, unknown>) {
+  const { variantInspector: rawVariantInspector, ...contextProps } = props;
+  const variantInspector = rawVariantInspector as ReactNode | undefined;
   const selectedVariant = stackVariants.find((variant) => variant.id === 'hero-variant') ?? null;
   const selectedVariantIndex = selectedVariant
     ? stackVariants.filter((variant) => variant.asset_id === 'hero').findIndex((variant) => variant.id === selectedVariant.id)
@@ -516,10 +518,11 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
       style={{ height: '100vh' }}
     >
       <div className={assetDetailStyles.canvasStage}>
+        {variantInspector}
         <AssetGenerationDockHarness
           details={(
             <AssetDetailsContextHarness
-              {...props}
+              {...contextProps}
               asset={stackAssets[0]}
               assetCollectionCount={1}
               selectedVariant={selectedVariant}
@@ -628,24 +631,27 @@ function AssetGenerationDockWithVariantInspectorPreview(props: Record<string, un
   const selectedVariantIndex = stackVariants.filter((variant) => variant.asset_id === 'hero').findIndex((variant) => variant.id === selectedVariant.id);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'var(--color-bg)' }}>
-      <VariantDetailsPanel
-        asset={stackAssets[0]}
-        variant={selectedVariant}
-        spaceId="space-1"
-        avoidGenerationDock
-        isActive
-        variantIndex={selectedVariantIndex}
-        variantCount={2}
-        lineage={[]}
-        allVariants={stackVariants}
-        allAssets={stackAssets}
-        onClose={() => undefined}
-        onStarVariant={() => undefined}
-        onAddToTray={() => undefined}
-      />
-      <AssetGenerationDockPreview {...props} />
-    </div>
+    <AssetGenerationDockPreview
+      {...props}
+      variantInspector={(
+        <VariantDetailsPanel
+          asset={stackAssets[0]}
+          variant={selectedVariant}
+          spaceId="space-1"
+          avoidGenerationDock
+          dockWithinCanvas
+          isActive
+          variantIndex={selectedVariantIndex}
+          variantCount={2}
+          lineage={[]}
+          allVariants={stackVariants}
+          allAssets={stackAssets}
+          onClose={() => undefined}
+          onStarVariant={() => undefined}
+          onAddToTray={() => undefined}
+        />
+      )}
+    />
   );
 }
 

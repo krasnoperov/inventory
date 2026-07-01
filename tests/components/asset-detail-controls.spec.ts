@@ -670,7 +670,7 @@ test('asset details dock keeps heavy details outside ForgeTray', async ({ page }
   await expect(inspector.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Scene Bar composition/ })).toHaveCSS('border-top-width', '0px');
   await expect(inspector.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Scene Bar composition/ })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(inspector.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Pinned variant scene/ })).toBeVisible();
-  await expect(inspector.getByRole('region', { name: 'Composition usage' })).toHaveCSS('border-top-width', '0px');
+  await expect(inspector.getByRole('region', { name: 'Composition usage' })).toHaveCSS('border-top-width', '1px');
   await expect(inspector.getByRole('region', { name: 'Composition usage' })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   const compositionBeforeRelations = await page.evaluate(() => {
     const inspector = document.querySelector('[aria-label="Asset details inspector"]');
