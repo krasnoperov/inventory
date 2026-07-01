@@ -1083,8 +1083,10 @@ test('style reference usage panel displays reverse usage', async ({ page }) => {
   });
 
   await expect(page.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Style reference usage' })).toHaveCSS('display', 'flex');
   await expect(page.getByRole('region', { name: 'Style reference usage' })).toHaveCSS('border-top-width', '0px');
   await expect(page.getByRole('region', { name: 'Style reference usage' })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('[class*="group"]').first()).toHaveCSS('display', 'flex');
   await expect(page.getByText('Style usage')).toBeVisible();
   await expect(page.getByText('Collections')).toHaveCSS('text-transform', 'none');
   await expect(page.getByText('Outputs')).toBeVisible();
@@ -1093,6 +1095,8 @@ test('style reference usage panel displays reverse usage', async ({ page }) => {
   await expect(page.getByText('Russafa refs')).toBeVisible();
   await expect(page.getByText('Russafa watercolor')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Hero Image' })).toHaveAttribute('href', '/spaces/space-1/assets/asset-image');
+  const regionBox = await page.getByRole('region', { name: 'Style reference usage' }).boundingBox();
+  expect(regionBox?.height).toBeLessThanOrEqual(32);
 
   await screenshot(page, 'style-reference-usage-compact', { fullPage: true });
 });
