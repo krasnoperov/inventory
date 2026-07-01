@@ -208,15 +208,15 @@ test('asset detail controls use shared selects and collection buttons', async ({
   });
 
   await expect(page.getByRole('combobox', { name: 'Asset type' })).toBeVisible();
-  await expect(page.getByText('Asset collections')).toBeVisible();
+  await expect(page.getByText('Collections', { exact: true })).toBeVisible();
   await selectDropdown(page, 'Asset type', 'Environment');
   await selectDropdown(page, 'Pinned variant in Cast', 'Variant 2 star');
   await page.getByLabel('Role in Cast').fill('lead');
   await page.getByRole('button', { name: 'Remove Cast from asset collections' }).click();
   await expect(page.getByRole('button', { name: 'Remove Style refs placement draft' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove Cast placement draft' })).toBeVisible();
-  await page.getByRole('button', { name: 'Add asset placement' }).click();
-  await page.getByRole('button', { name: 'Add variant placement' }).click();
+  await page.getByRole('button', { name: 'Apply asset collections' }).click();
+  await page.getByRole('button', { name: 'Apply variant collections' }).click();
 
   await screenshot(page, 'asset-detail-controls', { fullPage: true });
 
@@ -256,7 +256,7 @@ test('asset collection membership is compact until management is requested', asy
   await expect(page.getByText('Asset')).toBeVisible();
   await expect(page.getByText('hero')).toBeVisible();
   await expect(page.getByText('Style refs')).toBeVisible();
-  await expect(page.getByText('Selected variant')).toBeVisible();
+  await expect(page.getByText('Variant', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Manage collections' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Manage collections' })).not.toContainText('Manage');
   await expect(page.getByLabel('Role in Cast')).toHaveCount(0);
@@ -265,17 +265,17 @@ test('asset collection membership is compact until management is requested', asy
   await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Add selected variant to collections', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add asset to collection' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Add variant to collection' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add selected variant' })).toHaveCount(0);
 
   await screenshot(page, 'collection-membership-compact');
 
   await page.getByRole('button', { name: 'Manage collections' }).click();
   await expect(page.getByLabel('Role in Cast')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove Cast from asset collections' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Remove Style refs from selected variant collections' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove Style refs from variant collections' })).toBeVisible();
   await expect(page.getByText('Remove', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add asset to collection' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Add variant to collection' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add selected variant' })).toBeVisible();
   const expandedRowMetrics = await page.getByLabel('Role in Cast').evaluate((input) => {
     const row = input.closest('div');
     if (!row) return null;
@@ -478,10 +478,10 @@ test('asset details strip makes video facts and details disclosure visible', asy
     return factCells.map((cell) => getComputedStyle(cell).backgroundColor);
   });
   expect(new Set(factsChrome)).toEqual(new Set(['rgba(0, 0, 0, 0)']));
-  await expect(page.getByRole('button', { name: 'Show video details' })).toContainText('Details');
-  await expect(page.getByRole('button', { name: 'Show video details' })).toHaveCSS('text-transform', 'none');
+  await expect(page.getByRole('button', { name: 'Expand Details scope' })).toContainText('Details');
+  await expect(page.getByRole('button', { name: 'Expand Details scope' })).toHaveCSS('text-transform', 'none');
 
-  await page.getByRole('button', { name: 'Show video details' }).click();
+  await page.getByRole('button', { name: 'Expand Details scope' }).click();
   await screenshot(page, 'asset-details-strip-video', { fullPage: true });
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -520,13 +520,13 @@ test('asset details strip also exposes image facts without a hidden click target
   await expect(page.getByText('Image', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Variants scope')).toContainText('Variant 1/1');
   await expect(page.getByLabel('Variants scope')).toContainText('Image · Completed');
-  await expectNoOverlap(page.getByLabel('Variants scope'), page.getByRole('button', { name: 'Hide image details' }));
+  await expectNoOverlap(page.getByLabel('Variants scope'), page.getByRole('button', { name: 'Collapse Details scope' }));
   await expect(page.getByText('Character')).toBeVisible();
   await expect(page.getByText('Image · Completed')).toBeVisible();
   await expect(page.getByText('1024x1024')).toBeVisible();
   await expect(page.getByText('Duration')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Hide image details' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Hide image details' })).toContainText('Details');
+  await expect(page.getByRole('button', { name: 'Collapse Details scope' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Collapse Details scope' })).toContainText('Details');
 });
 
 test('asset details strip keeps variant focus visible without a selected variant', async ({ page }) => {
@@ -549,8 +549,8 @@ test('asset details strip keeps variant focus visible without a selected variant
   await expect(page.getByText('Unselected detail')).toBeVisible();
   await expect(page.getByLabel('Variants scope')).toContainText('2 variants');
   await expect(page.getByLabel('Variants scope')).toContainText('None');
-  await expectNoOverlap(page.getByLabel('Asset scope'), page.getByRole('button', { name: 'Show image details' }));
-  await expectNoOverlap(page.getByLabel('Variants scope'), page.getByRole('button', { name: 'Show image details' }));
+  await expectNoOverlap(page.getByLabel('Asset scope'), page.getByRole('button', { name: 'Expand Details scope' }));
+  await expectNoOverlap(page.getByLabel('Variants scope'), page.getByRole('button', { name: 'Expand Details scope' }));
   await screenshot(page, 'asset-details-strip-no-variant', { fullPage: true });
 });
 
@@ -584,8 +584,8 @@ test('asset details strip names audio details explicitly', async ({ page }) => {
   await expect(page.getByLabel('Variants scope')).toContainText('Audio · Completed');
   await expect(page.getByText('Audio · Completed')).toBeVisible();
   await expect(page.getByText('42s')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Hide audio details' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Hide audio details' })).toContainText('Details');
+  await expect(page.getByRole('button', { name: 'Collapse Details scope' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Collapse Details scope' })).toContainText('Details');
 });
 
 test('asset details dock renders the real expanded stack above ForgeTray', async ({ page }) => {
@@ -605,7 +605,7 @@ test('asset details dock renders the real expanded stack above ForgeTray', async
 
   await expect(page.getByRole('region', { name: 'Asset generation controls' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Details canvas scope', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Hide image details' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Collapse Details scope' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Expanded asset details' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Collection membership' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Style reference usage' })).toBeVisible();

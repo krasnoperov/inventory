@@ -445,7 +445,7 @@ function AssetDetailsContextPreview(props: Record<string, unknown>) {
       <AssetDetailsContextHarness {...props}>
         <section aria-label="Expanded asset details" style={{ display: 'grid', gap: 8 }}>
           <div style={{ padding: 8, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)' }}>
-            Asset collections
+            Collections
           </div>
           <div style={{ padding: 8, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)' }}>
             Relations
