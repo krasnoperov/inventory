@@ -43,7 +43,7 @@ test('collection placement picker updates role subject and pinning', async ({ pa
 
   await expect(page.getByLabel('Add collection')).toContainText('Add collection');
   await expect(page.getByText('Cast', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('Remove Cast')).toBeVisible();
+  await expect(page.getByLabel('Remove Cast placement draft')).toBeVisible();
 
   await selectDropdown(page, 'Role for Cast', 'Background');
   await page.evaluate((nextProps) => window.__setHarnessProps?.(nextProps), {
@@ -74,7 +74,7 @@ test('collection placement picker updates role subject and pinning', async ({ pa
   await selectDropdown(page, 'Add collection', 'Style refs');
   await page.mouse.move(0, 0);
   await screenshot(page, 'collection-placement-picker', { fullPage: true });
-  await page.getByLabel('Remove Cast').click();
+  await page.getByLabel('Remove Cast placement draft').click();
 
   const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
   expect(calls).toEqual(expect.arrayContaining([
