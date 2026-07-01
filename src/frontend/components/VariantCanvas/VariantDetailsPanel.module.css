@@ -26,11 +26,11 @@
 }
 
 .panelCanvasDock {
-  position: fixed;
+  position: absolute;
   top: auto;
-  right: calc(var(--generation-dock-width) + 1.75rem);
-  bottom: 1rem;
-  left: 4.5rem;
+  right: 1rem;
+  bottom: calc(var(--variant-details-generation-dock-clearance, 0px) + 1rem);
+  left: 1rem;
   width: auto;
   max-width: none;
   max-height: var(--variant-details-dock-height, min(32vh, 18rem));
@@ -45,8 +45,8 @@
   }
 
   .panelCanvasDock {
-    left: 4.5rem;
-    right: calc(var(--generation-dock-width) + 1rem);
+    right: 1rem;
+    left: 1rem;
     width: auto;
   }
 }
@@ -59,6 +59,17 @@
     right: 1rem;
     width: auto;
     max-height: min(18vh, 9rem);
+  }
+
+  .panelCanvasDock.panelAvoidGenerationDock {
+    position: absolute;
+    top: auto;
+    right: 1rem;
+    bottom: calc(var(--variant-details-generation-dock-clearance, 0px) + 1rem);
+    left: 1rem;
+    width: auto;
+    max-width: none;
+    max-height: var(--variant-details-dock-height, min(22vh, 11rem));
   }
 }
 

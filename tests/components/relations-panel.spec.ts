@@ -289,7 +289,7 @@ test('relations panel shows incoming reverse links and clears relations separate
   });
   expect(panelChrome).toEqual({
     backgroundColor: 'rgba(0, 0, 0, 0)',
-    borderTopWidth: '0px',
+    borderTopWidth: '1px',
     width: 760,
   });
   await expect(page.locator('article')).toHaveCount(2);

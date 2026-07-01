@@ -1089,10 +1089,10 @@ test('style reference usage panel displays reverse usage', async ({ page }) => {
   });
 
   await expect(page.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Style reference usage' })).toHaveCSS('display', 'flex');
-  await expect(page.getByRole('region', { name: 'Style reference usage' })).toHaveCSS('border-top-width', '0px');
+  await expect(page.getByRole('region', { name: 'Style reference usage' })).toHaveCSS('display', 'grid');
+  await expect(page.getByRole('region', { name: 'Style reference usage' })).toHaveCSS('border-top-width', '1px');
   await expect(page.getByRole('region', { name: 'Style reference usage' })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(page.locator('[class*="group"]').first()).toHaveCSS('display', 'flex');
+  await expect(page.locator('[class*="group"]').first()).toHaveCSS('display', 'grid');
   await expect(page.getByRole('heading', { name: /Style/ })).toBeVisible();
   await expect(page.getByText('Style usage')).toHaveCount(0);
   await expect(page.getByText('Collections')).toHaveCSS('text-transform', 'none');
@@ -1103,7 +1103,7 @@ test('style reference usage panel displays reverse usage', async ({ page }) => {
   await expect(page.getByText('Russafa watercolor')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Hero Image' })).toHaveAttribute('href', '/spaces/space-1/assets/asset-image');
   const regionBox = await page.getByRole('region', { name: 'Style reference usage' }).boundingBox();
-  expect(regionBox?.height).toBeLessThanOrEqual(32);
+  expect(regionBox?.height).toBeLessThanOrEqual(96);
 
   await screenshot(page, 'style-reference-usage-compact', { fullPage: true });
 });

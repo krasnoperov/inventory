@@ -301,7 +301,7 @@ test('composition reverse lookup includes exact variant and asset matches', asyn
   await expect(page.getByRole('button', { name: /Output variant scene/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Other cast scene/ })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Composition usage' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Composition usage' })).toHaveCSS('display', 'flex');
+  await expect(page.getByRole('region', { name: 'Composition usage' })).toHaveCSS('display', 'grid');
   await expect(page.getByRole('heading', { name: /Compositions/ })).toBeVisible();
   await expect(page.getByText('Composition usage')).toHaveCount(0);
   await expect(page.getByText('3', { exact: true })).toBeVisible();
@@ -311,7 +311,7 @@ test('composition reverse lookup includes exact variant and asset matches', asyn
     const regionBox = await page.getByRole('region', { name: 'Composition usage' }).boundingBox();
     const buttonBox = await page.getByRole('button', { name: /Scene Bar composition/ }).boundingBox();
     if (!regionBox || !buttonBox) return false;
-    return buttonBox.width < regionBox.width / 2;
+    return buttonBox.width >= regionBox.width * 0.95;
   }).toBe(true);
 
   await page.getByRole('button', { name: /Pinned variant scene/ }).click();
