@@ -15,10 +15,10 @@
 }
 
 .modal {
-  background: var(--color-surface);
-  border-radius: 0;
-  border: 1px solid var(--color-border);
-  box-shadow: none;
+  background: var(--workspace-panel-bg);
+  border-radius: var(--workspace-panel-radius);
+  border: 1px solid var(--workspace-panel-border);
+  box-shadow: var(--workspace-panel-shadow);
   width: min(640px, calc(100vw - 2rem));
   max-width: 640px;
   max-height: min(80vh, calc(100vh - var(--forge-sheet-bottom-offset, 13rem) - 1rem));

@@ -1,13 +1,22 @@
 /* Variant Canvas - Full-screen React Flow container */
 
 .canvas {
+  position: relative;
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
   background:
     linear-gradient(90deg, transparent 0, transparent calc(100% - 1px), oklch(100% 0 0 / 0.055) calc(100% - 1px)) 0 0 / 96px 96px,
     linear-gradient(180deg, transparent 0, transparent calc(100% - 1px), oklch(100% 0 0 / 0.055) calc(100% - 1px)) 0 0 / 96px 96px,
     radial-gradient(circle at 1px 1px, oklch(100% 0 0 / 0.08) 1px, transparent 0) 0 0 / 32px 32px,
     var(--color-bg);
+}
+
+.canvas.detailsOpen {
+  --variant-details-dock-height: min(32vh, 18rem);
+
+  overflow: hidden;
 }
 
 .canvas.assetScoped,
@@ -36,10 +45,10 @@
 
 /* Controls styling */
 .controls {
-  background: var(--color-surface) !important;
-  border: 1px solid var(--color-border) !important;
-  border-radius: var(--radius-md) !important;
-  box-shadow: none !important;
+  background: var(--workspace-panel-bg) !important;
+  border: 1px solid var(--workspace-panel-border) !important;
+  border-radius: var(--workspace-panel-radius) !important;
+  box-shadow: var(--workspace-panel-shadow) !important;
 }
 
 .controls button {
@@ -58,11 +67,17 @@
 }
 
 .minimap {
-  background: var(--color-surface) !important;
-  border: 1px solid var(--color-border) !important;
-  border-radius: var(--radius-md) !important;
-  box-shadow: none !important;
+  background: var(--workspace-panel-bg) !important;
+  border: 1px solid var(--workspace-panel-border) !important;
+  border-radius: var(--workspace-panel-radius) !important;
+  box-shadow: var(--workspace-panel-shadow) !important;
   overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .canvas.detailsOpen {
+    --variant-details-dock-height: min(18vh, 9rem);
+  }
 }
 
 /* Empty state */

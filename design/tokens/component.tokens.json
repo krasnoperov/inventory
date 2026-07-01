@@ -478,6 +478,42 @@
       }
     }
   },
+  "workspace": {
+    "panel": {
+      "bg": {
+        "$value": "{color.surface}",
+        "$extensions": {
+          "com.inventory.cssVar": "--workspace-panel-bg",
+          "com.inventory.sourceFile": "theme.css",
+          "com.inventory.cssValue": "var(--color-surface)"
+        }
+      },
+      "border": {
+        "$value": "{color.border}",
+        "$extensions": {
+          "com.inventory.cssVar": "--workspace-panel-border",
+          "com.inventory.sourceFile": "theme.css",
+          "com.inventory.cssValue": "var(--color-border)"
+        }
+      },
+      "radius": {
+        "$value": "{radius.lg}",
+        "$extensions": {
+          "com.inventory.cssVar": "--workspace-panel-radius",
+          "com.inventory.sourceFile": "theme.css",
+          "com.inventory.cssValue": "var(--radius-lg)"
+        }
+      },
+      "shadow": {
+        "$value": "none",
+        "$extensions": {
+          "com.inventory.cssVar": "--workspace-panel-shadow",
+          "com.inventory.sourceFile": "theme.css",
+          "com.inventory.cssValue": "none"
+        }
+      }
+    }
+  },
   "landing": {
     "glowBrand": {
       "$value": {

@@ -9,10 +9,10 @@
   max-width: calc(100vw - 2rem);
   display: flex;
   flex-direction: column;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: none;
+  background: var(--workspace-panel-bg);
+  border: 1px solid var(--workspace-panel-border);
+  border-radius: var(--workspace-panel-radius);
+  box-shadow: var(--workspace-panel-shadow);
   z-index: 1000;
   animation: variantDetailsFadeIn 0.16s ease-out;
 }
@@ -25,16 +25,35 @@
   max-height: calc(100vh - 2rem);
 }
 
+.panelCanvasDock {
+  position: fixed;
+  top: auto;
+  right: calc(var(--generation-dock-width) + 1.75rem);
+  bottom: 1rem;
+  left: 4.5rem;
+  width: auto;
+  max-width: none;
+  max-height: var(--variant-details-dock-height, min(32vh, 18rem));
+  min-height: 0;
+}
+
 @media (max-width: 920px) and (min-width: 769px) {
   .panelAvoidGenerationDock {
     left: 1rem;
     right: auto;
     width: min(340px, calc(100vw - var(--generation-dock-width) - 2.75rem));
   }
+
+  .panelCanvasDock {
+    left: 4.5rem;
+    right: calc(var(--generation-dock-width) + 1rem);
+    width: auto;
+  }
 }
 
 @media (max-width: 768px) {
   .panelAvoidGenerationDock {
+    position: fixed;
     top: 1rem;
     left: 1rem;
     right: 1rem;

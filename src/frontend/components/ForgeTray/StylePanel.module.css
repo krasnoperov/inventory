@@ -22,10 +22,10 @@
   max-height: min(80vh, calc(100vh - var(--forge-sheet-bottom-offset, 13rem) - 1rem));
   display: flex;
   flex-direction: column;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 0;
-  box-shadow: none;
+  background: var(--workspace-panel-bg);
+  border: 1px solid var(--workspace-panel-border);
+  border-radius: var(--workspace-panel-radius);
+  box-shadow: var(--workspace-panel-shadow);
   overflow: hidden;
   animation: fadeIn 0.15s ease;
 }

@@ -477,10 +477,10 @@ test('asset details strip makes video facts visible without dock disclosure chro
   });
 
   await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCSS('border-top-width', '1px');
-  await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCSS('border-left-width', '0px');
-  await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCSS('border-radius', '0px');
+  await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCSS('border-left-width', '1px');
+  await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCSS('border-radius', '12px');
   await expect(page.getByText('Hero reveal video')).toBeVisible();
   await expect(page.getByLabel('Asset scope', { exact: true })).toContainText('Details');
   await expect(page.getByText('Asset', { exact: true })).toHaveCSS('text-transform', 'none');
@@ -682,7 +682,7 @@ test('asset details dock keeps heavy details outside ForgeTray', async ({ page }
   await expect(page.getByLabel('Prompt')).toBeVisible();
   const embeddedTray = page.locator('[class*="tray"]').first();
   await expect(embeddedTray).toHaveCSS('box-shadow', 'none');
-  await expect(embeddedTray).toHaveCSS('border-radius', '0px');
+  await expect(embeddedTray).toHaveCSS('border-radius', '12px');
 
   const detailsBeforePrompt = await page.evaluate(() => {
     const details = document.querySelector('[aria-label="Details scoped space summary"]');
@@ -746,7 +746,7 @@ test('asset details inspector stays separate from ForgeTray on mobile', async ({
   await expect(page.getByLabel('Prompt')).toBeVisible();
   const embeddedTray = page.locator('[class*="tray"]').first();
   await expect(embeddedTray).toHaveCSS('box-shadow', 'none');
-  await expect(embeddedTray).toHaveCSS('border-radius', '0px');
+  await expect(embeddedTray).toHaveCSS('border-radius', '12px');
   const mobileDockGap = await page.evaluate(() => {
     const details = document.querySelector('[aria-label="Details scoped space summary"]');
     const tray = document.querySelector('[class*="tray"]');
@@ -855,7 +855,7 @@ test('asset detail overlays use flat chrome', async ({ page }) => {
   await expect(toolbar).not.toContainText('Asset');
   await expect(toolbar).not.toContainText('2 variants');
   await expect(toolbar).toContainText('Crystal Gate with readable scoped title');
-  await expect(toolbar).toHaveCSS('flex-wrap', 'wrap');
+  await expect(toolbar).toHaveCSS('flex-wrap', 'nowrap');
   await expect(toolbar.locator('[class*="assetTitleSlot"]')).toHaveCSS('text-overflow', 'clip');
   await expect(page.getByRole('region', { name: 'Tile grid overlay' })).toHaveCSS('box-shadow', 'none');
   const generationJobs = page.getByRole('region', { name: 'Generation jobs' });

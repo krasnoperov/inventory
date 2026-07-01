@@ -125,14 +125,11 @@
 }
 
 .controls {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  background: var(--workspace-panel-bg) !important;
+  border: 1px solid var(--workspace-panel-border) !important;
+  border-radius: var(--workspace-panel-radius) !important;
+  box-shadow: var(--workspace-panel-shadow) !important;
   overflow: hidden;
-}
-
-.minimap {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
 }
 
 .empty {

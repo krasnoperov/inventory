@@ -8,10 +8,10 @@
   gap: 0.5rem;
   max-width: calc(100% - 1.5rem);
   padding: 0.375rem 0.625rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: none;
+  background: var(--workspace-panel-bg);
+  border: 1px solid var(--workspace-panel-border);
+  border-radius: var(--workspace-panel-radius);
+  box-shadow: var(--workspace-panel-shadow);
 }
 
 .title {
