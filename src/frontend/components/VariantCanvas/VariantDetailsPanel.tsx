@@ -38,6 +38,8 @@ export interface VariantDetailsPanelProps {
   variant: Variant;
   asset: Asset;
   spaceId?: string;
+  /** Shift the viewport inspector away from the asset generation dock. */
+  avoidGenerationDock?: boolean;
   isActive?: boolean;
   /** Total variants on the canvas (delete is disabled when only one remains). */
   variantCount?: number;
@@ -136,6 +138,7 @@ export function VariantDetailsPanel({
   variant,
   asset,
   spaceId,
+  avoidGenerationDock = false,
   isActive,
   variantCount = 0,
   lineage,
@@ -311,7 +314,10 @@ export function VariantDetailsPanel({
   ]);
 
   return createPortal(
-    <aside className={styles.panel} aria-label="Variant details">
+    <aside
+      className={`${styles.panel} ${avoidGenerationDock ? styles.panelAvoidGenerationDock : ''}`}
+      aria-label="Variant details"
+    >
       <div className={styles.header}>
         <div className={styles.titleBlock}>
           <h2>{asset.name}</h2>

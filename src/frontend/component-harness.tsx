@@ -526,6 +526,30 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
   );
 }
 
+function AssetGenerationDockWithVariantInspectorPreview(props: Record<string, unknown>) {
+  const selectedVariant = stackVariants.find((variant) => variant.id === 'hero-variant') ?? stackVariants[0];
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--color-bg)' }}>
+      <VariantDetailsPanel
+        asset={stackAssets[0]}
+        variant={selectedVariant}
+        spaceId="space-1"
+        avoidGenerationDock
+        isActive
+        variantCount={2}
+        lineage={[]}
+        allVariants={stackVariants}
+        allAssets={stackAssets}
+        onClose={() => undefined}
+        onStarVariant={() => undefined}
+        onAddToTray={() => undefined}
+      />
+      <AssetGenerationDockPreview {...props} />
+    </div>
+  );
+}
+
 function AssetDetailOverlayChromePreview() {
   return (
     <div style={{ position: 'relative', width: '720px', height: '420px', padding: '1rem', background: 'var(--color-bg)' }}>
@@ -1017,6 +1041,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AssetDetailControls: AssetDetailControlsHarness,
   AssetTitleInlineEditor: AssetTitleInlineEditorPreview,
   AssetGenerationDock: AssetGenerationDockPreview,
+  AssetGenerationDockWithVariantInspector: AssetGenerationDockWithVariantInspectorPreview,
   AssetDetailOverlayChrome: AssetDetailOverlayChromePreview,
   AssetDetailsContext: AssetDetailsContextPreview,
   AssetDetailsStrip: AssetDetailsStripPreview,

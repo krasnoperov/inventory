@@ -1302,6 +1302,7 @@ export default function AssetDetailPage() {
         <VariantCanvas
           spaceId={spaceId}
           canvasLabel="Details canvas"
+          avoidGenerationDock
           asset={asset}
           variants={variants}
           lineage={lineage}
