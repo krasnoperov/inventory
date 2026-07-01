@@ -967,7 +967,7 @@ test('forge tray with references renders the reference strip', async ({ page }) 
   await expect(removeButton).toHaveCount(0);
 });
 
-test('forge tray on asset detail shows compact Current/New destination control', async ({ page }) => {
+test('forge tray on asset detail shows compact destination dropdown', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 
   await mountComponent(page, 'ForgeTray', {
@@ -981,19 +981,18 @@ test('forge tray on asset detail shows compact Current/New destination control',
 
   await expect(page.getByText('Hero Image')).toHaveCount(0);
   await expect(page.getByText('Destination')).toHaveCount(0);
-  await expect(page.getByRole('radiogroup', { name: 'Destination' })).toBeVisible();
-  await expect(page.getByRole('radio', { name: 'Current' })).toBeChecked();
-  await expect(page.getByRole('radio', { name: 'New' })).not.toBeChecked();
+  await expect(page.getByRole('radiogroup', { name: 'Destination' })).toHaveCount(0);
+  await expectDropdownValue(page, 'Destination', 'Current');
 
   await page.mouse.move(0, 0);
   await screenshot(page, 'forge-tray-asset-detail', { fullPage: true });
 
-  await page.getByRole('radio', { name: 'New' }).click();
+  await selectDropdown(page, 'Destination', 'New');
   await expect(page.getByLabel('Asset name')).toBeVisible();
-  await expect(page.getByRole('radio', { name: 'New' })).toBeChecked();
+  await expectDropdownValue(page, 'Destination', 'New');
 });
 
-test('forge tray destination toggle supports radio keyboard navigation', async ({ page }) => {
+test('forge tray destination dropdown uses shared select keyboard behavior', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 
   await mountComponent(page, 'ForgeTray', {
@@ -1005,37 +1004,19 @@ test('forge tray destination toggle supports radio keyboard navigation', async (
   });
   await disableAnimations(page);
 
-  const current = page.getByRole('radio', { name: 'Current' });
-  const next = page.getByRole('radio', { name: 'New' });
+  const destination = page.getByLabel('Destination');
+  await expectDropdownValue(page, 'Destination', 'Current');
 
-  await expect(current).toBeChecked();
-  await current.focus();
-  await page.keyboard.press('ArrowLeft');
-  await expect(next).toBeChecked();
-  await expect(next).toBeFocused();
-
-  await page.keyboard.press('ArrowRight');
-  await expect(current).toBeChecked();
-  await expect(current).toBeFocused();
-
-  await page.keyboard.press('ArrowUp');
-  await expect(next).toBeChecked();
-  await expect(next).toBeFocused();
-
+  await destination.focus();
   await page.keyboard.press('ArrowDown');
-  await expect(current).toBeChecked();
-  await expect(current).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
 
-  await page.keyboard.press('End');
-  await expect(next).toBeChecked();
-  await expect(next).toBeFocused();
-
-  await page.keyboard.press('Home');
-  await expect(current).toBeChecked();
-  await expect(current).toBeFocused();
+  await expectDropdownValue(page, 'Destination', 'New');
+  await expect(page.getByLabel('Asset name')).toBeVisible();
 });
 
-test('forge tray destination toggle skips disabled current destination', async ({ page }) => {
+test('forge tray destination dropdown disables current destination when incompatible', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 
   await mountComponent(page, 'ForgeTray', {
@@ -1049,23 +1030,11 @@ test('forge tray destination toggle skips disabled current destination', async (
 
   await selectMediaGroup(page, 'Video');
 
-  const current = page.getByRole('radio', { name: 'Current' });
-  const next = page.getByRole('radio', { name: 'New' });
-
-  await expect(current).toBeDisabled();
-  await expect(next).toBeChecked();
-  await next.focus();
-
-  await page.keyboard.press('ArrowRight');
-  await expect(next).toBeChecked();
-  await expect(next).toBeFocused();
-
-  await page.keyboard.press('Home');
-  await expect(next).toBeChecked();
-  await expect(next).toBeFocused();
+  await expectDropdownValue(page, 'Destination', 'New');
+  await expectDropdownOptionDisabled(page, 'Destination', 'Current');
 });
 
-test('forge tray collapses after touching the destination toggle then leaving', async ({ page }) => {
+test('forge tray collapses after touching the destination dropdown then leaving', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 
   await mountComponent(page, 'ForgeTray', {
@@ -1087,9 +1056,9 @@ test('forge tray collapses after touching the destination toggle then leaving', 
   await page.getByLabel('Prompt').click();
   await expect.poll(revealHeight).toBeGreaterThan(20);
 
-  // Touching the destination toggle and then clicking outside must collapse the
+  // Touching the destination dropdown and then clicking outside must collapse the
   // tray again.
-  await page.getByRole('radio', { name: 'New' }).click();
+  await selectDropdown(page, 'Destination', 'New');
   await page.mouse.click(10, 10);
   await expect.poll(revealHeight).toBeLessThan(2);
 });
