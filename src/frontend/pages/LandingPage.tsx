@@ -118,16 +118,25 @@ export function LandingCreateSpaceDialog({
 }: LandingCreateSpaceDialogProps) {
   return (
     <div className={styles.modalOverlay} onClick={onClose}>
-      <div className={styles.modal} onClick={(event) => event.stopPropagation()}>
+      <div
+        className={styles.modal}
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="landing-create-space-dialog-title"
+      >
         <div className={styles.modalHeader}>
-          <h2 className={styles.modalTitle}>Create New Space</h2>
+          <h2 className={styles.modalTitle} id="landing-create-space-dialog-title">Create New Space</h2>
           <IconButton
             className={styles.modalClose}
             onClick={onClose}
             aria-label="Close"
             variant="ghost"
+            size="sm"
           >
-            ×
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
           </IconButton>
         </div>
 
