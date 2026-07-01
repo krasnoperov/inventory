@@ -1375,6 +1375,9 @@ export default function AssetDetailPage() {
             <CanvasToolbarBadge tone="neutral" className={styles.assetScopeBadge}>
               Asset
             </CanvasToolbarBadge>
+            <CanvasToolbarBadge tone="neutral" className={styles.variantScopeBadge}>
+              {formatVariantCount(variants.length)}
+            </CanvasToolbarBadge>
             {wsStatus === 'connected' && (
               <CanvasToolbarGroup>
                 <CanvasToolbarLive />
@@ -1439,7 +1442,7 @@ export default function AssetDetailPage() {
 
         {isDetailsDragOver && (
           <div className={styles.dropHint} role="status">
-            <span>Create new variant</span>
+            <span>New variant for {asset.name}</span>
           </div>
         )}
 

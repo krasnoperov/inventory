@@ -204,10 +204,10 @@
 }
 
 .statusRow {
-  padding: 3px;
+  padding: 4px;
   border: calc(1px / var(--rf-zoom, 1)) solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-surface);
+  background: var(--color-surface-elevated);
 }
 
 .relationRow {
@@ -219,11 +219,11 @@
 .mainChip,
 .selectedChip {
   min-width: 0;
-  max-width: 120px;
+  max-width: 136px;
   padding: 2px 6px;
   border-radius: var(--radius-xs);
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 650;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -231,8 +231,8 @@
 }
 
 .roleChip {
-  background: var(--color-bg);
-  color: var(--color-text-muted);
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 .ghostRoleChip {

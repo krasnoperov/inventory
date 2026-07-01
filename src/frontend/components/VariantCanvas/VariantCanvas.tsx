@@ -356,7 +356,7 @@ function VariantCanvasInner({
     }
 
     // Create normal nodes for this asset's variants
-    const nodes: VariantNodeType[] = variants.map((variant) => {
+    const nodes: VariantNodeType[] = variants.map((variant, index) => {
       const dims = imageDimensions.get(variant.id);
       const isAudioNode = isAudioVariant(variant);
       return {
@@ -376,6 +376,8 @@ function VariantCanvasInner({
           onGhostClick: onGhostNodeClick, // For forked-to/from navigation
           onToggleExpand: toggleExpanded,
           isExpanded: variant.id === expandedVariantId,
+          variantIndex: index,
+          variantCount: variants.length,
           spaceId,
           // Exact thumbnail size so the card matches the media aspect ratio
           thumbWidth: isAudioNode ? AUDIO_THUMB_WIDTH : (dims ? dims.width - NODE_PADDING : undefined),
