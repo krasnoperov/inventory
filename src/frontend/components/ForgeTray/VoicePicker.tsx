@@ -31,6 +31,24 @@ function voiceOptions(voices: Voice[]): Array<SelectOption<string>> {
   }));
 }
 
+function AddIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" aria-hidden="true">
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+function RemoveIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" aria-hidden="true">
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
 /**
  * Voice selector for ElevenLabs audio generation, shown in speech/dialogue
  * Forge modes. The voice is always chosen here — there is no env-configured
@@ -115,7 +133,7 @@ export function VoicePicker({
     <div className={styles.voicePicker} title="Voices assigned to speakers in order">
       {rows.map((id, index) => (
         <div key={index} className={styles.dialogueRow}>
-          <span className={styles.speakerIndex}>{index + 1}.</span>
+          <span className={styles.speakerIndex} aria-hidden="true">S{index + 1}</span>
           <UiSelect
             className={styles.voiceSelect}
             value={id || firstVoiceId || ''}
@@ -134,26 +152,24 @@ export function VoicePicker({
               variant="ghost"
               size="sm"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                <path d="M5 12h14" />
-              </svg>
+              <RemoveIcon />
             </IconButton>
           )}
         </div>
       ))}
-      <IconButton
-        className={styles.speakerAction}
-        onClick={handleAddSpeaker}
-        disabled={disabled}
-        title="Add speaker voice"
-        aria-label="Add speaker voice"
-        variant="ghost"
-        size="sm"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
-      </IconButton>
+      <div className={styles.addRow}>
+        <IconButton
+          className={`${styles.speakerAction} ${styles.addAction}`}
+          onClick={handleAddSpeaker}
+          disabled={disabled}
+          title="Add speaker voice"
+          aria-label="Add speaker voice"
+          variant="secondary"
+          size="sm"
+        >
+          <AddIcon />
+        </IconButton>
+      </div>
     </div>
   );
 }
