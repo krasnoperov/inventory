@@ -1222,6 +1222,10 @@ test('forge tray picker disables references incompatible with the selected media
   });
   await disableAnimations(page);
 
+  await page.getByLabel('Prompt').fill([
+    'A production-ready reference pass with a taller prompt area, multiple visual constraints, and enough text to expand the ForgeTray.',
+    'Keep the picker docked above the current tray height without covering the prompt, option row, or submit controls.',
+  ].join(' '));
   await page.getByTitle('Add reference').click();
   await expect(page.getByText('Image references')).toBeVisible();
   await expect(page.locator('[class*="backdrop"]')).toHaveCSS('backdrop-filter', 'none');
@@ -1232,6 +1236,14 @@ test('forge tray picker disables references incompatible with the selected media
   await expect.poll(
     () => assetPickerModal.evaluate((node) => getComputedStyle(node).animationName),
   ).not.toContain('slideUp');
+  const pickerDockGap = await page.evaluate(() => {
+    const picker = document.querySelector('[class*="modal"]');
+    const tray = document.querySelector('[class*="tray"]');
+    if (!picker || !tray) return null;
+    return tray.getBoundingClientRect().top - picker.getBoundingClientRect().bottom;
+  });
+  expect(pickerDockGap).not.toBeNull();
+  expect(pickerDockGap!).toBeGreaterThanOrEqual(8);
   await expect(page.getByRole('button', { name: /Hero Image/ })).toBeEnabled();
   const incompatibleVideo = page.getByRole('button', { name: /Hero Video, animation \/ video\. Image mode cannot use video references/ });
   await expect(incompatibleVideo).toBeDisabled();
