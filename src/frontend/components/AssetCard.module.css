@@ -150,9 +150,9 @@
 .parentPath {
   font-size: 10px;
   color: var(--color-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-overflow: clip;
   opacity: 0.7;
   margin-bottom: 2px;
 }
@@ -163,9 +163,9 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-overflow: clip;
   line-height: 1.3;
 }
 
@@ -176,9 +176,9 @@
   color: var(--color-text-muted);
   text-transform: capitalize;
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .audioDetails {
@@ -198,6 +198,7 @@
 .audioMeta {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
   max-width: 100%;
   min-width: 0;
@@ -208,9 +209,9 @@
   color: var(--color-text);
   font-size: 10px;
   line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .audioMetaLabel {
@@ -226,10 +227,8 @@
   color: var(--color-text);
   font-size: 11px;
   line-height: 1.35;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 /* Responsive */
@@ -246,7 +245,4 @@
     font-size: 10px;
   }
 
-  .audioPrompt {
-    -webkit-line-clamp: 3;
-  }
 }
