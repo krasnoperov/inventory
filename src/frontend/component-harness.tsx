@@ -461,7 +461,7 @@ function AssetDetailsContextPreview(props: Record<string, unknown>) {
 }
 
 function AssetGenerationDockPreview(props: Record<string, unknown>) {
-  const { variantInspector: rawVariantInspector, showCompositionDetail, ...contextProps } = props;
+  const { variantInspector: rawVariantInspector, showCompositionDetail, showRelationEditor, ...contextProps } = props;
   const variantInspector = rawVariantInspector as ReactNode | undefined;
   const selectedVariant = stackVariants.find((variant) => variant.id === 'hero-variant') ?? null;
   const selectedVariantIndex = selectedVariant
@@ -524,6 +524,17 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
                 onClose={() => undefined}
               />
             </div>
+          )}
+          {showRelationEditor === true && (
+            <RelationEditorDialog
+              mode="create"
+              assets={stackAssets}
+              variants={stackVariants}
+              sourceSubject={{ subjectType: 'asset', assetId: 'hero' }}
+              onCancel={() => undefined}
+              onCreate={() => undefined}
+              onUpdate={() => undefined}
+            />
           )}
           <RelationsPanel
             assets={stackAssets}

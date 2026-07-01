@@ -78,7 +78,7 @@ async function selectDropdown(page: import('@playwright/test').Page, label: stri
   await page.getByRole('option', { name: optionName }).click();
 }
 
-test('relation dialog creates a manual relation with searchable variant target', async ({ page }) => {
+test('relation editor panel creates a manual relation with searchable variant target', async ({ page }) => {
   await mockMedia(page);
   await mountComponent(page, 'RelationEditorDialog', {
     mode: 'create',
@@ -90,12 +90,14 @@ test('relation dialog creates a manual relation with searchable variant target',
     onUpdate: '__record__:update-relation',
   });
 
-  await expect(page.locator('[class*="dialogOverlay"]')).toHaveCSS('backdrop-filter', 'none');
-  await expect(page.locator('[class*="dialogOverlay"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(page.locator('[class*="_dialog_"]').first()).toHaveCSS('box-shadow', 'none');
-  await expect(page.locator('[class*="_dialog_"]').first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
-  const dialogBox = await page.locator('[class*="_dialog_"]').first().boundingBox();
-  expect(dialogBox?.width).toBeLessThanOrEqual(500);
+  await expect(page.locator('[class*="dialogOverlay"]')).toHaveCount(0);
+  const editorPanel = page.getByRole('region', { name: 'Create relation' });
+  await expect(editorPanel).toBeVisible();
+  await expect(editorPanel).toHaveCSS('position', 'static');
+  await expect(editorPanel).toHaveCSS('border-radius', '8px');
+  await expect(editorPanel).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  const editorBox = await editorPanel.boundingBox();
+  expect(editorBox?.width).toBeLessThanOrEqual(760);
   await expect(page.locator('[class*="subjectLine"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.locator('[class*="subjectLine"]')).toHaveCSS('border-radius', '0px');
   await expect(page.locator('[class*="subjectChip"]').first()).toHaveCSS('font-weight', '600');
@@ -112,14 +114,14 @@ test('relation dialog creates a manual relation with searchable variant target',
   await expect(page.getByLabel('Relation shortcuts')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Mark as thumbnail for/ })).toHaveCount(0);
   await page.mouse.move(0, 0);
-  await screenshot(page, 'relation-dialog-create-compact', { fullPage: true });
+  await screenshot(page, 'relation-editor-panel-create-compact', { fullPage: true });
   await page.getByRole('button', { name: 'Details' }).click();
   await expect(page.getByRole('button', { name: 'Hide details' })).toBeVisible();
   await page.getByLabel('Label').fill('Inventory tile');
   await page.getByLabel('Context').fill('catalog grid');
   await page.getByLabel('Notes').fill('Use the trimmed 64px sprite.');
   await page.mouse.move(0, 0);
-  await screenshot(page, 'relation-dialog-create', { fullPage: true });
+  await screenshot(page, 'relation-editor-panel-create', { fullPage: true });
   await page.getByRole('button', { name: 'Create' }).click();
 
   const details = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
@@ -137,7 +139,7 @@ test('relation dialog creates a manual relation with searchable variant target',
   });
 });
 
-test('relation dialog edits type label context and notes without changing endpoints', async ({ page }) => {
+test('relation editor panel edits type label context and notes without changing endpoints', async ({ page }) => {
   await mockMedia(page);
   await mountComponent(page, 'RelationEditorDialog', {
     mode: 'edit',
@@ -189,7 +191,64 @@ test('relation dialog edits type label context and notes without changing endpoi
   ]);
 });
 
-test('relation dialog keeps compact mobile action layout', async ({ page }) => {
+test('relation editor panel resets local fields when editing a different relation', async ({ page }) => {
+  await mockMedia(page);
+  const firstRelation = {
+    id: 'relation-1',
+    subject_type: 'asset',
+    subject_asset_id: 'hero',
+    subject_variant_id: null,
+    object_type: 'asset',
+    object_asset_id: 'atlas',
+    object_variant_id: null,
+    relation_type: 'map_for',
+    context: JSON.stringify({ label: 'Old label', context: 'old context', notes: 'old notes' }),
+    sort_index: 0,
+    created_by: 'user-1',
+    created_at: baseTime,
+    updated_at: baseTime,
+  };
+  const nextRelation = {
+    ...firstRelation,
+    id: 'relation-2',
+    object_asset_id: 'map',
+    relation_type: 'alternate_of',
+    context: JSON.stringify({ label: 'New label', context: 'new context', notes: 'new notes' }),
+  };
+
+  await mountComponent(page, 'RelationEditorDialog', {
+    mode: 'edit',
+    assets,
+    variants,
+    sourceSubject: { subjectType: 'asset', assetId: 'hero' },
+    relation: firstRelation,
+    onCancel: '__noop__',
+    onCreate: '__record__:create-relation',
+    onUpdate: '__record__:update-relation',
+  });
+
+  await page.getByLabel('Label').fill('Dirty local label');
+  await page.evaluate((props) => {
+    (window as unknown as { __setHarnessProps: (nextProps: unknown) => void }).__setHarnessProps(props);
+  }, {
+    mode: 'edit',
+    assets,
+    variants,
+    sourceSubject: { subjectType: 'asset', assetId: 'hero' },
+    relation: nextRelation,
+    onCancel: '__noop__',
+    onCreate: '__record__:create-relation',
+    onUpdate: '__record__:update-relation',
+  });
+
+  await expect(page.getByLabel('Relation endpoints')).toContainText('Map Source');
+  await expect(page.getByLabel('Label')).toHaveValue('New label');
+  await expect(page.getByLabel('Context')).toHaveValue('new context');
+  await expect(page.getByLabel('Notes')).toHaveValue('new notes');
+  await expect(page.getByLabel('Type')).toContainText('Alternate of');
+});
+
+test('relation editor panel keeps compact mobile action layout', async ({ page }) => {
   await mockMedia(page);
   await page.setViewportSize({ width: 360, height: 640 });
   await mountComponent(page, 'RelationEditorDialog', {
@@ -202,16 +261,16 @@ test('relation dialog keeps compact mobile action layout', async ({ page }) => {
     onUpdate: '__record__:update-relation',
   });
 
-  const dialogMetrics = await page.locator('[class*="_dialog_"]').first().evaluate((dialog) => {
-    const rect = dialog.getBoundingClientRect();
+  const panelMetrics = await page.getByRole('region', { name: 'Create relation' }).evaluate((panel) => {
+    const rect = panel.getBoundingClientRect();
     return { left: rect.left, right: rect.right, width: rect.width, viewport: window.innerWidth };
   });
-  expect(dialogMetrics.left).toBeGreaterThanOrEqual(16);
-  expect(dialogMetrics.right).toBeLessThanOrEqual(dialogMetrics.viewport - 16);
+  expect(panelMetrics.left).toBeGreaterThanOrEqual(0);
+  expect(panelMetrics.right).toBeLessThanOrEqual(panelMetrics.viewport);
   const cancelWidth = await page.getByRole('button', { name: 'Cancel' }).evaluate((button) => {
     return button.getBoundingClientRect().width;
   });
-  expect(cancelWidth).toBeGreaterThanOrEqual(dialogMetrics.width - 32);
+  expect(cancelWidth).toBeGreaterThanOrEqual(panelMetrics.width - 32);
 });
 
 test('relations panel shows incoming reverse links and clears relations separately from lineage', async ({ page }) => {
@@ -468,7 +527,7 @@ test('relations panel wraps long relation identity without ellipsis', async ({ p
   await screenshot(page, 'relations-panel-readable-long-identity', { fullPage: true });
 });
 
-test('relation dialog wraps long endpoint and target option names', async ({ page }) => {
+test('relation editor panel wraps long endpoint and target option names', async ({ page }) => {
   await mockMedia(page);
   await page.setViewportSize({ width: 390, height: 700 });
   const source = asset('source-long', 'Source Asset With Long Readable Name For Scoped Details');
@@ -501,8 +560,8 @@ test('relation dialog wraps long endpoint and target option names', async ({ pag
   await expect(subjectLine).toContainText('Target Variant Asset With Long Searchable Name For Relation Picker');
   await expect(page.locator('[class*="subjectChipName"]').first()).toHaveCSS('white-space', 'normal');
   await expect(page.locator('[class*="subjectChipName"]').first()).toHaveCSS('text-overflow', 'clip');
-  const dialogDoesNotOverflow = await page.locator('[class*="_dialog_"]').first().evaluate((node) => node.scrollWidth <= node.clientWidth);
-  expect(dialogDoesNotOverflow).toBe(true);
+  const panelDoesNotOverflow = await page.getByRole('region', { name: 'Create relation' }).evaluate((node) => node.scrollWidth <= node.clientWidth);
+  expect(panelDoesNotOverflow).toBe(true);
 
-  await screenshot(page, 'relation-dialog-readable-long-endpoints', { fullPage: true });
+  await screenshot(page, 'relation-editor-panel-readable-long-endpoints', { fullPage: true });
 });

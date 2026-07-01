@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   type Asset,
   type Lineage,
@@ -368,7 +368,7 @@ function RelationRow({
   );
 }
 
-export interface RelationEditorDialogProps {
+export interface RelationEditorPanelProps {
   mode: 'create' | 'edit';
   assets: Asset[];
   variants: Variant[];
@@ -387,7 +387,7 @@ export interface RelationEditorDialogProps {
   }) => void;
 }
 
-export function RelationEditorDialog({
+export function RelationEditorPanel({
   mode,
   assets,
   variants,
@@ -396,7 +396,7 @@ export function RelationEditorDialog({
   onCancel,
   onCreate,
   onUpdate,
-}: RelationEditorDialogProps) {
+}: RelationEditorPanelProps) {
   const existingContext = parseRelationContext(relation?.context ?? null);
   const hasExistingContext = Boolean(existingContext.label || existingContext.context || existingContext.notes);
   const [relationType, setRelationType] = useState<SpaceRelationType>(relation?.relation_type ?? 'reference_for');
@@ -406,6 +406,19 @@ export function RelationEditorDialog({
   const [context, setContext] = useState(existingContext.context ?? '');
   const [notes, setNotes] = useState(existingContext.notes ?? '');
   const [detailsOpen, setDetailsOpen] = useState(mode === 'edit' || hasExistingContext);
+  const sourceSubjectKey = subjectKey(sourceSubject);
+
+  useEffect(() => {
+    const nextContext = parseRelationContext(relation?.context ?? null);
+    const nextHasContext = Boolean(nextContext.label || nextContext.context || nextContext.notes);
+    setRelationType(relation?.relation_type ?? 'reference_for');
+    setTargetSubject(relation ? relationObject(relation) : null);
+    setQuery('');
+    setLabel(nextContext.label ?? '');
+    setContext(nextContext.context ?? '');
+    setNotes(nextContext.notes ?? '');
+    setDetailsOpen(mode === 'edit' || nextHasContext);
+  }, [mode, relation, sourceSubjectKey]);
 
   const canSubmit = mode === 'edit' || targetSubject !== null;
   const normalizedQuery = query.trim().toLowerCase();
@@ -444,8 +457,11 @@ export function RelationEditorDialog({
   };
 
   return (
-    <div className={styles.dialogOverlay} onClick={onCancel}>
-      <form className={styles.dialog} onSubmit={handleSubmit} onClick={(event) => event.stopPropagation()}>
+    <section
+      className={styles.editorPanel}
+      aria-label={mode === 'edit' ? 'Edit relation' : 'Create relation'}
+    >
+      <form className={styles.editorForm} onSubmit={handleSubmit}>
         <div className={styles.dialogHeader}>
           <h3 className={styles.dialogTitle}>{mode === 'edit' ? 'Edit relation' : 'Create relation'}</h3>
           <IconButton
@@ -571,6 +587,8 @@ export function RelationEditorDialog({
           </Button>
         </div>
       </form>
-    </div>
+    </section>
   );
 }
+
+export const RelationEditorDialog = RelationEditorPanel;
