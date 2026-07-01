@@ -588,6 +588,41 @@ function AssetGenerationDockAudioNoEllipsisPreview() {
   );
 }
 
+function AssetGenerationDockClosedCanvasPreview() {
+  const selectedVariant = stackVariants.find((variant) => variant.id === 'hero-variant') ?? null;
+  const selectedVariantIndex = selectedVariant
+    ? stackVariants.filter((variant) => variant.asset_id === 'hero').findIndex((variant) => variant.id === selectedVariant.id)
+    : undefined;
+
+  return (
+    <div className={assetDetailStyles.canvasContainer} style={{ height: '100vh' }}>
+      <div className={assetDetailStyles.canvasStage}>
+        <AssetGenerationDockHarness
+          details={(
+            <AssetDetailsContextHarness
+              asset={stackAssets[0]}
+              assetCollectionCount={1}
+              selectedVariant={selectedVariant}
+              selectedVariantIndex={selectedVariantIndex}
+              selectedVariantCollectionCount={1}
+              variantCount={stackVariants.filter((variant) => variant.asset_id === 'hero').length}
+            />
+          )}
+          tray={(
+            <ForgeTray
+              allAssets={stackAssets}
+              allVariants={stackVariants}
+              onSubmit={() => undefined}
+              onBrandBackground={false}
+              floating={false}
+            />
+          )}
+        />
+      </div>
+    </div>
+  );
+}
+
 function AssetGenerationDockWithVariantInspectorPreview(props: Record<string, unknown>) {
   const selectedVariant = stackVariants.find((variant) => variant.id === 'hero-variant') ?? stackVariants[0];
   const selectedVariantIndex = stackVariants.filter((variant) => variant.asset_id === 'hero').findIndex((variant) => variant.id === selectedVariant.id);
@@ -1158,6 +1193,7 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AssetTitleInlineEditor: AssetTitleInlineEditorPreview,
   AssetGenerationDock: AssetGenerationDockPreview,
   AssetGenerationDockAudioNoEllipsis: AssetGenerationDockAudioNoEllipsisPreview,
+  AssetGenerationDockClosedCanvas: AssetGenerationDockClosedCanvasPreview,
   AssetGenerationDockWithVariantInspector: AssetGenerationDockWithVariantInspectorPreview,
   AssetDetailOverlayChrome: AssetDetailOverlayChromePreview,
   AssetDetailsContext: AssetDetailsContextPreview,
