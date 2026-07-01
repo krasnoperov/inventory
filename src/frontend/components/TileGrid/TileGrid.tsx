@@ -1,8 +1,15 @@
 import { useCallback } from 'react';
 import type { TileSet, TilePosition, Variant } from '../../hooks/useSpaceWebSocket';
 import { getR2ImageUrl } from '../../media-cdn';
-import { Button } from '../../ui';
+import { Button, SegmentedControl } from '../../ui';
 import styles from './TileGrid.module.css';
+
+type QualityRating = 'approved' | 'rejected';
+
+const RATING_OPTIONS: Array<{ value: QualityRating; label: string; tone?: 'danger' }> = [
+  { value: 'approved', label: 'Approve' },
+  { value: 'rejected', label: 'Reject', tone: 'danger' },
+];
 
 interface TileGridProps {
   tileSet: TileSet;
@@ -40,6 +47,8 @@ export function TileGrid({
     ? variants.find((variant) => variant.id === selectedVariantId && variant.status === 'completed')
     : undefined;
   const selectedRating = (selectedVariant as (Variant & { quality_rating?: string }) | undefined)?.quality_rating;
+  const selectedQualityRating: QualityRating | null =
+    selectedRating === 'approved' || selectedRating === 'rejected' ? selectedRating : null;
   const hasFailedTiles = positions.some((p) => {
     const variant = variants.find((v) => v.id === p.variant_id);
     return variant?.status === 'failed';
@@ -92,26 +101,13 @@ export function TileGrid({
             </Button>
           )}
           {onRateVariant && selectedVariant && (
-            <div className={styles.ratingActions} aria-label="Selected tile rating">
-              <Button
-                className={`${styles.ratingAction} ${selectedRating === 'approved' ? styles.ratingActionActive : ''}`}
-                onClick={() => onRateVariant(selectedVariant.id, 'approved')}
-                variant="secondary"
-                size="sm"
-                aria-pressed={selectedRating === 'approved'}
-              >
-                Approve
-              </Button>
-              <Button
-                className={`${styles.ratingAction} ${selectedRating === 'rejected' ? styles.ratingActionActive : ''}`}
-                onClick={() => onRateVariant(selectedVariant.id, 'rejected')}
-                variant="secondary"
-                size="sm"
-                aria-pressed={selectedRating === 'rejected'}
-              >
-                Reject
-              </Button>
-            </div>
+            <SegmentedControl
+              className={styles.ratingSegmented}
+              label="Selected tile rating"
+              value={selectedQualityRating}
+              options={RATING_OPTIONS}
+              onValueChange={(rating) => onRateVariant(selectedVariant.id, rating)}
+            />
           )}
         </div>
       )}

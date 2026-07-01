@@ -8,5 +8,7 @@ export { UiMenu } from './Menu';
 export type { MenuItem, UiMenuProps } from './Menu';
 export { UiSelect } from './Select';
 export type { SelectOption, UiSelectProps } from './Select';
+export { SegmentedControl } from './SegmentedControl';
+export type { SegmentedControlOption, SegmentedControlProps } from './SegmentedControl';
 export { TextArea, TextInput } from './TextField';
 export type { TextAreaProps, TextInputProps } from './TextField';

@@ -339,18 +339,25 @@
   white-space: nowrap;
 }
 
-.dockButtonActive {
+.dockSegmented {
+  --ui-segmented-height: 24px;
+  --ui-segmented-pad-x: 0.5rem;
+  --ui-segmented-font-size: var(--font-size-small-sm);
+  --ctl-track: transparent;
+}
+
+.dockToggleActive {
   color: var(--color-text);
   background: var(--color-bg);
   border-color: var(--color-primary);
 }
 
-.dockButtonActive:hover:not(:disabled) {
+.dockToggleActive:hover:not(:disabled) {
   color: var(--color-text);
   border-color: var(--color-primary);
 }
 
-.dockButtonActive .threadCount {
+.dockToggleActive .threadCount {
   color: currentColor;
   opacity: 0.72;
 }
