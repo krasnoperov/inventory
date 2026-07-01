@@ -312,11 +312,17 @@ export function VariantDetailsPanel({
 
   return createPortal(
     <aside className={styles.panel} aria-label="Variant details">
-      <IconButton className={styles.closeButton} onClick={onClose} title="Close" aria-label="Close variant details" variant="ghost" size="sm">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-          <path d="M18 6L6 18M6 6l12 12" />
-        </svg>
-      </IconButton>
+      <div className={styles.header}>
+        <div className={styles.titleBlock}>
+          <h2>{asset.name}</h2>
+          <p>{variant.id.slice(0, 8)} · {variant.status}</p>
+        </div>
+        <IconButton className={styles.closeButton} onClick={onClose} title="Close" aria-label="Close variant details" variant="ghost" size="sm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </IconButton>
+      </div>
 
       <div className={styles.scroll}>
         {/* Actions Row */}

@@ -30,19 +30,53 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 0.75rem 1rem 1rem;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.titleBlock {
+  min-width: 0;
+  display: grid;
+  gap: 0.125rem;
+}
+
+.titleBlock h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 0.9375rem;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.titleBlock p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-micro);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .closeButton {
   --ui-button-height: 24px;
   --ui-button-pad-x: 0;
 
-  position: absolute;
-  top: 8px;
-  right: 8px;
+  flex: 0 0 auto;
+  width: 24px;
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
-  z-index: 1;
 }
 
 .closeButton:hover:not(:disabled) {
@@ -55,7 +89,6 @@
   gap: 4px;
   margin-bottom: 0.75rem;
   flex-wrap: wrap;
-  padding-right: 1.5rem;
 }
 
 .actionButton {
