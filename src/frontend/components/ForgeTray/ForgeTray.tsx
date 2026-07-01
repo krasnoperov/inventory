@@ -256,11 +256,11 @@ function getOperationLabel(operation: ForgeOperation, mediaMode: ForgeMediaMode)
 // Get placeholder text based on state
 function getPlaceholder(slotCount: number, operation: ForgeOperation, mediaMode: ForgeMediaMode): string {
   const noun = getForgeMediaModeConfig(mediaMode).promptNoun;
-  if (slotCount === 0 && operation === 'refine') return `Describe a new ${noun} variant…`;
-  if (slotCount === 0) return `Describe the ${noun} you want to create…`;
-  if (operation === 'fork') return 'Leave empty to fork, or describe changes…';
-  if (operation === 'derive') return `Describe the ${noun} to derive from these references…`;
-  return `Describe the ${noun} refinement or transformation…`;
+  if (slotCount === 0 && operation === 'refine') return `Describe a new ${noun} variant`;
+  if (slotCount === 0) return `Describe the ${noun} you want to create`;
+  if (operation === 'fork') return 'Leave empty to fork, or describe changes';
+  if (operation === 'derive') return `Describe the ${noun} to derive from these references`;
+  return `Describe the ${noun} refinement or transformation`;
 }
 
 function formatMediaKindList(mediaKinds: readonly MediaKind[]): string {
@@ -1128,7 +1128,7 @@ export function ForgeTray({
     }
 
     if (canManageStyles) {
-      options.push({ value: 'manage', label: 'Manage styles...' });
+      options.push({ value: 'manage', label: 'Manage styles' });
     }
 
     return options;
@@ -1550,7 +1550,7 @@ export function ForgeTray({
           {(estimateLoading || estimate || estimateError) && (
             <div className={`${styles.estimateRow} ${estimate && !estimate.allowed ? styles.estimateBlocked : ''}`}>
               {estimateLoading && !estimate && !estimateError ? (
-                <span>Estimating usage...</span>
+                <span>Estimating usage</span>
               ) : estimate ? (
                 <>
                   <span>{formatEstimatedUsd(estimate.providerCostMicroUsd)} est. provider cost</span>
@@ -1672,7 +1672,7 @@ export function ForgeTray({
                   disabled={!uploadAssetName.trim() || isUploading}
                   variant="primary"
                 >
-                  {isUploading ? 'Uploading...' : 'Create Asset'}
+                  {isUploading ? 'Uploading' : 'Create Asset'}
                 </Button>
               </div>
             </div>

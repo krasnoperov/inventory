@@ -122,10 +122,10 @@
 .breadcrumb {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.375rem;
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
   font-size: 0.75rem;
   color: var(--color-text-muted);
   text-shadow: 0 1px 2px oklch(0% 0 0 / 0.3);
@@ -135,9 +135,7 @@
   min-width: 0;
   color: var(--color-text-muted);
   text-decoration: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .breadcrumb a:hover {
@@ -158,10 +156,10 @@
   font-weight: 600;
   color: var(--color-text);
   justify-content: flex-start;
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: min(320px, 45vw);
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: anywhere;
   text-align: left;
 }
 
@@ -210,8 +208,8 @@
 
 .assetDetailsStrip {
   display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(13.5rem, 1.15fr) auto;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 0.45rem 0.65rem;
   padding: 0.6rem 0.6rem 0.55rem;
   border: 0;
@@ -231,6 +229,7 @@
 .assetDetailsEyebrow {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.35rem;
   min-width: 0;
   color: var(--color-text-muted);
@@ -241,9 +240,7 @@
 
 .assetDetailsEyebrow span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .assetDetailsEyebrow span + span {
@@ -256,15 +253,15 @@
 
 .assetDetailsName {
   min-width: 0;
-  overflow: hidden;
   color: var(--color-text);
   font-size: var(--font-size-small);
   font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .variantFocus {
+  grid-column: 1 / -1;
   min-width: 0;
   display: grid;
   gap: 0.14rem;
@@ -274,22 +271,19 @@
 
 .variantFocusLabel {
   min-width: 0;
-  overflow: hidden;
   color: var(--color-text-muted);
   font-size: var(--font-size-micro);
   font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .variantFocusValue {
   min-width: 0;
-  overflow: hidden;
   color: var(--color-text);
   font-size: var(--font-size-small-sm);
   font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .assetDetailsFacts {
@@ -325,12 +319,10 @@
 .assetDetailsFacts dd {
   min-width: 0;
   margin: 0;
-  overflow: hidden;
   color: var(--color-text);
   font-size: var(--font-size-small-sm);
   font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .assetDetailsTypeSelect {
@@ -340,7 +332,7 @@
 }
 
 .assetDetailsAction {
-  grid-column: 3;
+  grid-column: 2;
   grid-row: 1;
   justify-self: end;
   white-space: nowrap;
@@ -480,12 +472,11 @@
 
 .collectionMembershipName {
   min-width: 0;
-  overflow: hidden;
   color: var(--color-text);
   font-size: var(--font-size-small-sm);
   font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .collectionSummaryList {
@@ -517,17 +508,15 @@
 
 .collectionSummaryName {
   min-width: 0;
-  overflow: hidden;
   color: var(--color-text);
   font-size: var(--font-size-small-sm);
   font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .collectionSummaryMeta {
   max-width: 12rem;
-  overflow: hidden;
   padding: 0.08rem 0.35rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -535,8 +524,8 @@
   background: var(--color-surface);
   font-size: var(--font-size-micro);
   font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .collectionPanelCompact .collectionSummaryMeta {
@@ -703,9 +692,8 @@
   color: var(--color-text-muted);
   font-size: 0.75rem;
   font-style: italic;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .jobError {

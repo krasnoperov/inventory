@@ -150,7 +150,7 @@ export function AssetPickerModal({
             </svg>
             <TextInput
               className={styles.searchInput}
-              placeholder="Search assets..."
+              placeholder="Search assets"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               autoFocus

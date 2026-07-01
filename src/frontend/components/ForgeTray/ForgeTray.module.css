@@ -169,9 +169,7 @@
   font-size: 0.5625rem;
   font-weight: 700;
   line-height: 0.75rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   pointer-events: none;
 }
 
@@ -621,12 +619,11 @@
 .nameChip {
   --ui-text-input-height: 2.125rem;
   --ui-text-field-font-size: 0.75rem;
-  width: clamp(4.75rem, 18vw, 7rem);
+  width: clamp(5.5rem, 20vw, 9rem);
   border-color: transparent;
   background: transparent;
   font-family: var(--mono);
   color: var(--color-text-muted);
-  text-overflow: ellipsis;
   transition: color 0.15s ease;
 }
 
