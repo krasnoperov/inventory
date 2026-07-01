@@ -456,7 +456,8 @@ test('collection menus use shared form controls', async ({ page }) => {
     deleteCollectionItem: '__record__:deleteCollectionItem',
   });
 
-  const createTrigger = page.getByRole('button', { name: 'New collection' });
+  const createTrigger = page.getByRole('button', { name: 'Create collection' });
+  await expect(page.getByText('New collection', { exact: true })).toHaveCount(0);
   await expect(page.locator('[class*="createControls"] summary')).toHaveCount(0);
   await createTrigger.click();
   await expect(createTrigger).toHaveAttribute('aria-expanded', 'true');
@@ -470,7 +471,7 @@ test('collection menus use shared form controls', async ({ page }) => {
   await page.getByPlaceholder('Collection name').fill('Props');
   await selectDropdown(page, 'New collection kind', 'Style References');
   await page.getByLabel('New collection color').fill('#123456');
-  await page.getByRole('button', { name: 'Create' }).click();
+  await page.getByRole('button', { name: 'Create', exact: true }).click();
   await expect(createTrigger).toHaveAttribute('aria-expanded', 'false');
   await createTrigger.click();
 
