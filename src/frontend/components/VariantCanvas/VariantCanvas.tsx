@@ -85,6 +85,12 @@ export interface VariantCanvasProps {
   onStarVariant?: (variantId: string, starred: boolean) => void;
   /** Handler for deleting a variant */
   onDeleteVariant?: (variant: Variant) => void;
+  /** Where the selected variant inspector is rendered. Defaults to canvas for standalone use. */
+  detailsPlacement?: 'canvas' | 'external';
+  /** Controlled expanded variant id for hosts that render the inspector outside the canvas. */
+  expandedVariantId?: string | null;
+  /** Notifies hosts when a node toggles the variant inspector. */
+  onExpandedVariantIdChange?: (variantId: string | null) => void;
 }
 
 /** Calculate node bounding width from image dimensions (height fixed, width follows aspect ratio) */
@@ -251,6 +257,9 @@ function VariantCanvasInner({
   layoutDirection = 'LR',
   onStarVariant,
   onDeleteVariant,
+  detailsPlacement = 'canvas',
+  expandedVariantId: controlledExpandedVariantId,
+  onExpandedVariantIdChange,
   dimensionsReady,
   imageDimensions,
 }: VariantCanvasProps & {
@@ -260,12 +269,19 @@ function VariantCanvasInner({
   const { fitView } = useReactFlow();
   const [isReady, setIsReady] = useState(false);
   // Which variant's fixed details panel is open (single-select on the canvas).
-  const [expandedVariantId, setExpandedVariantId] = useState<string | null>(null);
+  const [uncontrolledExpandedVariantId, setUncontrolledExpandedVariantId] = useState<string | null>(null);
+  const expandedVariantId = controlledExpandedVariantId ?? uncontrolledExpandedVariantId;
+  const setExpandedVariantId = useCallback((next: string | null) => {
+    if (controlledExpandedVariantId === undefined) {
+      setUncontrolledExpandedVariantId(next);
+    }
+    onExpandedVariantIdChange?.(next);
+  }, [controlledExpandedVariantId, onExpandedVariantIdChange]);
   const [settledDetailsVariantId, setSettledDetailsVariantId] = useState<string | null>(null);
   const toggleExpanded = useCallback((variantId: string) => {
-    setExpandedVariantId((prev) => (prev === variantId ? null : variantId));
-  }, []);
-  const closeExpanded = useCallback(() => setExpandedVariantId(null), []);
+    setExpandedVariantId(expandedVariantId === variantId ? null : variantId);
+  }, [expandedVariantId, setExpandedVariantId]);
+  const closeExpanded = useCallback(() => setExpandedVariantId(null), [setExpandedVariantId]);
 
   // Allow zooming each image past its native 1:1 resolution (paired with the
   // full-resolution media the nodes now render). The old fixed cap of 2 was well
@@ -600,7 +616,7 @@ function VariantCanvasInner({
   }, [dimensionsReady, nodes.length, fitView]);
 
   useLayoutEffect(() => {
-    if (dimensionsReady && expandedVariantId && nodes.length > 0) {
+    if (dimensionsReady && expandedVariantId && nodes.length > 0 && detailsPlacement === 'canvas') {
       setSettledDetailsVariantId(null);
       fitView({ padding: 0.2, maxZoom: avoidGenerationDock ? 0.72 : 0.85 });
       let frame = 0;
@@ -617,14 +633,14 @@ function VariantCanvasInner({
     }
     setSettledDetailsVariantId(null);
     return undefined;
-  }, [avoidGenerationDock, dimensionsReady, expandedVariantId, nodes.length, fitView]);
+  }, [avoidGenerationDock, detailsPlacement, dimensionsReady, expandedVariantId, nodes.length, fitView]);
 
   // Close the details panel if its variant disappears (deleted, filtered out).
   useEffect(() => {
     if (expandedVariantId && !variants.some((v) => v.id === expandedVariantId)) {
       setExpandedVariantId(null);
     }
-  }, [variants, expandedVariantId]);
+  }, [variants, expandedVariantId, setExpandedVariantId]);
 
   if (variants.length === 0) {
     return (
@@ -646,7 +662,7 @@ function VariantCanvasInner({
   const canvasClassName = [
     styles.canvas,
     scope === 'asset-details' ? styles.assetScoped : '',
-    expandedVariant ? styles.detailsOpen : '',
+    expandedVariant && detailsPlacement === 'canvas' ? styles.detailsOpen : '',
     isReady ? styles.ready : styles.loading,
   ].filter(Boolean).join(' ');
 
@@ -673,7 +689,7 @@ function VariantCanvasInner({
         </ReactFlow>
       </div>
 
-      {expandedVariant && (
+      {expandedVariant && detailsPlacement === 'canvas' && (
         <div
           className={[
             styles.detailsDock,
@@ -725,6 +741,9 @@ export function VariantCanvas({
   layoutDirection = 'LR',
   onStarVariant,
   onDeleteVariant,
+  detailsPlacement,
+  expandedVariantId,
+  onExpandedVariantIdChange,
 }: VariantCanvasProps) {
   // Track loaded image dimensions
   const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
@@ -827,6 +846,9 @@ export function VariantCanvas({
         layoutDirection={layoutDirection}
         onStarVariant={onStarVariant}
         onDeleteVariant={onDeleteVariant}
+        detailsPlacement={detailsPlacement}
+        expandedVariantId={expandedVariantId}
+        onExpandedVariantIdChange={onExpandedVariantIdChange}
         dimensionsReady={dimensionsReady}
         imageDimensions={imageDimensions}
       />

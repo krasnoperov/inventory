@@ -10,25 +10,11 @@
 
 .canvasContainer {
   flex: 1;
-  position: relative;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
-  /* Isolate stacking context so transformed nodes don't overlap floating panels */
-  isolation: isolate;
 }
 
 .canvasStage {
-  --variant-details-generation-dock-clearance: min(17rem, 38vh);
-
-  grid-column: 1;
-  grid-row: 1 / span 2;
-  position: relative;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
-  isolation: isolate;
 }
 
 .canvasDropActive {
@@ -200,15 +186,22 @@
 }
 
 .assetGenerationDock {
-  grid-column: 1;
-  grid-row: 2;
-  justify-self: end;
-  z-index: 30;
-  display: grid;
-  gap: 0.875rem;
-  width: min(520px, calc(100vw - 2rem));
+  width: min(720px, calc(100vw - 2rem));
+  gap: 0.75rem;
+}
+
+.assetInspectorDock {
   min-width: 0;
-  margin: 0 1rem 1rem 0;
+  min-height: 0;
+  max-height: min(24rem, 36vh);
+}
+
+.assetInspectorDock > * {
+  max-height: inherit;
+}
+
+.assetStatusDock {
+  min-width: 0;
 }
 
 .assetDetailsDock {
@@ -217,10 +210,10 @@
 
 .assetDetailsStrip {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(11rem, 1.2fr) minmax(10rem, 1fr);
   align-items: start;
   gap: 0.35rem 0.65rem;
-  padding: 0.65rem 0.75rem 0.6rem;
+  padding: 0.55rem 0.65rem;
   border: 1px solid var(--workspace-panel-border);
   border-radius: var(--workspace-panel-radius);
   background: var(--workspace-panel-bg);
@@ -275,13 +268,14 @@
 }
 
 .variantFocus {
-  grid-column: 1 / -1;
+  grid-column: 2;
+  grid-row: 1;
   min-width: 0;
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
   gap: 0.25rem 0.4rem;
-  padding-inline-start: calc(0.5rem + 2px);
+  padding-inline-start: 0;
   border-left: 0;
 }
 
@@ -364,17 +358,11 @@
   max-width: 320px;
 }
 
-/* Jobs overlay - bottom left */
-.jobsOverlay {
-  position: absolute;
-  bottom: 1rem;
-  left: 1rem;
-  z-index: 10;
+.jobsDock {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  max-width: 400px;
-  max-height: 200px;
+  max-height: min(12rem, 22vh);
   overflow-y: auto;
 }
 
@@ -536,8 +524,8 @@
     font-size: 1rem;
   }
 
-  .jobsOverlay {
-    max-width: calc(100% - 1rem);
+  .assetInspectorDock {
+    max-height: min(20rem, 34vh);
   }
 
   .assetDetailsStrip {
@@ -559,9 +547,8 @@
   }
 
   .assetGenerationDock {
-    justify-self: stretch;
     width: auto;
-    margin: 0 0.5rem 0.5rem;
+    gap: 0.5rem;
   }
 }
 
@@ -569,7 +556,6 @@
   .assetGenerationDock {
     gap: 0.875rem;
     width: auto;
-    margin: 0;
   }
 
 }
