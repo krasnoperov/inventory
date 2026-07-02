@@ -21,10 +21,10 @@ test('canvas toolbar controls use shared button primitives', async ({ page }) =>
   await expect(page.getByRole('toolbar', { name: 'Toolbar preview' })).toBeVisible();
   await expect(page.getByRole('toolbar', { name: 'Toolbar preview' })).toHaveCSS('box-shadow', 'none');
   await expect(page.getByRole('toolbar', { name: 'Toolbar preview' })).toHaveCSS('border-top-width', '1px');
-  await expect(page.getByRole('button', { name: 'Board view' })).toBeVisible();
-  const activeControl = page.getByRole('button', { name: 'Relations view' });
+  const activeControl = page.getByRole('button', { name: 'Canvas view' });
   await expect(activeControl).toBeVisible();
   await expect(activeControl).toHaveCSS('border-color', await resolvedColor(page, 'var(--color-primary)'));
+  await expect(page.getByRole('button', { name: 'Delete asset' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Back to space' })).toBeVisible();
   await screenshot(page, 'canvas-toolbar-shared-buttons', { fullPage: true });
 });

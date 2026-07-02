@@ -169,7 +169,7 @@ function CanvasToolbarControlsPreview(props: Record<string, unknown>) {
       <CanvasToolbar ariaLabel="Toolbar preview">
         <CanvasToolbarTitle>Crystal Gate</CanvasToolbarTitle>
         <CanvasToolbarDivider />
-        <CanvasToolbarButton title="Board view" onClick={onAction}>
+        <CanvasToolbarButton active title="Canvas view" onClick={onAction}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="4" width="8" height="6" rx="1.5" />
             <rect x="14" y="4" width="7" height="9" rx="1.5" />
