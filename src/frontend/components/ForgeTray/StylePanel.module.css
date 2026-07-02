@@ -1,35 +1,14 @@
 /* Docked sheet host: positions the panel without blocking the workspace. */
 .sheetHost {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  padding: 1rem 1rem var(--forge-sheet-bottom-offset, 13rem);
-  z-index: 650;
-  pointer-events: none;
-  animation: fadeIn 0.15s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  composes: host from "../DockedSheet.module.css";
 }
 
 /* StylePanel - Style configuration sheet */
 .stylePanel {
-  width: min(460px, calc(100vw - 2rem));
-  max-width: 460px;
-  max-height: min(80vh, calc(100vh - var(--forge-sheet-bottom-offset, 13rem) - 1rem));
-  display: flex;
-  flex-direction: column;
-  background: var(--workspace-panel-bg);
-  border: 1px solid var(--workspace-panel-border);
-  border-radius: var(--workspace-panel-radius);
-  box-shadow: var(--workspace-panel-shadow);
-  overflow: hidden;
-  pointer-events: auto;
-  animation: fadeIn 0.15s ease;
+  composes: panel from "../DockedSheet.module.css";
+  --docked-sheet-width: min(460px, calc(100vw - 2rem));
+  --docked-sheet-max-width: 460px;
+  --docked-sheet-overflow: hidden;
 }
 
 .stylePanel.rail {
