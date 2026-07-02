@@ -33,10 +33,6 @@ export class SyncController extends BaseController {
       presence,
       collections: state.collections,
       collectionItems: state.collectionItems,
-      rotationSets: state.rotationSets,
-      rotationViews: state.rotationViews,
-      stylePresets: state.stylePresets,
-      styleReferenceCollections: state.styleReferenceCollections,
     });
   }
 
@@ -55,10 +51,6 @@ export class SyncController extends BaseController {
       presence,
       collections: state.collections,
       collectionItems: state.collectionItems,
-      rotationSets: state.rotationSets,
-      rotationViews: state.rotationViews,
-      stylePresets: state.stylePresets,
-      styleReferenceCollections: state.styleReferenceCollections,
     });
   }
 

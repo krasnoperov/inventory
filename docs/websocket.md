@@ -97,9 +97,9 @@ lineage remains the provenance system.
 | `chat:send` | `message`, `mode: 'advisor'\|'actor'`, `forgeContext?`, `viewingContext?` | Send chat message (persistent chat) |
 | `chat:history` | `since?` | Request chat history |
 | `chat:new_session` | - | Start new chat session |
-| `generate:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt?`, `model?`, `imageSize?`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `disableStyle?`, `stylePresetId?`, `styleVariantIds?` | Generate new asset (triggers GenerationWorkflow) |
-| `refine:request` | `requestId`, `assetId`, `mediaKind?`, `prompt`, `sourceVariantId?`, `sourceVariantIds?`, `model?`, `imageSize?`, `aspectRatio?`, `referenceAssetIds?`, `disableStyle?`, `stylePresetId?`, `styleVariantIds?` | Refine existing asset |
-| `batch:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt`, `count`, `mode: 'explore'\|'set'`, `model?`, `imageSize?`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?`, `disableStyle?`, `stylePresetId?`, `styleVariantIds?` | Batch generate (see [style-and-batch.md](./style-and-batch.md)) |
+| `generate:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt?`, `model?`, `imageSize?`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?` | Generate new asset (triggers GenerationWorkflow) |
+| `refine:request` | `requestId`, `assetId`, `mediaKind?`, `prompt`, `sourceVariantId?`, `sourceVariantIds?`, `model?`, `imageSize?`, `aspectRatio?`, `referenceAssetIds?` | Refine existing asset |
+| `batch:request` | `requestId`, `name`, `assetType`, `mediaKind?`, `prompt`, `count`, `mode: 'explore'\|'set'`, `model?`, `imageSize?`, `aspectRatio?`, `referenceAssetIds?`, `referenceVariantIds?` | Batch generate |
 | `describe:request` | `requestId`, `variantId`, `assetName`, `focus?`, `question?` | Describe image with Claude Vision |
 | `compare:request` | `requestId`, `variantIds`, `aspects?` | Compare images with Claude Vision |
 | `auto-describe:request` | `variantId` | Auto-describe variant (cached, for Forge Tray context) |
@@ -123,14 +123,6 @@ lineage remains the provenance system.
 | `approval:approve` | `approvalId` | Approve pending tool call |
 | `approval:reject` | `approvalId` | Reject pending tool call |
 | `approval:list` | - | List pending approvals |
-
-### Style Presets
-
-| Message | Fields | Description |
-|---------|--------|-------------|
-| `style_preset:create` | `id?`, `name`, `description?`, `stylePrompt?`, `collectionId?`, `enabled?`, `isDefault?` | Create a style preset pointing to a style reference collection |
-| `style_preset:update` | `presetId`, `changes` | Update a style preset |
-| `style_preset:delete` | `presetId` | Delete a style preset |
 
 ### Session
 
@@ -276,14 +268,6 @@ present, is served through
 | `refine:error` | `requestId`, `error`, `code` | Refinement pre-check error |
 | `batch:started` | `requestId`, `batchId`, `results[]` | Batch generation started |
 | `batch:error` | `requestId`, `error`, `code` | Batch pre-check error |
-
-### Style Presets
-
-| Message | Fields | Description |
-|---------|--------|-------------|
-| `style_preset:created` | `preset` | Style preset created |
-| `style_preset:updated` | `preset` | Style preset updated |
-| `style_preset:deleted` | `presetId` | Style preset deleted |
 
 ### Vision
 

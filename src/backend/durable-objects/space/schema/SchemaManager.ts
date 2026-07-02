@@ -115,7 +115,7 @@ export class SchemaManager {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         kind TEXT NOT NULL DEFAULT 'custom'
-          CHECK (kind IN ('cast', 'style_refs', 'backgrounds', 'scenes', 'thumbnails', 'maps', 'deliverables', 'custom')),
+          CHECK (kind IN ('cast', 'backgrounds', 'scenes', 'thumbnails', 'maps', 'deliverables', 'custom')),
         color TEXT,
         description TEXT,
         sort_index INTEGER NOT NULL DEFAULT 0,
@@ -142,20 +142,6 @@ export class SchemaManager {
           (subject_type = 'asset' AND asset_id IS NOT NULL AND variant_id IS NULL) OR
           (subject_type = 'variant' AND variant_id IS NOT NULL AND asset_id IS NULL)
         )
-      );
-
-      CREATE TABLE IF NOT EXISTS style_presets (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT,
-        style_prompt TEXT NOT NULL DEFAULT '',
-        collection_id TEXT REFERENCES space_collections(id) ON DELETE SET NULL,
-        enabled INTEGER NOT NULL DEFAULT 1,
-        is_default INTEGER NOT NULL DEFAULT 0 CHECK (is_default IN (0, 1)),
-        created_by TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL,
-        deleted_at INTEGER
       );
 
       CREATE TABLE IF NOT EXISTS space_relations (
@@ -267,9 +253,6 @@ export class SchemaManager {
       CREATE INDEX IF NOT EXISTS idx_collection_items_asset ON collection_items(asset_id);
       CREATE INDEX IF NOT EXISTS idx_collection_items_variant ON collection_items(variant_id);
       CREATE INDEX IF NOT EXISTS idx_collection_items_pinned_variant ON collection_items(pinned_variant_id);
-      CREATE INDEX IF NOT EXISTS idx_style_presets_collection ON style_presets(collection_id);
-      CREATE INDEX IF NOT EXISTS idx_style_presets_enabled ON style_presets(enabled, created_at);
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_style_presets_default ON style_presets(is_default) WHERE is_default = 1 AND deleted_at IS NULL;
       CREATE INDEX IF NOT EXISTS idx_space_relations_subject_asset ON space_relations(subject_asset_id, relation_type);
       CREATE INDEX IF NOT EXISTS idx_space_relations_subject_variant ON space_relations(subject_variant_id, relation_type);
       CREATE INDEX IF NOT EXISTS idx_space_relations_object_asset ON space_relations(object_asset_id, relation_type);
@@ -301,17 +284,8 @@ export class SchemaManager {
     // Migration: Add plan improvements (auto-advance, dependencies, revisions)
     await this.addPlanImprovements();
 
-    // Migration: Add space_styles table for style anchoring
-    await this.addSpaceStyles();
-
-    // Migration: Add asset-backed style presets over space collections
-    await this.addStylePresets();
-
     // Migration: Add batch_id column to variants for batch generation
     await this.addBatchIdToVariants();
-
-    // Migration: Add rotation_sets and rotation_views tables for multi-view pipelines
-    await this.addRotationSets();
 
     // Migration: Add quality_rating and rated_at columns to variants for curation
     await this.addVariantQualityRating();
@@ -556,25 +530,6 @@ export class SchemaManager {
   }
 
   /**
-   * Add space_styles table for style anchoring.
-   * Each space can have one active style with a description and reference images.
-   */
-  private async addSpaceStyles(): Promise<void> {
-    await this.sql.exec(`
-      CREATE TABLE IF NOT EXISTS space_styles (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL DEFAULT 'Default Style',
-        description TEXT NOT NULL DEFAULT '',
-        image_keys TEXT NOT NULL DEFAULT '[]',
-        enabled INTEGER NOT NULL DEFAULT 1,
-        created_by TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-    `);
-  }
-
-  /**
    * Add kind/color metadata used by the collection board.
    */
   private async addCollectionBoardMetadata(): Promise<void> {
@@ -585,12 +540,17 @@ export class SchemaManager {
     if (!hasColumn('kind')) {
       await this.sql.exec(`
         ALTER TABLE space_collections ADD COLUMN kind TEXT NOT NULL DEFAULT 'custom'
-          CHECK (kind IN ('cast', 'style_refs', 'backgrounds', 'scenes', 'thumbnails', 'maps', 'deliverables', 'custom'));
+          CHECK (kind IN ('cast', 'backgrounds', 'scenes', 'thumbnails', 'maps', 'deliverables', 'custom'));
       `);
     }
     if (!hasColumn('color')) {
       await this.sql.exec(`ALTER TABLE space_collections ADD COLUMN color TEXT;`);
     }
+    await this.sql.exec(`
+      UPDATE space_collections
+      SET kind = 'custom'
+      WHERE kind = 'style_refs';
+    `);
   }
 
   private async addSoftDeleteColumns(): Promise<void> {
@@ -599,23 +559,13 @@ export class SchemaManager {
       'variants',
       'space_collections',
       'collection_items',
-      'style_presets',
       'space_relations',
-      'rotation_sets',
-      'rotation_views',
     ];
 
     for (const table of tables) {
       await this.addColumnIfMissing(table, 'deleted_at', 'INTEGER');
       await this.sql.exec(`CREATE INDEX IF NOT EXISTS idx_${table}_deleted_at ON ${table}(deleted_at)`);
     }
-
-    await this.sql.exec(`
-      DROP INDEX IF EXISTS idx_style_presets_default;
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_style_presets_default
-        ON style_presets(is_default)
-        WHERE is_default = 1 AND deleted_at IS NULL;
-    `);
   }
 
   private async addColumnIfMissing(table: string, column: string, definition: string): Promise<void> {
@@ -624,79 +574,6 @@ export class SchemaManager {
     if (!columns.some(col => col.name === column)) {
       await this.sql.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
     }
-  }
-
-  /**
-   * Add style presets backed by normal collections and asset/variant items.
-   * Legacy space_styles rows remain readable during compatibility windows.
-   */
-  private async addStylePresets(): Promise<void> {
-    await this.sql.exec(`
-      CREATE TABLE IF NOT EXISTS style_presets (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT,
-        style_prompt TEXT NOT NULL DEFAULT '',
-        collection_id TEXT REFERENCES space_collections(id) ON DELETE SET NULL,
-        enabled INTEGER NOT NULL DEFAULT 1,
-        is_default INTEGER NOT NULL DEFAULT 0 CHECK (is_default IN (0, 1)),
-        created_by TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_style_presets_collection ON style_presets(collection_id);
-      CREATE INDEX IF NOT EXISTS idx_style_presets_enabled ON style_presets(enabled, created_at);
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_style_presets_default ON style_presets(is_default) WHERE is_default = 1;
-    `);
-
-    const result = await this.sql.exec(`PRAGMA table_info(style_presets)`);
-    const columns = result.toArray() as Array<{ name: string }>;
-    if (!columns.some((column) => column.name === 'description')) {
-      await this.sql.exec(`ALTER TABLE style_presets ADD COLUMN description TEXT;`);
-    }
-  }
-
-  /**
-   * Add rotation_sets and rotation_views tables for multi-view character sprite pipelines.
-   */
-  private async addRotationSets(): Promise<void> {
-    // Check if table already exists
-    const result = await this.sql.exec(
-      `SELECT name FROM sqlite_schema WHERE type = 'table' AND name = 'rotation_sets'`
-    );
-    if (result.toArray().length > 0) return;
-
-    await this.sql.exec(`
-      CREATE TABLE IF NOT EXISTS rotation_sets (
-        id TEXT PRIMARY KEY,
-        asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
-        source_variant_id TEXT NOT NULL,
-        config TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending'
-          CHECK (status IN ('pending', 'generating', 'completed', 'failed', 'cancelled')),
-        current_step INTEGER NOT NULL DEFAULT 0,
-        total_steps INTEGER NOT NULL,
-        error_message TEXT,
-        created_by TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_rotation_sets_asset ON rotation_sets(asset_id);
-
-      CREATE TABLE IF NOT EXISTS rotation_views (
-        id TEXT PRIMARY KEY,
-        rotation_set_id TEXT NOT NULL REFERENCES rotation_sets(id) ON DELETE CASCADE,
-        variant_id TEXT NOT NULL,
-        direction TEXT NOT NULL,
-        step_index INTEGER NOT NULL,
-        created_at INTEGER NOT NULL
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_rotation_views_set ON rotation_views(rotation_set_id);
-      CREATE INDEX IF NOT EXISTS idx_rotation_views_variant ON rotation_views(variant_id);
-    `);
   }
 
   /**

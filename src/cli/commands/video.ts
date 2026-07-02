@@ -68,8 +68,7 @@ Veo 3.1 frames:
   --first-frame resolves to the first referenceVariantId and becomes the Veo top-level image input.
   --last-frame resolves to the second referenceVariantId and becomes Veo config.lastFrame.
   Use both flags together for first/last-frame generation; --last-frame requires --first-frame.
-  Frame flags disable style injection so style refs cannot be prepended ahead of the start/end frames.
-  Do not combine frame flags with --refs or --style-preset. Use --refs when you want generic Veo reference images instead of first/last-frame inputs.
+  Do not combine frame flags with --refs. Use --refs when you want generic Veo reference images instead of first/last-frame inputs.
 
 Audio:
   --audio       Request native synchronized Veo audio (default)

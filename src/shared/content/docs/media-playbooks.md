@@ -16,9 +16,9 @@ Write prompts the way you would brief a freelancer: show the references, name th
 Start with identity and style before final composition.
 
 - Build a reusable character or prop reference before asking for a finished scene.
-- Use a rotation or turnaround set when the asset must stay consistent across angles.
-- Keep a small number of style references for a space instead of mixing many aesthetics.
-- Use `derive` when combining character, background, and style references.
+- Derive one extra angle at a time when the asset must stay consistent across angles.
+- Keep a small number of approved visual anchors instead of mixing many aesthetics.
+- Use `derive` when combining character, background, and visual references.
 - Use `refine` for one deliberate change while stating what must stay unchanged.
 
 See [Image Playbook](/docs/image-playbook).

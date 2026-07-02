@@ -18,8 +18,6 @@ import { handleAssets } from './commands/assets';
 import { handleVariants } from './commands/variants';
 import { handleUsage } from './commands/usage';
 import { handleSpend } from './commands/spend';
-import { handleRotation } from './commands/pipelines';
-import { isCliRotationEnabled, rotationDisabledMessage } from './lib/feature-flags';
 import {
   AUDIO_FORGE_MEDIA_MODES,
   isAudioForgeMediaMode,
@@ -144,8 +142,7 @@ Veo 3.1 frames:
   --first-frame resolves to the first referenceVariantId and becomes the Veo top-level image input.
   --last-frame resolves to the second referenceVariantId and becomes Veo config.lastFrame.
   Use both flags together for first/last-frame generation; --last-frame requires --first-frame.
-  Frame flags disable style injection so style refs cannot be prepended ahead of the start/end frames.
-  Do not combine frame flags with --refs or --style-preset. Use --refs when you want generic Veo reference images instead of first/last-frame inputs.`;
+  Do not combine frame flags with --refs. Use --refs when you want generic Veo reference images instead of first/last-frame inputs.`;
 }
 
 function configureLocalTls(args: string[]): void {
@@ -219,9 +216,6 @@ function printCommandHelp(command: string, positionals: string[]): void {
     case 'variant':
       printVariantsHelp();
       return;
-    case 'rotation':
-      printRotationHelp();
-      return;
     default:
       console.error(`Unknown command: ${command}`);
       printHelp();
@@ -230,16 +224,6 @@ function printCommandHelp(command: string, positionals: string[]): void {
 }
 
 function printHelp() {
-  const rotationHelp = isCliRotationEnabled()
-    ? `  rotation --variant <variant-id>
-                                 Generate rotation views from a completed image variant
-  rotation cancel <rotation-set-id>
-                                 Cancel an active rotation pipeline`
-    : '';
-  const rotationExample = isCliRotationEnabled()
-    ? '  makefx rotation --variant variant_456 --config 8-directional\n'
-    : '';
-
   console.log(`
 Make Effects CLI
 
@@ -267,7 +251,6 @@ Project:
   variants star <variant-id>      Star a variant (unstar to clear)
   variants rate <variant-id> approved|rejected
                                  Rate a variant for quality curation
-${rotationHelp}
   usage [summary] [--space <id>] Show platform storage and workflow consumption
   spend [summary]               Show admin provider cost summary
 
@@ -345,8 +328,6 @@ Examples:
   makefx assets set-active asset_123 variant_456
   makefx variants retry variant_456
   makefx variants delete variant_456
-  makefx generate "A market background" --style-preset Painterly --name "Market" --type scene -o market.png
-${rotationExample}
 `);
 }
 
@@ -452,10 +433,6 @@ Usage:
   makefx generate --follow <variant_id> -o <file> [--space <id>]
 
 ${imageCapabilityHelp()}
-
-Style:
-  --style-preset <id-or-name>  Use an enabled style preset for this generation
-  --no-style                   Disable style preset injection for this generation
 `);
     return;
   }
@@ -467,10 +444,6 @@ Usage:
   makefx refine --follow <variant_id> -o <file> [--space <id>]
 
 ${imageCapabilityHelp()}
-
-Style:
-  --style-preset <id-or-name>  Use an enabled style preset for this refinement
-  --no-style                   Disable style preset injection for this refinement
 `);
     return;
   }
@@ -481,10 +454,6 @@ Usage:
   makefx batch "prompt" --name <name> --type <type> --count <2-8> --output-dir <dir> [--model ${optionValues(IMAGE_MODEL_SELECTIONS)}] [--size ${imageSizeValues()}] [--aspect <ratio>]
 
 ${imageCapabilityHelp()}
-
-Style:
-  --style-preset <id-or-name>  Use an enabled style preset for this batch
-  --no-style                   Disable style preset injection for this batch
 `);
     return;
   }
@@ -495,10 +464,6 @@ Usage:
   makefx derive --follow <variant_id> -o <file> [--space <id>]
 
 ${imageCapabilityHelp()}
-
-Style:
-  --style-preset <id-or-name>  Use an enabled style preset for this derivation
-  --no-style                   Disable style preset injection for this derivation
 `);
 }
 
@@ -698,31 +663,6 @@ Options:
 `);
 }
 
-function printRotationHelp(): void {
-  if (!isCliRotationEnabled()) {
-    console.log(rotationDisabledMessage());
-    return;
-  }
-
-  console.log(`
-Usage:
-  makefx rotation --variant <variant-id> [--config 4-directional|8-directional|turnaround]
-  makefx rotation --variant <variant-id> --mode single-shot --subject "hero knight"
-  makefx rotation cancel <rotation-set-id>
-
-Options:
-  --space <id>       Target space ID; defaults from the initialized project
-  --config <config>  4-directional, 8-directional, or turnaround (default: 4-directional)
-  --subject <text>   Optional subject description for consistency prompts
-  --aspect <ratio>   Optional generation aspect ratio
-  --mode <mode>      sequential or single-shot (default: sequential)
-  --no-style         Disable style preset injection for this pipeline
-  --detach           Return after the pipeline starts instead of waiting for completion
-  --timeout <sec>    Override the pipeline wait timeout
-  --json             Print machine-readable output
-`);
-}
-
 function printAssetsHelp(): void {
   console.log(`
 Usage:
@@ -827,9 +767,6 @@ async function dispatchCommand(command: string, parsed: ReturnType<typeof parseA
     case 'variants':
     case 'variant':
       await handleVariants(parsed);
-      break;
-    case 'rotation':
-      await handleRotation(parsed);
       break;
     default:
       console.error(`Unknown command: ${command}`);

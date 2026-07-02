@@ -61,7 +61,6 @@ makefx assets download VARIANT_ID -o references/variant.png
 | `variants` | Delete, retry, star/unstar, and rate variants |
 | `usage` | Show platform storage and workflow consumption for a space |
 | `spend` | Show admin provider cost summaries |
-| `rotation` | Experimental rotation views from a completed image variant; hidden unless rotation flags are enabled |
 | `listen` | Connect to WebSocket and stream all events |
 | `upload` | Upload local media files and return Space IDs for chaining |
 | `generate` | Create a new asset through the website generation workflow |
@@ -197,25 +196,7 @@ The command calls `GET /api/billing/spend/summary` and requires an authenticated
 admin session. Human-readable output includes total provider cost, entry counts,
 unpriced entry counts, and breakdowns by provider, model, media kind, and meter.
 
-## Style Presets
-
-Generation can select a simple style preset by ID or exact name when the Space
-exposes one. Style management is intentionally not a separate CLI workflow; keep
-style choices close to the generation command that uses them.
-
-Examples:
-
-```bash
-makefx generate "A market background" --style-preset Painterly --name "Market" --type scene -o market.png
-makefx derive --refs character_variant --style-preset preset_123 --name "Market Keyframe" --type scene "Place the hero in the market" -o keyframe.png
-makefx generate "A neutral prop sheet" --no-style --name "Props" --type prop -o props.png
-```
-
-When a preset is selected, generation output prints the resolved preset ID,
-collection, and reference count before the job starts. `--style-preset` is
-mutually exclusive with `--no-style`.
-
-### Managing Assets and Variants
+## Managing Assets and Variants
 
 Mutating commands talk to the space over the same authenticated WebSocket the web
 app uses, and broadcast their result to every connected client. Each command
@@ -246,41 +227,6 @@ Notes:
   progress with `assets show ASSET_ID` or `listen`.
 - Deleting the active variant reassigns the asset's active variant automatically
   (to another completed variant when one exists).
-
----
-
-## Rotation Views
-
-Rotation pipelines use the same authenticated Space WebSocket as the web app.
-By default the CLI starts the pipeline, streams progress, and waits for a
-terminal `completed`, `failed`, or `cancelled` event. Pass `--detach` to return
-after the Space confirms the pipeline has started.
-
-Rotation generation is currently experimental and hidden by default. Set
-`MAKEFX_ROTATION_ENABLED=true` before exposing it end to end.
-
-When the flags are enabled, generate rotation views from a completed image variant:
-
-```bash
-makefx rotation --variant VARIANT_ID --config 8-directional
-makefx rotation --variant VARIANT_ID --config turnaround --mode single-shot --subject "hero knight"
-makefx rotation --variant VARIANT_ID --config 4-directional --detach
-makefx rotation cancel ROTATION_SET_ID
-```
-
-Rotation options:
-
-| Option | Description |
-|--------|-------------|
-| `--variant <id>` | Completed source image variant to rotate |
-| `--config <config>` | `4-directional`, `8-directional`, or `turnaround` (default: `4-directional`) |
-| `--subject <text>` | Optional subject description for consistency prompts |
-| `--aspect <ratio>` | Optional generation aspect ratio |
-| `--mode <mode>` | `sequential` or `single-shot` (default: `sequential`) |
-| `--no-style` | Disable style preset injection for this request |
-| `--detach` | Return after `rotation:started` |
-| `--timeout <sec>` | Override the wait timeout |
-| `--json` | Print machine-readable output |
 
 ---
 
@@ -594,11 +540,9 @@ completed image variant IDs and local image paths. The CLI mirrors local files
 as image references, resolves both flags to ordered `referenceVariantIds`, and
 sends those IDs to the Space job. The backend then expands the first resolved
 image to Veo's top-level `image` parameter and the second resolved image to
-`config.lastFrame`. Frame flags disable style injection so style references
-cannot be prepended ahead of the start/end frames. `--last-frame` requires
-`--first-frame`, and frame flags cannot be combined with `--refs` or
-`--style-preset`; use `--refs` when you want generic Veo reference images
-instead of first/last-frame inputs.
+`config.lastFrame`. `--last-frame` requires `--first-frame`, and frame flags
+cannot be combined with `--refs`; use `--refs` when you want generic Veo
+reference images instead of first/last-frame inputs.
 Video batch generation is not exposed because website batch jobs reject
 `mediaKind: "video"`.
 

@@ -21,15 +21,9 @@ import type {
   PendingApproval,
   AutoExecuted,
   UserSession,
-  SpaceStyle,
-  RotationSet,
-  RotationView,
   SpaceSubjectType,
   SpaceCollection,
   CollectionItem,
-  StylePreset,
-  StylePresetPreview,
-  StyleReferenceCollectionPreview,
   SpaceCollectionOverview,
 } from '../types';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
@@ -43,8 +37,6 @@ import {
   ApprovalQueries,
   AutoExecutedQueries,
   UserSessionQueries,
-  RotationSetQueries,
-  RotationViewQueries,
   SpaceCollectionQueries,
   CollectionItemQueries,
   buildAssetUpdateQuery,
@@ -97,10 +89,6 @@ export interface SpaceState {
   lineage: Lineage[];
   collections: SpaceCollection[];
   collectionItems: CollectionItem[];
-  stylePresets: StylePresetPreview[];
-  styleReferenceCollections: StyleReferenceCollectionPreview[];
-  rotationSets: RotationSet[];
-  rotationViews: RotationView[];
 }
 
 /** Lightweight state for the space overview canvas */
@@ -109,10 +97,6 @@ export interface SpaceOverviewState {
   variants: Variant[];
   collections: SpaceCollectionOverview[];
   collectionItems: CollectionItem[];
-  stylePresets: StylePresetPreview[];
-  styleReferenceCollections: StyleReferenceCollectionPreview[];
-  rotationSets: RotationSet[];
-  rotationViews: RotationView[];
 }
 
 /** Asset with variant count for bot context */
@@ -167,33 +151,7 @@ export interface VariantGenerationProvenance {
   aspectRatio?: string;
   imageSize?: string;
   sourceImageKeys?: string[];
-  styleImageKeys?: string[];
   parentVariantIds?: string[];
-  styleId?: string;
-  stylePresetId?: string;
-  styleCollectionId?: string;
-  styleReferenceVariantIds?: string[];
-  styleReferenceImageKeys?: string[];
-  stylePrompt?: string;
-  styleOverride?: boolean;
-}
-
-export interface ResolvedStylePreset {
-  preset: StylePreset;
-  stylePresetId: string;
-  styleCollectionId: string | null;
-  stylePrompt: string;
-  styleReferenceVariantIds: string[];
-  styleReferenceImageKeys: string[];
-}
-
-export interface LegacyStyleBackfillResult {
-  migrated: boolean;
-  styleId: string | null;
-  collectionId: string | null;
-  presetId: string | null;
-  assetIds: string[];
-  variantIds: string[];
 }
 
 export interface SpaceSubjectInput {
@@ -314,41 +272,6 @@ function starterCollectionId(key: string): string {
 
 function starterCollectionItemId(key: string, assetId: string): string {
   return `migration:${PARENT_HIERARCHY_MIGRATION_VERSION}:starter-item:${key}:${assetId}`;
-}
-
-function stableLegacyId(prefix: string, ...parts: string[]): string {
-  const input = parts.join('\0');
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < input.length; index++) {
-    hash ^= input.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return `${prefix}-${(hash >>> 0).toString(16).padStart(8, '0')}`;
-}
-
-function parseImageKeys(imageKeys: string): string[] {
-  try {
-    const parsed = JSON.parse(imageKeys) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return [...new Set(parsed.filter((key): key is string => typeof key === 'string' && key.length > 0))];
-  } catch {
-    return [];
-  }
-}
-
-function inferMimeTypeFromKey(imageKey: string): string | null {
-  const ext = imageKey.split('.').pop()?.toLowerCase();
-  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
-  if (ext === 'png') return 'image/png';
-  if (ext === 'webp') return 'image/webp';
-  if (ext === 'gif') return 'image/gif';
-  return null;
-}
-
-function getLegacyStyleThumbKey(imageKey: string): string | null {
-  const extensionStart = imageKey.lastIndexOf('.');
-  if (extensionStart <= 0) return null;
-  return `${imageKey.slice(0, extensionStart)}_thumb.webp`;
 }
 
 // ============================================================================
@@ -719,31 +642,6 @@ export class SpaceRepository {
       assetId,
       assetId
     );
-    await this.sql.exec(
-      `UPDATE rotation_views
-       SET deleted_at = ?
-       WHERE deleted_at IS NULL
-         AND (
-           rotation_set_id IN (SELECT id FROM rotation_sets WHERE asset_id = ?)
-           OR variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
-         )`,
-      now,
-      assetId,
-      assetId
-    );
-    await this.sql.exec(
-      `UPDATE rotation_sets
-       SET deleted_at = ?, updated_at = ?
-       WHERE deleted_at IS NULL
-         AND (
-           asset_id = ?
-           OR source_variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
-         )`,
-      now,
-      now,
-      assetId,
-      assetId
-    );
   }
 
   private async softDeleteRowsReferencingVariant(variantId: string, now: number): Promise<void> {
@@ -763,21 +661,6 @@ export class SpaceRepository {
       now,
       now,
       variantId,
-      variantId
-    );
-    await this.sql.exec(
-      `UPDATE rotation_views
-       SET deleted_at = ?
-       WHERE deleted_at IS NULL AND variant_id = ?`,
-      now,
-      variantId
-    );
-    await this.sql.exec(
-      `UPDATE rotation_sets
-       SET deleted_at = ?, updated_at = ?
-       WHERE deleted_at IS NULL AND source_variant_id = ?`,
-      now,
-      now,
       variantId
     );
   }
@@ -1289,524 +1172,6 @@ export class SpaceRepository {
     return true;
   }
 
-  async listStylePresets(): Promise<StylePreset[]> {
-    const result = await this.sql.exec(
-      'SELECT * FROM style_presets WHERE deleted_at IS NULL ORDER BY is_default DESC, created_at ASC'
-    );
-    return result.toArray() as StylePreset[];
-  }
-
-  async getStylePresetById(presetId: string): Promise<StylePreset | null> {
-    const result = await this.sql.exec('SELECT * FROM style_presets WHERE id = ? AND deleted_at IS NULL', presetId);
-    return (result.toArray()[0] as StylePreset) ?? null;
-  }
-
-  async getDefaultStylePreset(): Promise<StylePreset | null> {
-    const result = await this.sql.exec(
-      'SELECT * FROM style_presets WHERE is_default = 1 AND deleted_at IS NULL LIMIT 1'
-    );
-    return (result.toArray()[0] as StylePreset) ?? null;
-  }
-
-  async createStylePreset(data: {
-    id: string;
-    name: string;
-    description?: string | null;
-    stylePrompt?: string;
-    collectionId?: string | null;
-    enabled?: boolean;
-    isDefault?: boolean;
-    createdBy: string;
-  }): Promise<StylePreset> {
-    const now = Date.now();
-
-    await this.sql.exec(
-      `INSERT INTO style_presets
-       (id, name, description, style_prompt, collection_id, enabled, is_default, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      data.id,
-      data.name,
-      data.description ?? null,
-      data.stylePrompt ?? '',
-      data.collectionId ?? null,
-      data.enabled !== false ? 1 : 0,
-      0,
-      data.createdBy,
-      now,
-      now
-    );
-
-    if (data.isDefault) {
-      return (await this.promoteStylePresetToDefault(data.id, now))!;
-    }
-
-    return (await this.getStylePresetById(data.id))!;
-  }
-
-  async updateStylePreset(
-    presetId: string,
-    changes: {
-      name?: string;
-      description?: string | null;
-      stylePrompt?: string;
-      collectionId?: string | null;
-      enabled?: boolean;
-      isDefault?: boolean;
-    }
-  ): Promise<StylePreset | null> {
-    const existing = await this.getStylePresetById(presetId);
-    if (!existing) return null;
-
-    const now = Date.now();
-    const shouldPromoteToDefault = changes.isDefault === true && existing.is_default !== 1;
-
-    const updates: string[] = [];
-    const values: unknown[] = [];
-    if (changes.name !== undefined) {
-      updates.push('name = ?');
-      values.push(changes.name);
-    }
-    if (changes.description !== undefined) {
-      updates.push('description = ?');
-      values.push(changes.description);
-    }
-    if (changes.stylePrompt !== undefined) {
-      updates.push('style_prompt = ?');
-      values.push(changes.stylePrompt);
-    }
-    if (changes.collectionId !== undefined) {
-      updates.push('collection_id = ?');
-      values.push(changes.collectionId);
-    }
-    if (changes.enabled !== undefined) {
-      updates.push('enabled = ?');
-      values.push(changes.enabled ? 1 : 0);
-    }
-    if (changes.isDefault !== undefined && !shouldPromoteToDefault) {
-      updates.push('is_default = ?');
-      values.push(changes.isDefault ? 1 : 0);
-    }
-    if (updates.length === 0) {
-      return shouldPromoteToDefault
-        ? this.promoteStylePresetToDefault(presetId, now)
-        : existing;
-    }
-
-    updates.push('updated_at = ?');
-    values.push(now);
-    await this.sql.exec(
-      `UPDATE style_presets SET ${updates.join(', ')} WHERE id = ?`,
-      ...values,
-      presetId
-    );
-    if (shouldPromoteToDefault) {
-      return this.promoteStylePresetToDefault(presetId, now);
-    }
-    return this.getStylePresetById(presetId);
-  }
-
-  async setDefaultStylePreset(presetId: string | null): Promise<StylePreset | null> {
-    const now = Date.now();
-    if (presetId === null) {
-      await this.sql.exec('UPDATE style_presets SET is_default = 0, updated_at = ? WHERE is_default = 1 AND deleted_at IS NULL', now);
-      return null;
-    }
-
-    const existing = await this.getStylePresetById(presetId);
-    if (!existing) return null;
-
-    if (existing.is_default === 1) return existing;
-    return this.promoteStylePresetToDefault(presetId, now);
-  }
-
-  private async promoteStylePresetToDefault(
-    presetId: string,
-    now = Date.now()
-  ): Promise<StylePreset | null> {
-    const previousDefault = await this.getDefaultStylePreset();
-
-    await this.sql.exec('UPDATE style_presets SET is_default = 0, updated_at = ? WHERE is_default = 1 AND deleted_at IS NULL', now);
-    try {
-      await this.sql.exec('UPDATE style_presets SET is_default = 1, updated_at = ? WHERE id = ? AND deleted_at IS NULL', now, presetId);
-    } catch (error) {
-      if (previousDefault) {
-        try {
-          await this.sql.exec(
-            'UPDATE style_presets SET is_default = 1, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
-            Date.now(),
-            previousDefault.id
-          );
-        } catch (restoreError) {
-          log.error('Failed to restore previous default style preset', {
-            previousDefaultId: previousDefault.id,
-            requestedDefaultId: presetId,
-            error: restoreError instanceof Error ? restoreError.message : String(restoreError),
-          });
-        }
-      }
-      throw error;
-    }
-    return this.getStylePresetById(presetId);
-  }
-
-  async deleteStylePreset(presetId: string): Promise<boolean> {
-    const existing = await this.getStylePresetById(presetId);
-    if (!existing) return false;
-
-    const now = Date.now();
-    await this.sql.exec(
-      'UPDATE style_presets SET deleted_at = ?, updated_at = ?, is_default = 0 WHERE id = ? AND deleted_at IS NULL',
-      now,
-      now,
-      presetId
-    );
-    return true;
-  }
-
-  async listStyleReferenceCollections(): Promise<StyleReferenceCollectionPreview[]> {
-    const result = await this.sql.exec(`
-      SELECT
-        c.*,
-        COUNT(DISTINCT CASE
-          WHEN ci.subject_type = 'variant' AND ci.variant_id IS NOT NULL THEN ci.variant_id
-          WHEN ci.subject_type = 'asset' AND ci.pinned_variant_id IS NOT NULL THEN ci.pinned_variant_id
-          ELSE NULL
-        END) as reference_count,
-        COUNT(DISTINCT sp.id) as preset_count
-      FROM space_collections c
-      LEFT JOIN collection_items ci ON ci.collection_id = c.id AND ci.deleted_at IS NULL
-      LEFT JOIN style_presets sp ON sp.collection_id = c.id AND sp.deleted_at IS NULL
-      WHERE c.deleted_at IS NULL
-      GROUP BY c.id
-      HAVING SUM(CASE WHEN ci.id IS NOT NULL AND ci.role != 'style_ref' THEN 1 ELSE 0 END) = 0
-      ORDER BY c.sort_index ASC, c.created_at ASC
-    `);
-    return result.toArray() as StyleReferenceCollectionPreview[];
-  }
-
-  async getStylePresetPreview(presetId: string): Promise<StylePresetPreview | null> {
-    const resolved = await this.resolveStylePresetReferences(presetId);
-    if (!resolved) return null;
-
-    const collection = resolved.styleCollectionId
-      ? await this.getCollectionById(resolved.styleCollectionId)
-      : null;
-
-    return {
-      ...resolved.preset,
-      collection_name: collection?.name ?? null,
-      reference_count: resolved.styleReferenceVariantIds.length,
-      style_reference_variant_ids: resolved.styleReferenceVariantIds,
-      style_reference_image_keys: resolved.styleReferenceImageKeys,
-    };
-  }
-
-  async listStylePresetPreviews(): Promise<StylePresetPreview[]> {
-    const presets = await this.listStylePresets();
-    const previews = await Promise.all(
-      presets.map((preset) => this.getStylePresetPreview(preset.id))
-    );
-    return previews.filter((preset): preset is StylePresetPreview => preset !== null);
-  }
-
-  async listStylePresetPreviewsByCollection(collectionId: string): Promise<StylePresetPreview[]> {
-    const result = await this.sql.exec(
-      'SELECT * FROM style_presets WHERE collection_id = ? AND deleted_at IS NULL ORDER BY is_default DESC, created_at ASC',
-      collectionId
-    );
-    const presets = result.toArray() as StylePreset[];
-    const previews = await Promise.all(
-      presets.map((preset) => this.getStylePresetPreview(preset.id))
-    );
-    return previews.filter((preset): preset is StylePresetPreview => preset !== null);
-  }
-
-  async resolveStylePresetReferences(presetId: string): Promise<ResolvedStylePreset | null> {
-    const preset = await this.getStylePresetById(presetId);
-    if (!preset) return null;
-
-    if (!preset.collection_id) {
-      return {
-        preset,
-        stylePresetId: preset.id,
-        styleCollectionId: null,
-        stylePrompt: preset.style_prompt,
-        styleReferenceVariantIds: [],
-        styleReferenceImageKeys: [],
-      };
-    }
-
-    const result = await this.sql.exec(
-      `SELECT
-         v.id as variant_id,
-         v.image_key,
-         v.media_key
-       FROM collection_items ci
-       LEFT JOIN variants v ON v.id = CASE
-         WHEN ci.subject_type = 'variant' THEN ci.variant_id
-         ELSE ci.pinned_variant_id
-       END
-       WHERE ci.collection_id = ?
-         AND ci.role = 'style_ref'
-         AND ci.deleted_at IS NULL
-         AND v.deleted_at IS NULL
-       ORDER BY ci.sort_index ASC, ci.created_at ASC`,
-      preset.collection_id
-    );
-
-    const rows = result.toArray() as Array<{
-      variant_id: string | null;
-      image_key: string | null;
-      media_key: string | null;
-    }>;
-    const styleReferenceVariantIds: string[] = [];
-    const styleReferenceImageKeys: string[] = [];
-    const seenVariantIds = new Set<string>();
-    const seenImageKeys = new Set<string>();
-
-    for (const row of rows) {
-      if (!row.variant_id || seenVariantIds.has(row.variant_id)) continue;
-      seenVariantIds.add(row.variant_id);
-      styleReferenceVariantIds.push(row.variant_id);
-
-      const imageKey = row.image_key;
-      if (imageKey && !seenImageKeys.has(imageKey)) {
-        seenImageKeys.add(imageKey);
-        styleReferenceImageKeys.push(imageKey);
-      }
-    }
-
-    return {
-      preset,
-      stylePresetId: preset.id,
-      styleCollectionId: preset.collection_id,
-      stylePrompt: preset.style_prompt,
-      styleReferenceVariantIds,
-      styleReferenceImageKeys,
-    };
-  }
-
-  async backfillLegacySpaceStyle(): Promise<LegacyStyleBackfillResult> {
-    const style = await this.getActiveStyle();
-    if (!style) {
-      return {
-        migrated: false,
-        styleId: null,
-        collectionId: null,
-        presetId: null,
-        assetIds: [],
-        variantIds: [],
-      };
-    }
-
-    const imageKeys = parseImageKeys(style.image_keys);
-    const hasStyleState = style.description.trim().length > 0 || imageKeys.length > 0;
-    if (!hasStyleState) {
-      await this.disableLegacyStylePreset(style.id);
-      return {
-        migrated: false,
-        styleId: style.id,
-        collectionId: null,
-        presetId: null,
-        assetIds: [],
-        variantIds: [],
-      };
-    }
-
-    const collection = await this.getOrCreateLegacyStyleCollection(style);
-    const assetIds: string[] = [];
-    const variantIds: string[] = [];
-    const currentItemIds = new Set<string>();
-
-    for (const [index, imageKey] of imageKeys.entries()) {
-      const ids = {
-        assetId: stableLegacyId('legacy-style-asset', style.id, imageKey),
-        variantId: stableLegacyId('legacy-style-variant', style.id, imageKey),
-        itemId: stableLegacyId('legacy-style-item', style.id, imageKey),
-      };
-      currentItemIds.add(ids.itemId);
-      const assetName = imageKeys.length === 1
-        ? 'Legacy Style Reference'
-        : `Legacy Style Reference ${index + 1}`;
-
-      let asset = await this.getAssetById(ids.assetId);
-      if (!asset) {
-        asset = await this.createAsset({
-          id: ids.assetId,
-          name: assetName,
-          type: 'style-sheet',
-          mediaKind: 'image',
-          tags: ['style-reference', 'legacy-space-style'],
-          createdBy: style.created_by,
-        });
-      }
-
-      let variant = await this.getVariantById(ids.variantId);
-      if (!variant) {
-        const metadata = await this.getLegacyStyleMediaMetadata(imageKey);
-        variant = await this.createVariant({
-          id: ids.variantId,
-          assetId: ids.assetId,
-          mediaKind: 'image',
-          imageKey,
-          thumbKey: metadata.thumbKey,
-          mediaMetadata: {
-            mediaKey: imageKey,
-            mimeType: inferMimeTypeFromKey(imageKey),
-            sizeBytes: metadata.sizeBytes,
-          },
-          recipe: JSON.stringify({
-            operation: 'upload',
-            assetType: 'style-sheet',
-            mediaKind: 'image',
-            prompt: style.description,
-            source: 'legacy-space-style',
-            styleId: style.id,
-            originalImageKey: imageKey,
-            migratedAt: new Date(style.updated_at || Date.now()).toISOString(),
-          }),
-          createdBy: style.created_by,
-        });
-      }
-
-      if (asset.active_variant_id !== ids.variantId) {
-        await this.updateAsset(ids.assetId, { active_variant_id: ids.variantId });
-      }
-
-      const existingItem = await this.getCollectionItemById(ids.itemId);
-      if (!existingItem) {
-        await this.createCollectionItem({
-          id: ids.itemId,
-          collectionId: collection.id,
-          subjectType: 'asset',
-          assetId: ids.assetId,
-          role: 'style_ref',
-          pinnedVariantId: ids.variantId,
-          sortIndex: index,
-          createdBy: style.created_by,
-        });
-      } else if (existingItem.sort_index !== index || existingItem.pinned_variant_id !== ids.variantId) {
-        await this.updateCollectionItem(ids.itemId, {
-          pinnedVariantId: ids.variantId,
-          sortIndex: index,
-        });
-      }
-
-      assetIds.push(ids.assetId);
-      variantIds.push(ids.variantId);
-    }
-    await this.deleteStaleLegacyStyleCollectionItems(collection.id, currentItemIds);
-
-    const presetId = stableLegacyId('legacy-style-preset', style.id);
-    const existingPreset = await this.getStylePresetById(presetId);
-    const defaultPreset = await this.getDefaultStylePreset();
-    if (!existingPreset) {
-      await this.createStylePreset({
-        id: presetId,
-        name: style.name || 'Default Style',
-        stylePrompt: style.description,
-        collectionId: collection.id,
-        enabled: style.enabled !== 0,
-        isDefault: !defaultPreset,
-        createdBy: style.created_by,
-      });
-    } else {
-      const shouldPromote = !defaultPreset && existingPreset.is_default !== 1;
-      const shouldUpdate =
-        existingPreset.style_prompt !== style.description ||
-        existingPreset.collection_id !== collection.id ||
-        existingPreset.enabled !== (style.enabled !== 0 ? 1 : 0) ||
-        shouldPromote;
-      if (shouldUpdate) {
-        await this.updateStylePreset(presetId, {
-          stylePrompt: style.description,
-          collectionId: collection.id,
-          enabled: style.enabled !== 0,
-          isDefault: shouldPromote ? true : undefined,
-        });
-      }
-    }
-
-    return {
-      migrated: true,
-      styleId: style.id,
-      collectionId: collection.id,
-      presetId,
-      assetIds,
-      variantIds,
-    };
-  }
-
-  private async getOrCreateLegacyStyleCollection(style: SpaceStyle): Promise<SpaceCollection> {
-    const deterministicId = stableLegacyId('legacy-style-collection', style.id);
-    const existingById = await this.getCollectionById(deterministicId);
-    if (existingById) return existingById;
-
-    return this.createCollection({
-      id: deterministicId,
-      name: 'Style References',
-      description: 'Migrated references from the legacy space style.',
-      createdBy: style.created_by,
-    });
-  }
-
-  private async deleteStaleLegacyStyleCollectionItems(
-    collectionId: string,
-    currentItemIds: Set<string>
-  ): Promise<void> {
-    const items = await this.listCollectionItems(collectionId);
-    for (const item of items) {
-      if (!item.id.startsWith('legacy-style-item-') || currentItemIds.has(item.id)) continue;
-      await this.deleteCollectionItem(item.id);
-    }
-  }
-
-  private async disableLegacyStylePreset(styleId: string): Promise<void> {
-    const presetId = stableLegacyId('legacy-style-preset', styleId);
-    const existingPreset = await this.getStylePresetById(presetId);
-    if (!existingPreset || existingPreset.enabled === 0) return;
-
-    await this.updateStylePreset(presetId, { enabled: false });
-  }
-
-  private async getLegacyStyleMediaMetadata(imageKey: string): Promise<{
-    sizeBytes: number | null;
-    thumbKey: string | null;
-  }> {
-    let sizeBytes: number | null = null;
-    let thumbKey = getLegacyStyleThumbKey(imageKey);
-
-    if (!this.images?.head) {
-      return { sizeBytes, thumbKey };
-    }
-
-    try {
-      const object = await this.images.head(imageKey);
-      sizeBytes = object?.size ?? null;
-    } catch (error) {
-      log.warn('Failed to read legacy style image metadata during backfill', {
-        imageKey,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-
-    if (thumbKey) {
-      try {
-        const thumb = await this.images.head(thumbKey);
-        if (!thumb) thumbKey = null;
-      } catch (error) {
-        log.warn('Failed to read legacy style thumbnail metadata during backfill', {
-          imageKey,
-          thumbKey,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        thumbKey = null;
-      }
-    }
-
-    return { sizeBytes, thumbKey };
-  }
-
   async backfillParentHierarchyToOrganization(
     options: ParentHierarchyBackfillOptions = {}
   ): Promise<ParentHierarchyBackfillResult> {
@@ -2064,20 +1429,12 @@ export class SpaceRepository {
       lineage,
       collections,
       collectionItems,
-      stylePresets,
-      styleReferenceCollections,
-      rotationSets,
-      rotationViews,
     ] = await Promise.all([
       this.getAllAssets(),
       this.getAllVariants(),
       this.getAllLineage(),
       this.listCollections(),
       this.listAllCollectionItems(),
-      this.listStylePresetPreviews(),
-      this.listStyleReferenceCollections(),
-      this.getAllRotationSets(),
-      this.getAllRotationViews(),
     ]);
     return {
       assets,
@@ -2085,10 +1442,6 @@ export class SpaceRepository {
       lineage,
       collections,
       collectionItems,
-      stylePresets,
-      styleReferenceCollections,
-      rotationSets,
-      rotationViews,
     };
   }
 
@@ -2098,19 +1451,11 @@ export class SpaceRepository {
       overviewVariants,
       collections,
       collectionItems,
-      stylePresets,
-      styleReferenceCollections,
-      rotationSets,
-      rotationViews,
     ] = await Promise.all([
       this.getAllAssets(),
       this.getOverviewVariants(),
       this.listCollectionOverviews(),
       this.listAllCollectionItems(),
-      this.listStylePresetPreviews(),
-      this.listStyleReferenceCollections(),
-      this.getAllRotationSets(),
-      this.getAllRotationViews(),
     ]);
     const inProgressVariants = await this.getInProgressVariants();
     const variantIds = new Set([
@@ -2118,8 +1463,6 @@ export class SpaceRepository {
       ...inProgressVariants.map((variant) => variant.id),
     ]);
     const referencedVariantIds = [
-      ...rotationSets.map((set) => set.source_variant_id),
-      ...rotationViews.map((view) => view.variant_id),
       ...collectionItems.flatMap((item) => [
         item.variant_id,
         item.pinned_variant_id,
@@ -2131,7 +1474,7 @@ export class SpaceRepository {
       ...inProgressVariants.filter((variant) => !overviewVariants.some((overviewVariant) => overviewVariant.id === variant.id)),
       ...referencedVariants.filter((variant) => !variantIds.has(variant.id)),
     ];
-    return { assets, variants, collections, collectionItems, stylePresets, styleReferenceCollections, rotationSets, rotationViews };
+    return { assets, variants, collections, collectionItems };
   }
 
   // ==========================================================================
@@ -2415,20 +1758,6 @@ export class SpaceRepository {
   }
 
   // ==========================================================================
-  // Style Operations
-  // ==========================================================================
-
-  async getActiveStyle(): Promise<SpaceStyle | null> {
-    const result = await this.sql.exec('SELECT * FROM space_styles LIMIT 1');
-    return (result.toArray()[0] as SpaceStyle) ?? null;
-  }
-
-  async getStyleById(id: string): Promise<SpaceStyle | null> {
-    const result = await this.sql.exec('SELECT * FROM space_styles WHERE id = ?', id);
-    return (result.toArray()[0] as SpaceStyle) ?? null;
-  }
-
-  // ==========================================================================
   // Batch Operations
   // ==========================================================================
 
@@ -2457,140 +1786,6 @@ export class SpaceRepository {
     }
 
     return { totalCount, completedCount, failedCount, pendingCount };
-  }
-
-  // ==========================================================================
-  // Rotation Set Operations
-  // ==========================================================================
-
-  async getAllRotationSets(): Promise<RotationSet[]> {
-    try {
-      const result = await this.sql.exec(RotationSetQueries.GET_ALL);
-      return result.toArray() as RotationSet[];
-    } catch {
-      // Table may not exist yet (pre-migration)
-      return [];
-    }
-  }
-
-  async getRotationSetById(id: string): Promise<RotationSet | null> {
-    const result = await this.sql.exec(RotationSetQueries.GET_BY_ID, id);
-    return (result.toArray()[0] as RotationSet) ?? null;
-  }
-
-  async getRotationSetByAssetId(assetId: string): Promise<RotationSet | null> {
-    const result = await this.sql.exec(
-      `SELECT rs.*
-       FROM rotation_sets rs
-       JOIN assets a ON a.id = rs.asset_id AND a.deleted_at IS NULL
-       JOIN variants v ON v.id = rs.source_variant_id AND v.deleted_at IS NULL
-       WHERE rs.asset_id = ? AND rs.deleted_at IS NULL
-       ORDER BY rs.created_at DESC LIMIT 1`,
-      assetId
-    );
-    return (result.toArray()[0] as RotationSet) ?? null;
-  }
-
-  async createRotationSet(data: {
-    id: string;
-    assetId: string;
-    sourceVariantId: string;
-    config: string;
-    totalSteps: number;
-    createdBy: string;
-  }): Promise<RotationSet> {
-    const now = Date.now();
-    await this.sql.exec(
-      RotationSetQueries.INSERT,
-      data.id,
-      data.assetId,
-      data.sourceVariantId,
-      data.config,
-      'generating',
-      0,
-      data.totalSteps,
-      null,
-      data.createdBy,
-      now,
-      now
-    );
-    return (await this.getRotationSetById(data.id))!;
-  }
-
-  async updateRotationSetStatus(id: string, status: string): Promise<RotationSet | null> {
-    await this.sql.exec(RotationSetQueries.UPDATE_STATUS, status, Date.now(), id);
-    return this.getRotationSetById(id);
-  }
-
-  async updateRotationSetStep(id: string, step: number): Promise<RotationSet | null> {
-    await this.sql.exec(RotationSetQueries.UPDATE_STEP, step, Date.now(), id);
-    return this.getRotationSetById(id);
-  }
-
-  async failRotationSet(id: string, error: string): Promise<RotationSet | null> {
-    await this.sql.exec(RotationSetQueries.FAIL, error, Date.now(), id);
-    return this.getRotationSetById(id);
-  }
-
-  async cancelRotationSet(id: string): Promise<RotationSet | null> {
-    await this.sql.exec(RotationSetQueries.CANCEL, Date.now(), id);
-    return this.getRotationSetById(id);
-  }
-
-  // ==========================================================================
-  // Rotation View Operations
-  // ==========================================================================
-
-  async getAllRotationViews(): Promise<RotationView[]> {
-    try {
-      const result = await this.sql.exec(RotationViewQueries.GET_ALL);
-      return result.toArray() as RotationView[];
-    } catch {
-      return [];
-    }
-  }
-
-  async getRotationViewsBySet(setId: string): Promise<RotationView[]> {
-    const result = await this.sql.exec(RotationViewQueries.GET_BY_SET, setId);
-    return result.toArray() as RotationView[];
-  }
-
-  async getRotationViewByVariant(variantId: string): Promise<RotationView | null> {
-    const result = await this.sql.exec(RotationViewQueries.GET_BY_VARIANT, variantId);
-    return (result.toArray()[0] as RotationView) ?? null;
-  }
-
-  async getCompletedRotationViews(setId: string): Promise<Array<RotationView & { image_key: string; thumb_key: string }>> {
-    const result = await this.sql.exec(RotationViewQueries.GET_COMPLETED_WITH_IMAGES, setId);
-    return result.toArray() as Array<RotationView & { image_key: string; thumb_key: string }>;
-  }
-
-  async createRotationView(data: {
-    id: string;
-    rotationSetId: string;
-    variantId: string;
-    direction: string;
-    stepIndex: number;
-  }): Promise<RotationView> {
-    const now = Date.now();
-    await this.sql.exec(
-      RotationViewQueries.INSERT,
-      data.id,
-      data.rotationSetId,
-      data.variantId,
-      data.direction,
-      data.stepIndex,
-      now
-    );
-    return {
-      id: data.id,
-      rotation_set_id: data.rotationSetId,
-      variant_id: data.variantId,
-      direction: data.direction,
-      step_index: data.stepIndex,
-      created_at: now,
-      deleted_at: null,
-    };
   }
 
   // ==========================================================================

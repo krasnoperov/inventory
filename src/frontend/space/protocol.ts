@@ -18,7 +18,7 @@ import { getR2ImageUrl } from '../media-cdn';
 export interface Asset {
   id: string;
   name: string;
-  type: string;  // User-editable: character, item, scene, sprite-sheet, animation, style-sheet, reference, etc.
+  type: string;  // User-editable: character, item, scene, sprite-sheet, animation, reference, etc.
   media_kind: MediaKind;
   tags: string;
   parent_asset_id: string | null;  // Legacy compatibility field; not writable organization state
@@ -176,7 +176,6 @@ export type SpaceSubjectType = 'asset' | 'variant';
 
 export type CollectionKind =
   | 'cast'
-  | 'style_refs'
   | 'backgrounds'
   | 'scenes'
   | 'thumbnails'
@@ -209,49 +208,6 @@ export interface CollectionItem {
   created_by: string;
   created_at: number;
   updated_at: number;
-}
-
-// Rotation types
-
-export type RotationConfig = '4-directional' | '8-directional' | 'turnaround';
-
-export interface RotationSet {
-  id: string;
-  asset_id: string;
-  source_variant_id: string;
-  config: string;
-  status: 'pending' | 'generating' | 'completed' | 'failed' | 'cancelled';
-  current_step: number;
-  total_steps: number;
-  error_message: string | null;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-}
-
-export interface RotationView {
-  id: string;
-  rotation_set_id: string;
-  variant_id: string;
-  direction: string;
-  step_index: number;
-  created_at: number;
-}
-
-// Rotation request params
-
-export interface RotationRequestParams {
-  sourceVariantId: string;
-  config: RotationConfig;
-  subjectDescription?: string;
-  aspectRatio?: string;
-  disableStyle?: boolean;
-  stylePresetId?: string;
-  styleVariantIds?: string[];
-}
-
-export interface RotationRequestParamsExtended extends RotationRequestParams {
-  generationMode?: 'sequential' | 'single-shot';
 }
 
 export interface UserPresence {
@@ -410,12 +366,6 @@ export interface GenerateRequestParams {
   aspectRatio?: string;
   /** Image output size (`1K`, `2K`, `4K`) */
   imageSize?: string;
-  /** Disable style anchoring */
-  disableStyle?: boolean;
-  /** Named asset-backed style preset to apply */
-  stylePresetId?: string;
-  /** Exact style reference variants for this request */
-  styleVariantIds?: string[];
   /** ElevenLabs speech voice ID (audio modes only) */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
@@ -448,12 +398,6 @@ export interface RefineRequestParams {
   aspectRatio?: string;
   /** Image output size (`1K`, `2K`, `4K`) */
   imageSize?: string;
-  /** Disable style anchoring */
-  disableStyle?: boolean;
-  /** Named asset-backed style preset to apply */
-  stylePresetId?: string;
-  /** Exact style reference variants for this request */
-  styleVariantIds?: string[];
   /** ElevenLabs speech voice ID (audio modes only) */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
@@ -485,9 +429,6 @@ export interface BatchRequestParams {
   model?: string;
   aspectRatio?: string;
   imageSize?: string;
-  disableStyle?: boolean;
-  stylePresetId?: string;
-  styleVariantIds?: string[];
   /** ElevenLabs speech voice ID (audio modes only) */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
@@ -518,54 +459,6 @@ export interface GenerationEstimateResult {
   estimate?: GenerationUsageEstimate;
   error?: string;
   code?: string;
-}
-
-export interface StyleReferenceCollectionRaw {
-  id: string;
-  name: string;
-  description: string | null;
-  sort_index: number;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-  reference_count: number;
-  preset_count: number;
-}
-
-export interface StylePresetRaw {
-  id: string;
-  name: string;
-  description: string | null;
-  style_prompt: string;
-  collection_id: string | null;
-  enabled: number | boolean;
-  is_default: number | boolean;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-  collection_name: string | null;
-  reference_count: number;
-  style_reference_variant_ids: string[];
-  style_reference_image_keys: string[];
-}
-
-export interface StylePresetCreateParams {
-  id?: string;
-  name: string;
-  description?: string | null;
-  stylePrompt?: string;
-  collectionId?: string | null;
-  enabled?: boolean;
-  isDefault?: boolean;
-}
-
-export interface StylePresetUpdateParams {
-  name?: string;
-  description?: string | null;
-  stylePrompt?: string;
-  collectionId?: string | null;
-  enabled?: boolean;
-  isDefault?: boolean;
 }
 
 // Batch started event
@@ -723,12 +616,6 @@ export interface UseSpaceWebSocketParams {
   onBatchProgress?: (data: BatchProgressResult) => void;
   onBatchCompleted?: (data: BatchCompletedResult) => void;
   onGenerationEstimate?: (data: GenerationEstimateResult) => void;
-  // Rotation pipeline callbacks
-  onRotationStarted?: (data: { rotationSetId: string; assetId: string; directions: string[]; totalSteps: number }) => void;
-  onRotationStepCompleted?: (data: { rotationSetId: string; direction: string; step: number; total: number; variantId: string }) => void;
-  onRotationCompleted?: (data: { rotationSetId: string; views: RotationView[] }) => void;
-  onRotationFailed?: (data: { rotationSetId: string; error: string; failedStep: number }) => void;
-  onRotationCancelled?: (rotationSetId: string) => void;
   // Generation/refine/batch error callbacks
   onGenerateError?: (data: { requestId: string; error: string; code: string }) => void;
   onRefineError?: (data: { requestId: string; error: string; code: string }) => void;
@@ -767,8 +654,8 @@ export interface JobContext {
 
 // Server message types based on ARCHITECTURE.md
 export type ServerMessage =
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: unknown[]; compositionItems?: unknown[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
-  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: unknown[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: unknown[]; compositionItems?: unknown[]; presence?: UserPresence[] }
+  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: unknown[]; presence?: UserPresence[] }
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
@@ -821,22 +708,12 @@ export type ServerMessage =
   | { type: 'chat:history'; messages: ChatMessageClient[]; sessionId: string | null }
   // Chat session created
   | { type: 'chat:session_created'; session: ChatSession }
-  // Asset-backed style preset messages
-  | { type: 'style_preset:created'; preset: StylePresetRaw }
-  | { type: 'style_preset:updated'; preset: StylePresetRaw }
-  | { type: 'style_preset:deleted'; presetId: string }
   // Batch messages
   | { type: 'batch:started'; requestId: string; batchId: string; jobIds: string[]; assetIds: string[]; count: number; mode: BatchMode }
   | { type: 'batch:progress'; batchId: string; completedCount: number; failedCount: number; totalCount: number; variant: Variant }
   | { type: 'batch:completed'; batchId: string; completedCount: number; failedCount: number; totalCount: number }
   | { type: 'generation:estimate'; requestId: string; success: true; estimate: GenerationUsageEstimate }
   | { type: 'generation:estimate'; requestId: string; success: false; error: string; code: string }
-  // Rotation pipeline messages
-  | { type: 'rotation:started'; requestId: string; rotationSetId: string; assetId: string; totalSteps: number; directions: string[] }
-  | { type: 'rotation:step_completed'; rotationSetId: string; direction: string; variantId: string; step: number; total: number }
-  | { type: 'rotation:completed'; rotationSetId: string; views: RotationView[] }
-  | { type: 'rotation:failed'; rotationSetId: string; error: string; failedStep: number }
-  | { type: 'rotation:cancelled'; rotationSetId: string }
   // Generation/refine/batch error messages
   | { type: 'generate:error'; requestId: string; error: string; code: string }
   | { type: 'refine:error'; requestId: string; error: string; code: string }
@@ -850,7 +727,6 @@ export const PREDEFINED_ASSET_TYPES = [
   'environment',
   'sprite-sheet',
   'animation',
-  'style-sheet',
   'reference',
 ] as const;
 
@@ -884,8 +760,6 @@ export interface UseSpaceWebSocketReturn {
   collectionItems: CollectionItem[];
   jobs: Map<string, JobStatus>;
   presence: UserPresence[];
-  stylePresets: StylePresetRaw[];
-  styleReferenceCollections: StyleReferenceCollectionRaw[];
   sendMessage: (msg: object) => void;
   createAsset: (name: string, type: string) => void;
   updateAsset: (assetId: string, changes: AssetChanges) => void;
@@ -924,17 +798,8 @@ export interface UseSpaceWebSocketReturn {
   // Persistent chat methods
   sendPersistentChatMessage: (content: string, forgeContext?: ChatForgeContext) => void;
   clearChatSession: () => void;
-  // Asset-backed style preset methods
-  createStylePreset: (params: StylePresetCreateParams) => void;
-  updateStylePreset: (presetId: string, changes: StylePresetUpdateParams) => void;
-  deleteStylePreset: (presetId: string) => void;
   // Batch methods
   sendBatchRequest: (params: BatchRequestParams) => string;
   sendGenerationEstimateRequest: (params: GenerationEstimateRequestParams) => string;
-  // Rotation pipeline
-  rotationSets: RotationSet[];
-  rotationViews: RotationView[];
-  sendRotationRequest: (params: RotationRequestParams) => void;
-  sendRotationCancel: (rotationSetId: string) => void;
   sendVariantRate: (variantId: string, rating: 'approved' | 'rejected') => void;
 }

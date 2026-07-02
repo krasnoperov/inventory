@@ -95,7 +95,6 @@ export interface Env {
 
   // Environment
   ENVIRONMENT?: 'local' | 'development' | 'stage' | 'staging' | 'production';
-  MAKEFX_ROTATION_ENABLED?: string;
   MAKEFX_MEDIA_CDN_BASE_URL?: string;
   MAKEFX_EMAIL_FROM?: string;
   MAKEFX_ADMIN_NOTIFICATION_EMAILS?: string;

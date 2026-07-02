@@ -234,15 +234,6 @@ describe('VariantController', () => {
         }),
         listAllCollectionItems: mock.fn(async () => deleted ? [pinnedAfter] : [pinnedBefore, variantItem]),
         listRelations: mock.fn(async () => deleted ? [] : [relation]),
-        listStylePresetPreviewsByCollection: mock.fn(async () => [{
-          id: 'preset-1',
-          name: 'Painterly',
-          collection_id: 'collection-1',
-          collection_name: 'Style refs',
-          reference_count: 1,
-          style_reference_variant_ids: ['variant-2'],
-          style_reference_image_keys: ['images/variant-2.png'],
-        }]),
       });
       const controller = new VariantController(ctx);
 
@@ -250,7 +241,11 @@ describe('VariantController', () => {
 
       assert.ok(broadcasts.some((b) => b.type === 'collection_item:updated' && b.item.pinned_variant_id === null));
       assert.ok(broadcasts.some((b) => b.type === 'collection_item:deleted' && b.itemId === 'collection-item-variant'));
-      assert.ok(broadcasts.some((b) => b.type === 'style_preset:updated' && b.preset.style_reference_variant_ids.includes('variant-2')));
+      assert.deepEqual(broadcasts.map((b) => b.type), [
+        'variant:deleted',
+        'collection_item:updated',
+        'collection_item:deleted',
+      ]);
     });
 
     test('reassigns active variant when deleting active variant', async () => {

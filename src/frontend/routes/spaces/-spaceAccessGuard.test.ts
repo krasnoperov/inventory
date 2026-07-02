@@ -8,7 +8,7 @@ import type { StartSession } from '../../app-context';
 import type { FetchLike } from '../../../api/client';
 
 const signedInSession: StartSession = {
-  config: { googleClientId: 'google-client', environment: 'test', features: { rotation: false } },
+  config: { googleClientId: 'google-client', environment: 'test' },
   user: {
     id: 2,
     email: 'requester@example.com',

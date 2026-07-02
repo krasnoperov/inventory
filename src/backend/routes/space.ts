@@ -8,18 +8,14 @@ import type { AppContext } from './types';
 import {
   createCollectionItemRoute,
   createCollectionRoute,
-  createStylePresetRoute,
   deleteCollectionItemRoute,
   deleteCollectionRoute,
-  deleteStylePresetRoute,
   deleteSpaceRoute,
   getSpaceRoute,
   getSupportSpaceRoute,
   getSpaceUsageSummaryRoute,
   listCollectionItemsRoute,
   listCollectionsRoute,
-  listStylePresetsRoute,
-  listStyleReferenceCollectionsRoute,
   listSpaceAssetsRoute,
   listSpacesRoute,
   postSpaceRoute,
@@ -27,18 +23,14 @@ import {
   restoreSupportSpaceRoute,
   updateCollectionItemRoute,
   updateCollectionRoute,
-  updateStylePresetRoute,
 } from '../../shared/api/routes';
 import {
   CollectionItemResponseSchema,
   CollectionResponseSchema,
   ListCollectionItemsResponseSchema,
   ListCollectionsResponseSchema,
-  ListStylePresetsResponseSchema,
-  ListStyleReferenceCollectionsResponseSchema,
   ListSpaceAssetsResponseSchema,
   PlatformUsageSummaryResponseSchema,
-  StylePresetResponseSchema,
   type Space,
 } from '../../shared/api/schemas';
 
@@ -531,111 +523,6 @@ spaceRoutes.openapi(deleteCollectionItemRoute, async (c) => {
   const response = await doResponse;
   if (!response.ok) {
     const message = await readSpaceDoError(response, 'Failed to delete collection item');
-    return organizationFailure(response.status, message);
-  }
-  return c.json({ success: true as const }, 200);
-});
-
-spaceRoutes.openapi(listStyleReferenceCollectionsRoute, async (c) => {
-  const userId = String(c.get('userId')!);
-  const memberDAO = c.get('container').get(MemberDAO);
-  const { id: spaceId } = c.req.valid('param');
-
-  const member = await memberDAO.getMember(spaceId, userId);
-  if (!member) return c.json({ error: 'Access denied' }, 403);
-
-  const doResponse = spaceDoFetch(c.env, spaceId, '/internal/style-reference-collections');
-  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
-  const response = await doResponse;
-  if (!response.ok) {
-    const message = await readSpaceDoError(response, 'Failed to fetch style reference collections');
-    return organizationFailure(response.status, message);
-  }
-  return c.json(ListStyleReferenceCollectionsResponseSchema.parse(await response.json()), 200);
-});
-
-spaceRoutes.openapi(listStylePresetsRoute, async (c) => {
-  const userId = String(c.get('userId')!);
-  const memberDAO = c.get('container').get(MemberDAO);
-  const { id: spaceId } = c.req.valid('param');
-
-  const member = await memberDAO.getMember(spaceId, userId);
-  if (!member) return c.json({ error: 'Access denied' }, 403);
-
-  const doResponse = spaceDoFetch(c.env, spaceId, '/internal/style-presets');
-  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
-  const response = await doResponse;
-  if (!response.ok) {
-    const message = await readSpaceDoError(response, 'Failed to fetch style presets');
-    return organizationFailure(response.status, message);
-  }
-  return c.json(ListStylePresetsResponseSchema.parse(await response.json()), 200);
-});
-
-spaceRoutes.openapi(createStylePresetRoute, async (c) => {
-  const userId = String(c.get('userId')!);
-  const memberDAO = c.get('container').get(MemberDAO);
-  const { id: spaceId } = c.req.valid('param');
-  const body = c.req.valid('json');
-
-  const member = await memberDAO.getMember(spaceId, userId);
-  if (!member) return c.json({ error: 'Access denied' }, 403);
-  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot modify style presets' }, 403);
-
-  const doResponse = spaceDoFetch(c.env, spaceId, '/internal/style-presets', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...body, createdBy: userId }),
-  });
-  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
-  const response = await doResponse;
-  if (!response.ok) {
-    const message = await readSpaceDoError(response, 'Failed to create style preset');
-    return organizationFailure(response.status, message);
-  }
-  return c.json(StylePresetResponseSchema.parse(await response.json()), 200);
-});
-
-spaceRoutes.openapi(updateStylePresetRoute, async (c) => {
-  const userId = String(c.get('userId')!);
-  const memberDAO = c.get('container').get(MemberDAO);
-  const { id: spaceId, presetId } = c.req.valid('param');
-  const body = c.req.valid('json');
-
-  const member = await memberDAO.getMember(spaceId, userId);
-  if (!member) return c.json({ error: 'Access denied' }, 403);
-  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot modify style presets' }, 403);
-
-  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/style-presets/${encodeURIComponent(presetId)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
-  const response = await doResponse;
-  if (!response.ok) {
-    const message = await readSpaceDoError(response, 'Failed to update style preset');
-    return organizationFailure(response.status, message);
-  }
-  return c.json(StylePresetResponseSchema.parse(await response.json()), 200);
-});
-
-spaceRoutes.openapi(deleteStylePresetRoute, async (c) => {
-  const userId = String(c.get('userId')!);
-  const memberDAO = c.get('container').get(MemberDAO);
-  const { id: spaceId, presetId } = c.req.valid('param');
-
-  const member = await memberDAO.getMember(spaceId, userId);
-  if (!member) return c.json({ error: 'Access denied' }, 403);
-  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot delete style presets' }, 403);
-
-  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/style-presets/${encodeURIComponent(presetId)}`, {
-    method: 'DELETE',
-  });
-  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
-  const response = await doResponse;
-  if (!response.ok) {
-    const message = await readSpaceDoError(response, 'Failed to delete style preset');
     return organizationFailure(response.status, message);
   }
   return c.json({ success: true as const }, 200);

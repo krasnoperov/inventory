@@ -134,8 +134,6 @@ describe('SpaceRepository', () => {
         .map((q) => q.query);
       assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE variants SET deleted_at = ?')));
       assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE assets SET deleted_at = ?')));
-      assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE rotation_views')));
-      assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE rotation_sets')));
     });
 
     test('updateAsset returns null for non-existent asset', async () => {
@@ -254,22 +252,6 @@ describe('SpaceRepository', () => {
     test('deleteVariant returns false for non-existent', async () => {
       const result = await repo.deleteVariant('nonexistent');
       assert.strictEqual(result, false);
-    });
-
-    test('deleteVariant soft-deletes generated rotation rows', async () => {
-      mockSql.setMockResult('SELECT * FROM variants WHERE id = ?', [
-        { id: 'variant-1', asset_id: 'asset-1', image_key: 'images/variant.png' },
-      ]);
-
-      const result = await repo.deleteVariant('variant-1');
-
-      assert.strictEqual(result, true);
-      const softDeleteQueries = mockSql.queries
-        .filter((q) => q.query.includes('SET deleted_at = ?'))
-        .map((q) => q.query);
-      assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE rotation_views')));
-      assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE rotation_sets')));
-      assert.ok(softDeleteQueries.some((query) => query.includes('UPDATE variants SET deleted_at = ?')));
     });
 
     test('createVariant inserts default media kind', async () => {
@@ -607,40 +589,5 @@ describe('SpaceRepository', () => {
       assert.ok(!mockSql.queries.some((q) => q.query === 'SELECT * FROM lineage'));
     });
 
-    test('getOverviewState includes variants referenced by rotation rows', async () => {
-      mockSql.setMockResult('ROW_NUMBER() OVER', [{ id: 'active-v1', asset_id: 'a1', overview_rank: 1 }]);
-      mockSql.setMockResult('FROM rotation_sets rs', [
-        { id: 'rs1', source_variant_id: 'rotation-source-v1' },
-      ]);
-      mockSql.setMockResult('FROM rotation_views rv', [
-        { id: 'rv1', variant_id: 'rotation-view-v1' },
-      ]);
-      mockSql.setMockResult('WHERE id IN', [
-        { id: 'rotation-source-v1', asset_id: 'a1' },
-        { id: 'rotation-view-v1', asset_id: 'a1' },
-      ]);
-
-      const state = await repo.getOverviewState();
-
-      assert.deepStrictEqual(
-        state.variants.map((variant) => variant.id),
-        ['active-v1', 'rotation-source-v1', 'rotation-view-v1']
-      );
-      const referencedVariantQuery = mockSql.queries.find((q) => q.query.includes('WHERE id IN'));
-      assert(referencedVariantQuery !== undefined);
-      assert.deepStrictEqual(referencedVariantQuery.bindings, [
-        'rotation-source-v1',
-        'rotation-view-v1',
-      ]);
-    });
-
-    test('generated state reads filter soft-deleted rotation rows', async () => {
-      await repo.getAllRotationSets();
-      await repo.getAllRotationViews();
-
-      const generatedStateQueries = mockSql.queries.map((q) => q.query);
-      assert.ok(generatedStateQueries.some((query) => query.includes('FROM rotation_sets rs') && query.includes('rs.deleted_at IS NULL')));
-      assert.ok(generatedStateQueries.some((query) => query.includes('FROM rotation_views rv') && query.includes('rv.deleted_at IS NULL')));
-    });
   });
 });

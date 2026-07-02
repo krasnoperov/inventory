@@ -5,13 +5,9 @@ import type {
   ConnectionStatus,
   JobStatus,
   Lineage,
-  RotationSet,
-  RotationView,
   UserPresence,
   Variant,
   SpaceCollection,
-  StylePresetRaw,
-  StyleReferenceCollectionRaw,
 } from './protocol';
 import type { SpaceStateSnapshot } from './spaceSnapshots';
 
@@ -33,10 +29,6 @@ export interface SpaceSessionState {
   collectionItems: CollectionItem[];
   jobs: Map<string, JobStatus>;
   presence: UserPresence[];
-  rotationSets: RotationSet[];
-  rotationViews: RotationView[];
-  stylePresets: StylePresetRaw[];
-  styleReferenceCollections: StyleReferenceCollectionRaw[];
   hydrateFromSnapshot: (spaceId: string, snapshot: SpaceStateSnapshot | null) => void;
   markSynced: () => void;
   setStatus: (updater: StateUpdater<ConnectionStatus>) => void;
@@ -48,10 +40,6 @@ export interface SpaceSessionState {
   setCollectionItems: (updater: StateUpdater<CollectionItem[]>) => void;
   setJobs: (updater: StateUpdater<Map<string, JobStatus>>) => void;
   setPresence: (updater: StateUpdater<UserPresence[]>) => void;
-  setRotationSets: (updater: StateUpdater<RotationSet[]>) => void;
-  setRotationViews: (updater: StateUpdater<RotationView[]>) => void;
-  setStylePresets: (updater: StateUpdater<StylePresetRaw[]>) => void;
-  setStyleReferenceCollections: (updater: StateUpdater<StyleReferenceCollectionRaw[]>) => void;
 }
 
 export const useSpaceSessionStore = create<SpaceSessionState>()((set) => ({
@@ -66,10 +54,6 @@ export const useSpaceSessionStore = create<SpaceSessionState>()((set) => ({
   collectionItems: [],
   jobs: new Map(),
   presence: [],
-  rotationSets: [],
-  rotationViews: [],
-  stylePresets: [],
-  styleReferenceCollections: [],
   hydrateFromSnapshot: (spaceId, snapshot) => set({
     stateSpaceId: spaceId,
     status: 'connecting',
@@ -81,10 +65,6 @@ export const useSpaceSessionStore = create<SpaceSessionState>()((set) => ({
     collections: snapshot?.collections ?? [],
     collectionItems: snapshot?.collectionItems ?? [],
     presence: snapshot?.presence ?? [],
-    rotationSets: snapshot?.rotationSets ?? [],
-    rotationViews: snapshot?.rotationViews ?? [],
-    stylePresets: snapshot?.stylePresets ?? [],
-    styleReferenceCollections: snapshot?.styleReferenceCollections ?? [],
     jobs: new Map(),
   }),
   markSynced: () => set({ hasSynced: true }),
@@ -97,10 +77,6 @@ export const useSpaceSessionStore = create<SpaceSessionState>()((set) => ({
   setCollectionItems: (updater) => set((state) => ({ collectionItems: resolveStateUpdater(state.collectionItems, updater) })),
   setJobs: (updater) => set((state) => ({ jobs: resolveStateUpdater(state.jobs, updater) })),
   setPresence: (updater) => set((state) => ({ presence: resolveStateUpdater(state.presence, updater) })),
-  setRotationSets: (updater) => set((state) => ({ rotationSets: resolveStateUpdater(state.rotationSets, updater) })),
-  setRotationViews: (updater) => set((state) => ({ rotationViews: resolveStateUpdater(state.rotationViews, updater) })),
-  setStylePresets: (updater) => set((state) => ({ stylePresets: resolveStateUpdater(state.stylePresets, updater) })),
-  setStyleReferenceCollections: (updater) => set((state) => ({ styleReferenceCollections: resolveStateUpdater(state.styleReferenceCollections, updater) })),
 }));
 
 export const EMPTY_ASSETS: Asset[] = [];
@@ -110,7 +86,3 @@ export const EMPTY_COLLECTIONS: SpaceCollection[] = [];
 export const EMPTY_COLLECTION_ITEMS: CollectionItem[] = [];
 export const EMPTY_JOBS = new Map<string, JobStatus>();
 export const EMPTY_PRESENCE: UserPresence[] = [];
-export const EMPTY_ROTATION_SETS: RotationSet[] = [];
-export const EMPTY_ROTATION_VIEWS: RotationView[] = [];
-export const EMPTY_STYLE_PRESETS: StylePresetRaw[] = [];
-export const EMPTY_STYLE_REFERENCE_COLLECTIONS: StyleReferenceCollectionRaw[] = [];

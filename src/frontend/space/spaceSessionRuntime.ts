@@ -95,10 +95,6 @@ function getStoreActions() {
     setCollectionItems: store.setCollectionItems,
     setJobs: store.setJobs,
     setPresence: store.setPresence,
-    setRotationSets: store.setRotationSets,
-    setRotationViews: store.setRotationViews,
-    setStylePresets: store.setStylePresets,
-    setStyleReferenceCollections: store.setStyleReferenceCollections,
   };
 }
 
@@ -238,10 +234,6 @@ function startSnapshotPersistence(spaceId: string): void {
       collections: state.collections,
       collectionItems: state.collectionItems,
       presence: state.presence,
-      rotationSets: state.rotationSets,
-      rotationViews: state.rotationViews,
-      stylePresets: state.stylePresets,
-      styleReferenceCollections: state.styleReferenceCollections,
       syncMode: syncModeRef.current,
     });
   });

@@ -10,9 +10,6 @@ export interface StartSession {
     googleClientId: string;
     environment?: string;
     mediaCdnBaseUrl?: string | null;
-    features: {
-      rotation: boolean;
-    };
   };
   user: User | null;
 }
@@ -23,7 +20,7 @@ export interface AppBootstrap {
 
 export const DEFAULT_BOOTSTRAP: AppBootstrap = {
   session: {
-    config: { googleClientId: '', features: { rotation: false } },
+    config: { googleClientId: '' },
     user: null,
   },
 };

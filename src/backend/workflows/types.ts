@@ -74,20 +74,6 @@ export interface GenerationWorkflowInput {
   parentVariantIds?: string[];
   /** Operation type (derive/refine) - matches user-facing tool name */
   operation: OperationType;
-  /** Style description prepended to prompt (if style anchoring active) */
-  styleDescription?: string;
-  /** Style reference image R2 keys (prepended to source images) */
-  styleImageKeys?: string[];
-  /** Asset-backed style preset selected for this generation */
-  stylePresetId?: string;
-  /** Collection backing the selected style preset */
-  styleCollectionId?: string;
-  /** Exact style reference variants resolved at generation time */
-  styleReferenceVariantIds?: string[];
-  /** Style reference image keys resolved from exact variants */
-  styleReferenceImageKeys?: string[];
-  /** Human-authored style prompt from the selected preset */
-  stylePrompt?: string;
   /** Veo request mode selected from the resolved image references */
   veoReferenceMode?: VeoReferenceMode;
   /** Veo output resolution (video assets only) */
@@ -209,12 +195,6 @@ export interface GenerateRequestMessage {
   imageSize?: string;
   /** Image provider selection (`gemini` or `custom`) */
   modelProvider?: 'gemini' | 'custom';
-  /** Disable style anchoring for this generation */
-  disableStyle?: boolean;
-  /** Explicit asset-backed style preset to use instead of the default */
-  stylePresetId?: string;
-  /** Ad hoc completed image variants to use as style references */
-  styleVariantIds?: string[];
   /** ElevenLabs speech voice ID selected in the UI (audio modes only) */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs selected in the UI, ordered by speaker */
@@ -251,12 +231,6 @@ export interface RefineRequestMessage {
   imageSize?: string;
   /** Image provider selection (`gemini` or `custom`) */
   modelProvider?: 'gemini' | 'custom';
-  /** Disable style anchoring for this generation */
-  disableStyle?: boolean;
-  /** Explicit asset-backed style preset to use instead of the default */
-  stylePresetId?: string;
-  /** Ad hoc completed image variants to use as style references */
-  styleVariantIds?: string[];
   /** ElevenLabs speech voice ID selected in the UI (audio modes only) */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs selected in the UI, ordered by speaker */
@@ -328,12 +302,6 @@ export interface BatchRequestMessage {
   imageSize?: string;
   /** Image provider selection (`gemini` or `custom`) */
   modelProvider?: 'gemini' | 'custom';
-  /** Disable style anchoring for this batch */
-  disableStyle?: boolean;
-  /** Explicit asset-backed style preset to use instead of the default */
-  stylePresetId?: string;
-  /** Ad hoc completed image variants to use as style references */
-  styleVariantIds?: string[];
   /** ElevenLabs speech voice ID selected in the UI (audio modes only) */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs selected in the UI, ordered by speaker */

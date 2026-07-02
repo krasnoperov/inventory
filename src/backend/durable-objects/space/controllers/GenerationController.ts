@@ -12,7 +12,6 @@
  */
 
 import type { Variant, WebSocketMeta } from '../types';
-import type { RotationController } from './RotationController';
 import type {
   GenerateRequestMessage,
   RefineRequestMessage,
@@ -577,16 +576,10 @@ async function preflightGenerationAdmission(input: GenerationPreflightInput): Pr
 
 export class GenerationController extends BaseController {
   private readonly variantFactory: VariantFactory;
-  private rotationCtrl?: RotationController;
 
   constructor(ctx: ControllerContext) {
     super(ctx);
     this.variantFactory = new VariantFactory(ctx.spaceId, ctx.repo, ctx.env, ctx.broadcast);
-  }
-
-  /** Set pipeline controllers (called after all controllers are initialized to avoid circular deps) */
-  setPipelineControllers(rotation: RotationController): void {
-    this.rotationCtrl = rotation;
   }
 
   // ==========================================================================
@@ -725,9 +718,6 @@ export class GenerationController extends BaseController {
         imageSize: msg.imageSize,
         referenceAssetIds: msg.referenceAssetIds,
         referenceVariantIds: msg.referenceVariantIds,
-        disableStyle: msg.disableStyle,
-        stylePresetId: msg.stylePresetId,
-        styleVariantIds: msg.styleVariantIds,
         voiceId: msg.voiceId,
         dialogueVoiceIds: msg.dialogueVoiceIds,
         musicProvider: msg.musicProvider,
@@ -840,9 +830,6 @@ export class GenerationController extends BaseController {
         sourceVariantId: msg.sourceVariantId,
         sourceVariantIds: msg.sourceVariantIds,
         referenceAssetIds: msg.referenceAssetIds,
-        disableStyle: msg.disableStyle,
-        stylePresetId: msg.stylePresetId,
-        styleVariantIds: msg.styleVariantIds,
         voiceId: msg.voiceId,
         dialogueVoiceIds: msg.dialogueVoiceIds,
         musicProvider: msg.musicProvider,
@@ -949,9 +936,6 @@ export class GenerationController extends BaseController {
         imageSize: msg.imageSize,
         referenceAssetIds: msg.referenceAssetIds,
         referenceVariantIds: msg.referenceVariantIds,
-        disableStyle: msg.disableStyle,
-        stylePresetId: msg.stylePresetId,
-        styleVariantIds: msg.styleVariantIds,
         voiceId: msg.voiceId,
         dialogueVoiceIds: msg.dialogueVoiceIds,
         musicProvider: msg.musicProvider,
@@ -977,8 +961,7 @@ export class GenerationController extends BaseController {
     await this.variantFactory.triggerBatchWorkflows(
       msg.requestId,
       results,
-      meta,
-      results[0]?.styleImageKeys
+      meta
     );
   }
 
@@ -1085,12 +1068,6 @@ export class GenerationController extends BaseController {
       imageSize: recipe.imageSize,
       sourceImageKeys: recipe.sourceImageKeys,
       parentVariantIds: recipe.parentVariantIds,
-      styleImageKeys: recipe.styleImageKeys,
-      stylePresetId: recipe.stylePresetId,
-      styleCollectionId: recipe.styleCollectionId,
-      styleReferenceVariantIds: recipe.styleReferenceVariantIds,
-      styleReferenceImageKeys: recipe.styleReferenceImageKeys,
-      stylePrompt: recipe.stylePrompt,
       veoReferenceMode: recipe.veoReferenceMode,
       videoResolution: recipe.videoResolution,
       videoDurationSeconds: recipe.videoDurationSeconds,
@@ -1250,12 +1227,6 @@ export class GenerationController extends BaseController {
       imageSize: recipe.imageSize,
       sourceImageKeys: recipe.sourceImageKeys,
       parentVariantIds: recipe.parentVariantIds,
-      styleImageKeys: recipe.styleImageKeys,
-      stylePresetId: recipe.stylePresetId,
-      styleCollectionId: recipe.styleCollectionId,
-      styleReferenceVariantIds: recipe.styleReferenceVariantIds,
-      styleReferenceImageKeys: recipe.styleReferenceImageKeys,
-      stylePrompt: recipe.stylePrompt,
       veoReferenceMode: recipe.veoReferenceMode,
       videoResolution: recipe.videoResolution,
       videoDurationSeconds: recipe.videoDurationSeconds,
@@ -1578,34 +1549,6 @@ export class GenerationController extends BaseController {
       }
     }
 
-    // Pipeline advancement hooks (rotation)
-    try {
-      const rotView = await this.repo.getRotationViewByVariant(data.variantId);
-      if (rotView && this.rotationCtrl) {
-        await this.rotationCtrl.advanceRotation(rotView.rotation_set_id);
-      }
-
-      // Single-shot sheet slicing: the sheet variant has no rotation_view, so
-      // the above hook won't match.
-      // Detect via recipe.generationMode and slice into individual cells.
-      if (!rotView) {
-        try {
-          const recipe = JSON.parse(variant.recipe);
-          if (recipe.generationMode === 'single-shot' && recipe.gridLayout && this.rotationCtrl) {
-            await this.rotationCtrl.sliceSingleShotSheet(variant);
-          }
-        } catch {
-          // Not a single-shot variant or parse error — ignore
-        }
-      }
-    } catch (hookErr) {
-      log.error('Pipeline advancement hook failed', {
-        variantId: data.variantId,
-        error: hookErr instanceof Error ? hookErr.message : String(hookErr),
-      });
-      // Don't fail the variant completion for hook errors
-    }
-
     return { success: true, variant };
   }
 
@@ -1651,25 +1594,6 @@ export class GenerationController extends BaseController {
           totalCount: progress.totalCount,
         });
       }
-    }
-
-    // Pipeline failure hooks (rotation)
-    try {
-      const rotView = await this.repo.getRotationViewByVariant(data.variantId);
-      if (rotView && this.rotationCtrl) {
-        await this.repo.failRotationSet(rotView.rotation_set_id, data.error);
-        this.broadcast({
-          type: 'rotation:failed',
-          rotationSetId: rotView.rotation_set_id,
-          error: data.error,
-          failedStep: rotView.step_index,
-        });
-      }
-    } catch (hookErr) {
-      log.error('Pipeline failure hook failed', {
-        variantId: data.variantId,
-        error: hookErr instanceof Error ? hookErr.message : String(hookErr),
-      });
     }
 
     return { success: true, variant };

@@ -219,19 +219,8 @@ describe('OrganizationController', () => {
     assert.equal(broadcasts[0].item.asset_id, 'asset-1');
   });
 
-  test('collection item creation rebroadcasts affected style preset preview', async () => {
-    const stylePreset = {
-      id: 'preset-1',
-      name: 'Painterly',
-      collection_id: 'collection-1',
-      collection_name: 'Scene Kit',
-      reference_count: 2,
-      style_reference_variant_ids: ['variant-1', 'variant-2'],
-      style_reference_image_keys: ['images/variant-1.png', 'images/variant-2.png'],
-    };
-    const { ctx, broadcasts } = createContext({
-      listStylePresetPreviewsByCollection: mock.fn(async () => [stylePreset]),
-    });
+  test('collection item creation broadcasts only the collection item', async () => {
+    const { ctx, broadcasts } = createContext();
     const controller = new OrganizationController(ctx);
 
     await controller.handleCreateCollectionItem({} as WebSocket, {
@@ -242,30 +231,17 @@ describe('OrganizationController', () => {
     }, 'collection-1', {
       subjectType: 'variant',
       variantId: 'variant-1',
-      role: 'style_ref',
+      role: 'reference',
     });
 
     assert.deepEqual(
       broadcasts.map((message) => message.type),
-      ['collection_item:created', 'style_preset:updated']
+      ['collection_item:created']
     );
-    assert.equal(broadcasts[1].preset.reference_count, 2);
-    assert.deepEqual(broadcasts[1].preset.style_reference_variant_ids, ['variant-1', 'variant-2']);
   });
 
-  test('collection item updates, reorders, and deletes rebroadcast affected style preset previews', async () => {
-    const stylePreset = {
-      id: 'preset-1',
-      name: 'Painterly',
-      collection_id: 'collection-1',
-      collection_name: 'Scene Kit',
-      reference_count: 1,
-      style_reference_variant_ids: ['variant-1'],
-      style_reference_image_keys: ['images/variant-1.png'],
-    };
-    const { ctx, broadcasts } = createContext({
-      listStylePresetPreviewsByCollection: mock.fn(async () => [stylePreset]),
-    });
+  test('collection item updates, reorders, and deletes broadcast only organization changes', async () => {
+    const { ctx, broadcasts } = createContext();
     const controller = new OrganizationController(ctx);
 
     await controller.httpUpdateCollectionItem('collection-1', 'item-1', { sortIndex: 3 });
@@ -276,37 +252,14 @@ describe('OrganizationController', () => {
       broadcasts.map((message) => message.type),
       [
         'collection_item:updated',
-        'style_preset:updated',
         'collection_items:reordered',
-        'style_preset:updated',
         'collection_item:deleted',
-        'style_preset:updated',
       ]
     );
   });
 
-  test('collection rename and delete rebroadcast affected style preset previews', async () => {
-    const beforeDeletePreset = {
-      id: 'preset-1',
-      name: 'Painterly',
-      collection_id: 'collection-1',
-      collection_name: 'Scene Kit',
-      reference_count: 1,
-      style_reference_variant_ids: ['variant-1'],
-      style_reference_image_keys: ['images/variant-1.png'],
-    };
-    const afterDeletePreset = {
-      ...beforeDeletePreset,
-      collection_id: null,
-      collection_name: null,
-      reference_count: 0,
-      style_reference_variant_ids: [],
-      style_reference_image_keys: [],
-    };
-    const { ctx, broadcasts } = createContext({
-      listStylePresetPreviewsByCollection: mock.fn(async () => [beforeDeletePreset]),
-      getStylePresetPreview: mock.fn(async () => afterDeletePreset),
-    });
+  test('collection rename and delete broadcast only collection changes', async () => {
+    const { ctx, broadcasts } = createContext();
     const controller = new OrganizationController(ctx);
 
     await controller.httpUpdateCollection('collection-1', { name: 'Updated refs' });
@@ -316,13 +269,9 @@ describe('OrganizationController', () => {
       broadcasts.map((message) => message.type),
       [
         'collection:updated',
-        'style_preset:updated',
         'collection:deleted',
-        'style_preset:updated',
       ]
     );
-    assert.equal(broadcasts.at(-1)?.preset.collection_name, null);
-    assert.equal(broadcasts.at(-1)?.preset.reference_count, 0);
   });
 
   test('parent hierarchy backfill broadcasts created organization rows', async () => {

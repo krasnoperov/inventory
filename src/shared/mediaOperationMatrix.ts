@@ -16,7 +16,6 @@ export interface MediaOperationMatrixEntry {
   inheritsReferenceAssetType: boolean;
   compatibleSlotMediaKinds: readonly MediaKind[];
   supportsBatch: boolean;
-  supportsStyle: boolean;
   cliNamespace: CliGenerationNamespace | null;
   cliCommands: readonly MediaGenerationCommand[];
   cliSupportsRefs: boolean;
@@ -42,7 +41,6 @@ export const MEDIA_OPERATION_MATRIX: readonly MediaOperationMatrixEntry[] = [
     inheritsReferenceAssetType: true,
     compatibleSlotMediaKinds: ['image'],
     supportsBatch: true,
-    supportsStyle: true,
     cliNamespace: 'top-level',
     cliCommands: ['generate', 'refine', 'derive', 'batch'],
     cliSupportsRefs: true,
@@ -58,7 +56,6 @@ export const MEDIA_OPERATION_MATRIX: readonly MediaOperationMatrixEntry[] = [
     inheritsReferenceAssetType: true,
     compatibleSlotMediaKinds: ['image', 'video'],
     supportsBatch: false,
-    supportsStyle: true,
     cliNamespace: 'video',
     cliCommands: ['generate', 'refine', 'derive'],
     cliSupportsRefs: true,
@@ -74,7 +71,6 @@ export const MEDIA_OPERATION_MATRIX: readonly MediaOperationMatrixEntry[] = [
     inheritsReferenceAssetType: false,
     compatibleSlotMediaKinds: ['audio'],
     supportsBatch: true,
-    supportsStyle: false,
     cliNamespace: 'audio',
     cliCommands: ['generate', 'batch'],
     cliSupportsRefs: false,
@@ -90,7 +86,6 @@ export const MEDIA_OPERATION_MATRIX: readonly MediaOperationMatrixEntry[] = [
     inheritsReferenceAssetType: false,
     compatibleSlotMediaKinds: ['audio'],
     supportsBatch: true,
-    supportsStyle: false,
     cliNamespace: 'audio',
     cliCommands: ['generate', 'batch'],
     cliSupportsRefs: false,
@@ -106,7 +101,6 @@ export const MEDIA_OPERATION_MATRIX: readonly MediaOperationMatrixEntry[] = [
     inheritsReferenceAssetType: false,
     compatibleSlotMediaKinds: ['audio'],
     supportsBatch: true,
-    supportsStyle: false,
     cliNamespace: 'audio',
     cliCommands: ['generate', 'batch'],
     cliSupportsRefs: false,
@@ -122,7 +116,6 @@ export const MEDIA_OPERATION_MATRIX: readonly MediaOperationMatrixEntry[] = [
     inheritsReferenceAssetType: false,
     compatibleSlotMediaKinds: ['audio'],
     supportsBatch: true,
-    supportsStyle: false,
     cliNamespace: 'audio',
     cliCommands: ['generate', 'batch'],
     cliSupportsRefs: false,

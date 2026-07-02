@@ -145,7 +145,6 @@ export const loggers = {
   syncController: createLogger('SyncController'),
   variantController: createLogger('VariantController'),
   visionController: createLogger('VisionController'),
-  rotationController: createLogger('RotationController'),
   tileController: createLogger('TileController'),
 
   // Workflows

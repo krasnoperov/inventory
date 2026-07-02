@@ -7,7 +7,6 @@ import type { SpaceRepository, SqlStorage } from '../repository/SpaceRepository'
 import type { Env } from '../../../../core/types';
 import type {
   Variant,
-  RotationView,
   ServerMessage,
 } from '../types';
 
@@ -169,10 +168,7 @@ function createMockRepo(): SpaceRepository {
     })),
     updateAsset: mock.fn(async () => null),
     createLineage: mock.fn(async (input) => ({ id: input.id })),
-    getRotationViewByVariant: mock.fn(async () => null),
-    failRotationSet: mock.fn(async () => null),
     getBatchProgress: mock.fn(async () => ({ completedCount: 0, failedCount: 0, totalCount: 1, pendingCount: 1 })),
-    getActiveStyle: mock.fn(async () => null),
   } as unknown as SpaceRepository;
 }
 
@@ -211,7 +207,7 @@ function createMockContext(
 }
 
 // ============================================================================
-// Tests — Pipeline Hooks Only
+// Tests
 // ============================================================================
 
 describe('GenerationController pipeline hooks', () => {
@@ -902,16 +898,15 @@ describe('GenerationController pipeline hooks', () => {
   // ==========================================================================
 
   describe('handleRetryRequest', () => {
-    test('preserves styled video reference semantics when retrying', async () => {
+    test('preserves video reference semantics when retrying', async () => {
       const createWorkflow = mock.fn(async () => ({ id: 'workflow-retry-1' }));
       const recipe = {
-        prompt: '[Style: painterly]\n\nAnimate the hero',
+        prompt: 'Animate the hero',
         assetType: 'animation',
         mediaKind: 'video',
         model: 'veo-3.1-generate-preview',
         aspectRatio: '16:9',
-        sourceImageKeys: ['styles/style-1.png', 'images/asset-1.png'],
-        styleImageKeys: ['styles/style-1.png'],
+        sourceImageKeys: ['images/ref-1.png', 'images/asset-1.png'],
         parentVariantIds: ['source-var-1'],
         operation: 'derive',
         modelProvider: 'custom',
@@ -965,7 +960,6 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(createWorkflow.mock.calls[0].arguments[0].id, 'variant-video');
       const workflowInput = createWorkflow.mock.calls[0].arguments[0].params;
       assert.deepStrictEqual(workflowInput.sourceImageKeys, recipe.sourceImageKeys);
-      assert.deepStrictEqual(workflowInput.styleImageKeys, recipe.styleImageKeys);
       assert.deepStrictEqual(workflowInput.parentVariantIds, recipe.parentVariantIds);
       assert.strictEqual(workflowInput.mediaKind, 'video');
       assert.strictEqual(workflowInput.veoReferenceMode, 'reference-images');
@@ -1106,50 +1100,6 @@ describe('GenerationController pipeline hooks', () => {
   // ==========================================================================
 
   describe('httpCompleteVariant', () => {
-    test('calls advanceRotation when variant belongs to rotation view', async () => {
-      const rotView: RotationView = {
-        id: 'rv-1',
-        rotation_set_id: 'rotset-1',
-        variant_id: 'variant-1',
-        direction: 'E',
-        step_index: 1,
-        created_at: Date.now(),
-      };
-
-      const advanceRotation = mock.fn(async () => {});
-      const { ctx } = createMockContext({
-        getRotationViewByVariant: mock.fn(async () => rotView),
-      });
-
-      const controller = new GenerationController(ctx);
-      controller.setPipelineControllers({ advanceRotation } as any);
-
-      await controller.httpCompleteVariant({
-        variantId: 'variant-1',
-        imageKey: 'img/done.png',
-        thumbKey: 'thumb/done.png',
-      });
-
-      assert.strictEqual(advanceRotation.mock.calls.length, 1);
-      assert.strictEqual(advanceRotation.mock.calls[0].arguments[0], 'rotset-1');
-    });
-
-    test('calls neither for standalone variant', async () => {
-      const advanceRotation = mock.fn(async () => {});
-      const { ctx } = createMockContext();
-
-      const controller = new GenerationController(ctx);
-      controller.setPipelineControllers({ advanceRotation } as any);
-
-      await controller.httpCompleteVariant({
-        variantId: 'variant-1',
-        imageKey: 'img/done.png',
-        thumbKey: 'thumb/done.png',
-      });
-
-      assert.strictEqual(advanceRotation.mock.calls.length, 0);
-    });
-
     test('passes media metadata to repository completion', async () => {
       const { ctx } = createMockContext();
       const controller = new GenerationController(ctx);
@@ -1876,87 +1826,6 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(platformUsageStatements(statements).length, 1);
     });
 
-    test('hook errors do not fail completion', async () => {
-      const rotView: RotationView = {
-        id: 'rv-1',
-        rotation_set_id: 'rotset-1',
-        variant_id: 'variant-1',
-        direction: 'E',
-        step_index: 1,
-        created_at: Date.now(),
-      };
-
-      const advanceRotation = mock.fn(async () => { throw new Error('hook boom'); });
-      const { ctx } = createMockContext({
-        getRotationViewByVariant: mock.fn(async () => rotView),
-      });
-
-      const controller = new GenerationController(ctx);
-      controller.setPipelineControllers({ advanceRotation } as any);
-
-      // Should not throw
-      const result = await controller.httpCompleteVariant({
-        variantId: 'variant-1',
-        imageKey: 'img/done.png',
-        thumbKey: 'thumb/done.png',
-      });
-
-      assert.ok(result.success);
-    });
-  });
-
-  // ==========================================================================
-  // httpFailVariant
-  // ==========================================================================
-
-  describe('httpFailVariant', () => {
-    test('marks rotation set failed and broadcasts', async () => {
-      const rotView: RotationView = {
-        id: 'rv-1',
-        rotation_set_id: 'rotset-1',
-        variant_id: 'variant-1',
-        direction: 'E',
-        step_index: 1,
-        created_at: Date.now(),
-      };
-
-      const { ctx, broadcasts } = createMockContext({
-        getRotationViewByVariant: mock.fn(async () => rotView),
-      });
-
-      const controller = new GenerationController(ctx);
-      controller.setPipelineControllers({ advanceRotation: mock.fn() } as any);
-
-      await controller.httpFailVariant({
-        variantId: 'variant-1',
-        error: 'generation failed',
-      });
-
-      assert.strictEqual(asMock(ctx.repo.failRotationSet).mock.calls.length, 1);
-      assert.strictEqual(asMock(ctx.repo.failRotationSet).mock.calls[0].arguments[0], 'rotset-1');
-
-      const failBroadcast = broadcasts.find((b) => b.type === 'rotation:failed');
-      assert.ok(failBroadcast);
-      assert.strictEqual(failBroadcast.rotationSetId, 'rotset-1');
-      assert.strictEqual(failBroadcast.error, 'generation failed');
-    });
-
-    test('hook errors do not fail the failure handler', async () => {
-      const { ctx } = createMockContext({
-        getRotationViewByVariant: mock.fn(async () => { throw new Error('lookup boom'); }),
-      });
-
-      const controller = new GenerationController(ctx);
-      controller.setPipelineControllers({ advanceRotation: mock.fn() } as any);
-
-      // Should not throw
-      const result = await controller.httpFailVariant({
-        variantId: 'variant-1',
-        error: 'generation failed',
-      });
-
-      assert.ok(result.success);
-    });
   });
 
   describe('handleBatchRequest', () => {

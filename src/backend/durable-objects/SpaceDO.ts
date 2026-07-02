@@ -31,8 +31,6 @@ import {
   VariantController,
   GenerationController,
   VisionController,
-  StylePresetController,
-  RotationController,
   OrganizationController,
 } from './space/controllers';
 import { ApprovalController } from './space/controllers/ApprovalController';
@@ -61,11 +59,9 @@ export class SpaceDO extends DurableObject<Env> {
   private variantCtrl!: VariantController;
   private generationCtrl!: GenerationController;
   private visionCtrl!: VisionController;
-  private stylePresetCtrl!: StylePresetController;
   private approvalCtrl!: ApprovalController;
   private sessionCtrl!: SessionController;
   private chatCtrl!: ChatController;
-  private rotationCtrl!: RotationController;
   private organizationCtrl!: OrganizationController;
 
   constructor(ctx: DurableObjectState, env: Env) {
@@ -119,7 +115,6 @@ export class SpaceDO extends DurableObject<Env> {
 
         // Initialize repository
         this.repo = new SpaceRepository(this.ctx.storage.sql, this.env.IMAGES);
-        await this.repo.backfillLegacySpaceStyle();
 
       // Create controller context
       const ctx: ControllerContext = {
@@ -140,15 +135,10 @@ export class SpaceDO extends DurableObject<Env> {
       this.variantCtrl = new VariantController(ctx);
       this.generationCtrl = new GenerationController(ctx);
       this.visionCtrl = new VisionController(ctx);
-      this.stylePresetCtrl = new StylePresetController(ctx);
       this.approvalCtrl = new ApprovalController(ctx);
       this.sessionCtrl = new SessionController(ctx);
       this.chatCtrl = new ChatController(ctx);
-      this.rotationCtrl = new RotationController(ctx);
       this.organizationCtrl = new OrganizationController(ctx);
-
-      // Wire pipeline controllers to generation controller (avoids circular deps)
-      this.generationCtrl.setPipelineControllers(this.rotationCtrl);
 
       // Initialize internal HTTP router
       this.internalApi = createInternalApi({
@@ -160,7 +150,6 @@ export class SpaceDO extends DurableObject<Env> {
         approval: this.approvalCtrl,
         session: this.sessionCtrl,
         organization: this.organizationCtrl,
-        stylePreset: this.stylePresetCtrl,
       });
 
       this.initialized = true;
@@ -359,14 +348,6 @@ export class SpaceDO extends DurableObject<Env> {
       case 'presence:update':
         return this.presenceCtrl.handleUpdate(meta, msg.viewing);
 
-      // Style presets and asset-backed style references
-      case 'style_preset:create':
-        return this.stylePresetCtrl.handleCreateStylePreset(ws, meta, msg);
-      case 'style_preset:update':
-        return this.stylePresetCtrl.handleUpdateStylePreset(ws, meta, msg.presetId, msg.changes);
-      case 'style_preset:delete':
-        return this.stylePresetCtrl.handleDeleteStylePreset(ws, meta, msg.presetId);
-
       // Workflow triggers
       case 'generation:estimate':
         return this.generationCtrl.handleGenerationEstimateRequest(ws, meta, msg);
@@ -376,12 +357,6 @@ export class SpaceDO extends DurableObject<Env> {
         return this.generationCtrl.handleRefineRequest(ws, meta, msg as RefineRequestMessage);
       case 'batch:request':
         return this.generationCtrl.handleBatchRequest(ws, meta, msg as BatchRequestMessage);
-
-      // Rotation pipeline
-      case 'rotation:request':
-        return this.rotationCtrl.handleRotationRequest(ws, meta, msg as ClientMessage & { type: 'rotation:request' });
-      case 'rotation:cancel':
-        return this.rotationCtrl.handleRotationCancel(ws, meta, (msg as { type: 'rotation:cancel'; rotationSetId: string }).rotationSetId);
 
       // Vision
       case 'describe:request':

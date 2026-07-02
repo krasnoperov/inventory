@@ -27,11 +27,6 @@ export function useSpaceCallbackRefs({
   onBatchProgress,
   onBatchCompleted,
   onGenerationEstimate,
-  onRotationStarted,
-  onRotationStepCompleted,
-  onRotationCompleted,
-  onRotationFailed,
-  onRotationCancelled,
   onGenerateError,
   onRefineError,
   onBatchError,
@@ -64,11 +59,6 @@ export function useSpaceCallbackRefs({
   const onBatchProgressRef = useRef(onBatchProgress);
   const onBatchCompletedRef = useRef(onBatchCompleted);
   const onGenerationEstimateRef = useRef(onGenerationEstimate);
-  const onRotationStartedRef = useRef(onRotationStarted);
-  const onRotationStepCompletedRef = useRef(onRotationStepCompleted);
-  const onRotationCompletedRef = useRef(onRotationCompleted);
-  const onRotationFailedRef = useRef(onRotationFailed);
-  const onRotationCancelledRef = useRef(onRotationCancelled);
   const onGenerateErrorRef = useRef(onGenerateError);
   const onRefineErrorRef = useRef(onRefineError);
   const onBatchErrorRef = useRef(onBatchError);
@@ -102,11 +92,6 @@ export function useSpaceCallbackRefs({
     onBatchProgressRef.current = onBatchProgress;
     onBatchCompletedRef.current = onBatchCompleted;
     onGenerationEstimateRef.current = onGenerationEstimate;
-    onRotationStartedRef.current = onRotationStarted;
-    onRotationStepCompletedRef.current = onRotationStepCompleted;
-    onRotationCompletedRef.current = onRotationCompleted;
-    onRotationFailedRef.current = onRotationFailed;
-    onRotationCancelledRef.current = onRotationCancelled;
     onGenerateErrorRef.current = onGenerateError;
     onRefineErrorRef.current = onRefineError;
     onBatchErrorRef.current = onBatchError;
@@ -140,11 +125,6 @@ export function useSpaceCallbackRefs({
     onBatchProgressRef,
     onBatchCompletedRef,
     onGenerationEstimateRef,
-    onRotationStartedRef,
-    onRotationStepCompletedRef,
-    onRotationCompletedRef,
-    onRotationFailedRef,
-    onRotationCancelledRef,
     onGenerateErrorRef,
     onRefineErrorRef,
     onBatchErrorRef,

@@ -147,32 +147,20 @@ web tray and CLI `--duration` flag expose all three values.
 ### Reference Modes
 
 References are passed as `sourceImages`, and the stored recipe records the Veo
-request mode (`veoReferenceMode`). The mode is inferred from the final resolved
-image list after style injection (`determineVeoReferenceMode`,
-`src/backend/services/googleVeoService.ts:98`):
+request mode (`veoReferenceMode`). The mode is inferred from the resolved image
+list (`determineVeoReferenceMode`, `src/backend/services/googleVeoService.ts`):
 
 | Final image inputs | Provider request shape | Stored mode |
 |-|-|-|
 | 0 images | prompt only | `text-to-video` |
-| 1 image, no style image prepended | top-level `request.image` | `image-to-video` |
-| 2 images, no style image prepended | top-level `request.image` plus `config.lastFrame` | `first-last-frame` |
-| Any style image, or 3 images | `config.referenceImages[]` | `reference-images` |
-
-When Veo uses `referenceImages[]`, Make Effects types prepended style images as
-`STYLE` and all remaining images as `ASSET` by position (`getReferenceType`,
-`src/backend/services/googleVeoService.ts:94`; request construction,
-`src/backend/services/googleVeoService.ts:178`). In practice: disable style
-when you need exact first/last-frame interpolation.
+| 1 image | top-level `request.image` | `image-to-video` |
+| 2 images | top-level `request.image` plus `config.lastFrame` | `first-last-frame` |
+| 3 images | `config.referenceImages[]` | `reference-images` |
 
 Veo is not at parity with image generation. Video generation accepts at most
 **3** source/reference images (`GoogleVeoService.generate`,
 `src/backend/services/googleVeoService.ts:144`). The variant factory caps video
-references to the first three before workflow start, and caps style images to
-whatever budget remains after user references
-(`VariantFactory.capVeoSourceImageKeys`,
-`src/backend/durable-objects/space/generation/VariantFactory.ts:1030`;
-`injectStyle`,
-`src/backend/durable-objects/space/generation/VariantFactory.ts:850`).
+references to the first three before workflow start.
 
 ### Decision Table — Video
 
@@ -235,12 +223,10 @@ parent, but it is not passed as an image reference to the provider
 (`resolveVariantReference`,
 `src/backend/durable-objects/space/generation/VariantFactory.ts:1117`).
 
-Style images are prepended ahead of user references, and the workflow labels
-them as `Style ref N:` while user references are labeled `Image N:`
-(`src/backend/workflows/GenerationWorkflow.ts:191`). For Gemini image
-generation those labels are included in the text prompt. For Veo, the prepended
-style count also controls whether images are typed as provider `STYLE` or
-`ASSET` references.
+For Gemini image generation, reference labels such as `Image N:` are included in
+the text prompt (`src/backend/workflows/GenerationWorkflow.ts`). For Veo, one
+image uses the top-level image input, two images use first/last-frame inputs,
+and three images use provider `ASSET` references.
 
 The `fake` image/video provider preserves the same recipe and metadata shape
 for local tests but does not call an external model. The optional `custom`

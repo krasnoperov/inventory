@@ -21,8 +21,6 @@ import type {
   UserSession,
   SpaceCollection,
   CollectionItem,
-  StylePresetPreview,
-  StyleReferenceCollectionPreview,
 } from './types';
 import type { ParentHierarchyBackfillResult } from './repository/SpaceRepository';
 import { ConflictError, NotFoundError, ValidationError } from './controllers/types';
@@ -225,13 +223,6 @@ export interface InternalApiControllers {
     httpReorderCollectionItems(collectionId: string, itemIds: unknown): Promise<CollectionItem[]>;
     httpDeleteCollectionItem(collectionId: string, itemId: string): Promise<void>;
     httpBackfillParentHierarchy(data?: unknown): Promise<ParentHierarchyBackfillResult>;
-  };
-  stylePreset: {
-    httpListStyleReferenceCollections(): Promise<StyleReferenceCollectionPreview[]>;
-    httpListStylePresets(): Promise<StylePresetPreview[]>;
-    httpCreateStylePreset(data: unknown): Promise<StylePresetPreview>;
-    httpUpdateStylePreset(presetId: string, data: unknown): Promise<StylePresetPreview>;
-    httpDeleteStylePreset(presetId: string): Promise<void>;
   };
 }
 
@@ -586,38 +577,6 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
       c.req.param('collectionId'),
       c.req.param('itemId')
     );
-    return c.json({ success: true });
-  });
-
-  // ==========================================================================
-  // Style Preset Routes
-  // ==========================================================================
-
-  app.get('/internal/style-reference-collections', async (c) => {
-    const collections = await controllers.stylePreset.httpListStyleReferenceCollections();
-    return c.json({ success: true, collections });
-  });
-
-  app.get('/internal/style-presets', async (c) => {
-    const presets = await controllers.stylePreset.httpListStylePresets();
-    return c.json({ success: true, presets });
-  });
-
-  app.post('/internal/style-presets', async (c) => {
-    const preset = await controllers.stylePreset.httpCreateStylePreset(await c.req.json());
-    return c.json({ success: true, preset });
-  });
-
-  app.patch('/internal/style-presets/:presetId', async (c) => {
-    const preset = await controllers.stylePreset.httpUpdateStylePreset(
-      c.req.param('presetId'),
-      await c.req.json()
-    );
-    return c.json({ success: true, preset });
-  });
-
-  app.delete('/internal/style-presets/:presetId', async (c) => {
-    await controllers.stylePreset.httpDeleteStylePreset(c.req.param('presetId'));
     return c.json({ success: true });
   });
 

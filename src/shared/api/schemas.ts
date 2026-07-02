@@ -30,9 +30,6 @@ export const SessionConfigSchema = z
     googleClientId: z.string(),
     environment: z.string(),
     mediaCdnBaseUrl: z.string().nullable().optional(),
-    features: z.object({
-      rotation: z.boolean(),
-    }),
   })
   .openapi('SessionConfig');
 
@@ -482,7 +479,6 @@ export const ListSpaceAssetsResponseSchema = z
 export const SpaceSubjectTypeSchema = z.enum(['asset', 'variant']);
 export const CollectionKindSchema = z.enum([
   'cast',
-  'style_refs',
   'backgrounds',
   'scenes',
   'thumbnails',
@@ -503,15 +499,6 @@ export const CollectionItemParamsSchema = CollectionIdParamsSchema.extend({
   itemId: z.string().openapi({
     param: {
       name: 'itemId',
-      in: 'path',
-    },
-  }),
-});
-
-export const StylePresetParamsSchema = SpaceIdParamsSchema.extend({
-  presetId: z.string().openapi({
-    param: {
-      name: 'presetId',
       in: 'path',
     },
   }),
@@ -555,30 +542,6 @@ export const CollectionItemSchema = z
   })
   .openapi('CollectionItem');
 
-export const StyleReferenceCollectionSchema = SpaceCollectionSchema.extend({
-  reference_count: z.number().int(),
-  preset_count: z.number().int(),
-}).openapi('StyleReferenceCollection');
-
-export const StylePresetSchema = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    description: z.string().nullable(),
-    style_prompt: z.string(),
-    collection_id: z.string().nullable(),
-    enabled: BooleanFromSqliteSchema,
-    is_default: BooleanFromSqliteSchema,
-    created_by: z.string(),
-    created_at: z.number(),
-    updated_at: z.number(),
-    collection_name: z.string().nullable(),
-    reference_count: z.number().int(),
-    style_reference_variant_ids: z.array(z.string()),
-    style_reference_image_keys: z.array(z.string()),
-  })
-  .openapi('StylePreset');
-
 export const UpsertCollectionRequestSchema = z
   .object({
     id: z.string().optional(),
@@ -603,22 +566,6 @@ export const UpsertCollectionItemRequestSchema = z
     sortIndex: z.number().int().optional(),
   })
   .openapi('UpsertCollectionItemRequest');
-
-export const UpsertStylePresetRequestSchema = z
-  .object({
-    id: z.string().optional(),
-    name: z.string().min(1),
-    description: z.string().nullable().optional(),
-    stylePrompt: z.string().optional(),
-    collectionId: z.string().nullable().optional(),
-    enabled: z.boolean().optional(),
-    isDefault: z.boolean().optional(),
-  })
-  .openapi('UpsertStylePresetRequest');
-
-export const UpdateStylePresetRequestSchema = UpsertStylePresetRequestSchema.omit({ id: true, name: true }).extend({
-  name: z.string().min(1).optional(),
-}).openapi('UpdateStylePresetRequest');
 
 export const UpdateCollectionItemRequestSchema = z
   .object({
@@ -661,27 +608,6 @@ export const CollectionItemResponseSchema = z
     item: CollectionItemSchema,
   })
   .openapi('CollectionItemResponse');
-
-export const ListStyleReferenceCollectionsResponseSchema = z
-  .object({
-    success: z.literal(true),
-    collections: z.array(StyleReferenceCollectionSchema),
-  })
-  .openapi('ListStyleReferenceCollectionsResponse');
-
-export const ListStylePresetsResponseSchema = z
-  .object({
-    success: z.literal(true),
-    presets: z.array(StylePresetSchema),
-  })
-  .openapi('ListStylePresetsResponse');
-
-export const StylePresetResponseSchema = z
-  .object({
-    success: z.literal(true),
-    preset: StylePresetSchema,
-  })
-  .openapi('StylePresetResponse');
 
 export const UsageSummaryQuerySchema = z.object({
   from: z.string().optional(),

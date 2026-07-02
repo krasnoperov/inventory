@@ -14,7 +14,6 @@ import { ImageLightbox } from './components/ImageLightbox';
 import { Pagination } from './components/Pagination';
 import { PublicNav } from './components/PublicNav';
 import { PublicThemeToggle } from './components/PublicThemeToggle';
-import { RotationPanel } from './components/RotationPanel/RotationPanel';
 import { SpacesOverview } from './components/SpacesOverview';
 import { SpaceCanvas } from './components/SpaceCanvas';
 import { SpaceSharingPanel } from './components/SpaceSharingPanel';
@@ -872,7 +871,6 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   PublicNav: PublicNavPreview,
   PublicThemeToggle: PublicThemeToggle as unknown as ComponentType<Record<string, unknown>>,
   SegmentedControl: SegmentedControlPreview,
-  RotationPanel: RotationPanel as unknown as ComponentType<Record<string, unknown>>,
   SpaceCanvas: SpaceCanvas as unknown as ComponentType<Record<string, unknown>>,
   SpacePageOverlayChrome: SpacePageOverlayChromePreview,
   SpaceSharingPanel: SpaceSharingPanel as unknown as ComponentType<Record<string, unknown>>,

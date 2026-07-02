@@ -29,20 +29,17 @@ scene by passing *both* the sheet and the previous frame, each labelled — "Ima
 1: character sheet. Image 2: previous scene" — so the model never has to guess
 which character it is editing.[^picard]
 
-**In Make Effects, you don't build the sheet by hand.** The
-[rotation pipeline](../rotation-pipeline.md) does it for you: seed it with one
-strong variant, pick `turnaround` (front, 3/4-front, side, 3/4-back, back),
-`4-directional`, or `8-directional`, and each step feeds every completed view
-back as a reference for the next. The injected prompt literally instructs the
-model to "show the EXACT SAME subject" and "maintain identical design,
-proportions, colors, clothing, and style." That *is* the character-sheet
-methodology, automated.
+**In Make Effects, keep the sheet as ordinary asset work.** Start from one strong
+variant, then create additional front, side, back, and 3/4 views as variants or
+derived assets that reference the approved view. Use explicit prompts that keep
+identity fixed: same design, proportions, colors, clothing, materials, and
+silhouette.
 
 ```bash
-# Generate the seed character, then rotate it into a consistent sheet
+# Generate the seed character, then derive additional views from it
 makefx generate "A felt-craft robot explorer, small brown backpack, friendly" \
   --name "Robot Explorer" --type character -o characters/robot.png
-# (then start a turnaround rotation from that variant in the app or CLI)
+# Then derive side/back views with --refs pointing at the approved variant.
 ```
 
 A few hard-won numbers from practitioner testing: use clean references of at
@@ -53,21 +50,18 @@ hunting for a "seed" to force identity; deterministic seed control is **not**
 documented in the Gemini image API. Reuse the same references and constraints
 across turns instead.[^rundiffusion]
 
-## Style References: One Or Two Anchors, Applied Everywhere
+## Visual Style: One Or Two Anchors, Reused Deliberately
 
 A **style** is the look you want every asset to share — "pixel art, 16-bit,
-vibrant colors," "soft watercolor," "matte 3D clay." Make Effects models this as
-a first-class space feature: one [style](../style-and-batch.md) per space, with a
-description plus up to five reference images, automatically prepended to every
-generation request so nobody has to retype it. The style images go *first* in
-the reference list, ahead of your per-prompt references.
+vibrant colors," "soft watercolor," "matte 3D clay." Keep that as a small set of
+approved reference assets plus clear prompt language. Put those references in
+the Forge Tray only when they genuinely help the current generation.
 
 The practitioner rule that matters here: **anchor to one or two styles, not
 five.** Stacking conflicting aesthetics in a single prompt — "anime +
-hyper-realistic + cartoon" — breaks continuity.[^chatsmith] A space-level style
-keeps you honest by giving the whole space one coherent identity. When you need
-a genuinely different look for one asset, set `disableStyle` on that request
-rather than fighting the anchor with contradictory words.
+hyper-realistic + cartoon" — breaks continuity.[^chatsmith] When you need a
+genuinely different look for one asset, make that explicit in the prompt and
+references instead of relying on hidden defaults.
 
 When you want to *move* an existing image into a new look, treat **style
 transfer as its own operation**: take the base image as a reference and ask for
@@ -129,10 +123,8 @@ makefx derive \
 ```
 
 Two ceilings to respect. The models accept up to **14 reference images**, and
-Make Effects enforces this — when a space style is active, the
-[Forge Tray](../style-and-batch.md) shrinks your slot count to `14 −
-styleImageCount` so style plus your references never overflows. `gemini-2.5-flash-image`
-accepts **only one** reference image, so reach for the Pro model whenever you are
+Make Effects enforces this in the Forge Tray. `gemini-2.5-flash-image` accepts
+**only one** reference image, so reach for the Pro model whenever you are
 composing.
 
 ## Edit One Thing At A Time
@@ -157,19 +149,20 @@ and verify before stacking the next edit. For long sequences (storyboards of
 dozens of frames), this incrementalism plus a fixed reference sheet is what keeps
 frame fifty recognisable as the same character from frame one.[^flowith]
 
-## Scenes That Rotate
+## Multi-Angle References
 
-Rotation sets turn one subject into a consistent multi-angle sheet. Use them
-for character turnarounds and prop views. The same feed-forward reference idea
-is what holds the sheet together: completed images become named references for
-the next view.
+When you need a consistent character or prop from several angles, build the
+views as ordinary variants or derived assets. Keep the approved view in the
+Forge Tray, ask for one new angle at a time, and promote only the useful result.
+The feed-forward reference idea is what holds the sheet together: completed
+images become named references for the next view.
 
 ## Quick Reference
 
 | Goal | Do this |
 |-|-|
-| Reusable character | Build a rotation/turnaround sheet first, reuse as reference |
-| Consistent space look | Set a space style (1 description + ≤5 images) |
+| Reusable character | Build a small approved view sheet, reuse as reference |
+| Consistent space look | Keep 1-2 approved visual anchors and reuse them deliberately |
 | Different look, same subject | `refine`/`derive` with style instruction, not `generate` |
 | Combine character + background | `derive --refs A,B`, name each reference's role |
 | Small change to a finished image | `refine`, state what changes *and* what stays |

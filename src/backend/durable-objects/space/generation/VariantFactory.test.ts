@@ -19,9 +19,6 @@ function createMockRepo(): SpaceRepository {
     getAssetById: mock.fn(async () => null),
     getVariantById: mock.fn(async () => null),
     getVariantImageKey: mock.fn(async () => null),
-    getActiveStyle: mock.fn(async () => null),
-    getDefaultStylePreset: mock.fn(async () => null),
-    resolveStylePresetReferences: mock.fn(async () => null),
     createAsset: mock.fn(async (input) => ({
       id: input.id,
       name: input.name,
@@ -521,7 +518,6 @@ describe('VariantFactory', () => {
           mediaKind: 'video',
           prompt: 'subtle breathing animation',
           referenceVariantIds: ['portrait-var'],
-          disableStyle: true,
         },
         meta
       );
@@ -547,7 +543,6 @@ describe('VariantFactory', () => {
           mediaKind: 'video',
           prompt: 'dolly between the two keyframes',
           referenceVariantIds: ['start-var', 'end-var'],
-          disableStyle: true,
         },
         meta
       );
@@ -557,51 +552,6 @@ describe('VariantFactory', () => {
       assert.deepStrictEqual(recipe.sourceImageKeys, ['images/start-var.png', 'images/end-var.png']);
     });
 
-    test('labels styled video generations as reference-images', async () => {
-      const repo = createMockRepo();
-      const env = createMockEnv();
-      const broadcast = createMockBroadcast();
-      const factory = new VariantFactory('space-1', repo, env, broadcast);
-      const meta = createMockMeta();
-
-      (repo as unknown as {
-        getDefaultStylePreset: () => Promise<unknown>;
-        resolveStylePresetReferences: () => Promise<unknown>;
-      }).getDefaultStylePreset = mock.fn(async () => ({
-        id: 'preset-style',
-        enabled: 1,
-      }));
-      (repo as unknown as {
-        resolveStylePresetReferences: () => Promise<unknown>;
-      }).resolveStylePresetReferences = mock.fn(async () => ({
-        preset: { id: 'preset-style', enabled: 1 },
-        stylePresetId: 'preset-style',
-        styleCollectionId: 'collection-style',
-        stylePrompt: '',
-        styleReferenceVariantIds: ['style-var'],
-        styleReferenceImageKeys: ['images/style.png'],
-      }));
-      asMock(repo.getVariantById).mock.mockImplementation(async (variantId: string) => (
-        variantId === 'style-var' ? { id: variantId, image_key: 'images/style.png' } : null
-      ));
-      asMock(repo.getVariantImageKey).mock.mockImplementation(async (variantId: string) => `images/${variantId}.png`);
-
-      const result = await factory.createAssetWithVariant(
-        {
-          name: 'Styled Video',
-          assetType: 'animation',
-          mediaKind: 'video',
-          prompt: 'animate the keyframe',
-          referenceVariantIds: ['keyframe-var'],
-        },
-        meta
-      );
-
-      const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
-      assert.strictEqual(recipe.veoReferenceMode, 'reference-images');
-      assert.deepStrictEqual(recipe.styleImageKeys, ['images/style.png']);
-      assert.deepStrictEqual(recipe.sourceImageKeys, ['images/style.png', 'images/keyframe-var.png']);
-    });
   });
 
   describe('createRefineVariant', () => {
