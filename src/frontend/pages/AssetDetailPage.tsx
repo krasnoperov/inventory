@@ -1630,6 +1630,8 @@ export default function AssetDetailPage() {
         </div>
       )}
 
+        </div>
+
       {/* Asset details + Forge Tray - persistent bottom controls */}
       <AssetGenerationDock
         details={(
@@ -1676,8 +1678,6 @@ export default function AssetDetailPage() {
           />
         )}
       />
-
-        </div>
 
         <AssetDetailsInspector open={showInspector}>
           {canEdit && collections.length > 0 && (
