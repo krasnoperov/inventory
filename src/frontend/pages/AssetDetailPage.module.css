@@ -1,4 +1,4 @@
-/* AssetDetailPage - Full-screen canvas with floating overlays */
+/* AssetDetailPage - Full-screen scoped canvas with reserved workspace docks */
 
 .page {
   height: 100vh;
@@ -14,6 +14,7 @@
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
   /* Isolate stacking context so transformed nodes don't overlap floating panels */
   isolation: isolate;
 }
@@ -23,8 +24,10 @@
 }
 
 .canvasStage {
-  --variant-details-generation-dock-clearance: min(17rem, 38vh);
+  --variant-details-generation-dock-clearance: 0px;
 
+  grid-column: 1;
+  grid-row: 1;
   position: relative;
   min-width: 0;
   min-height: 0;
@@ -201,13 +204,15 @@
 }
 
 .assetGenerationDock {
-  position: absolute;
-  right: 1rem;
-  bottom: 1rem;
-  z-index: 500;
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: end;
+  z-index: 20;
   display: grid;
   gap: 0.875rem;
   width: min(520px, calc(100vw - 2rem));
+  min-width: 0;
+  margin: 0 1rem 1rem 0;
 }
 
 .assetDetailsDock {
@@ -374,6 +379,11 @@
   background: transparent;
   box-shadow: none;
   pointer-events: auto;
+}
+
+.canvasContainerWithInspector .assetDetailsInspector {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
 .collectionPanel {
@@ -788,15 +798,23 @@
 @media (max-width: 768px) {
   .canvasContainerWithInspector {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
   }
 
   .canvasContainerWithInspector .canvasStage {
     grid-row: 2;
   }
 
-  .assetDetailsInspector {
+  .canvasContainerWithInspector .assetGenerationDock {
+    grid-row: 3;
+  }
+
+  .canvasContainerWithInspector .assetDetailsInspector {
+    grid-column: 1;
     grid-row: 1;
+  }
+
+  .assetDetailsInspector {
     margin: 0;
     padding: 0.75rem 0.5rem 0.5rem;
     border-bottom: 1px solid var(--color-border);
@@ -844,9 +862,9 @@
   }
 
   .assetGenerationDock {
-    right: 0.5rem;
-    left: 0.5rem;
+    justify-self: stretch;
     width: auto;
+    margin: 0 0.5rem 0.5rem;
   }
 
   .collectionMembershipRow {
@@ -864,11 +882,9 @@
 
 @media (max-width: 480px) {
   .assetGenerationDock {
-    right: 0;
-    bottom: 0;
-    left: 0;
     gap: 0.875rem;
     width: auto;
+    margin: 0;
   }
 
   .assetDetailsInspector {
