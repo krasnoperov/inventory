@@ -50,9 +50,6 @@ import variantCanvasStyles from './components/VariantCanvas/VariantCanvas.module
 import UnknownPage from './pages/UnknownPage';
 import type {
   Asset,
-  CollectionItem,
-  Lineage,
-  SpaceCollection,
   Variant,
 } from './space/protocol';
 import './styles/theme.css';
@@ -140,81 +137,6 @@ const stackVariants: Variant[] = [
   stackVariant('map', 'map-variant'),
   stackVariant('scene', 'scene-variant'),
   stackVariant('output', 'output-variant'),
-];
-
-const stackCollections: SpaceCollection[] = [
-  {
-    id: 'cast',
-    name: 'Cast',
-    kind: 'cast',
-    color: null,
-    description: null,
-    sort_index: 0,
-    item_count: 1,
-    created_by: 'user-1',
-    created_at: stackBaseTime,
-    updated_at: stackBaseTime,
-  },
-  {
-    id: 'style',
-    name: 'Style refs',
-    kind: 'style_refs',
-    color: null,
-    description: null,
-    sort_index: 1,
-    item_count: 1,
-    created_by: 'user-1',
-    created_at: stackBaseTime,
-    updated_at: stackBaseTime,
-  },
-];
-
-const stackCollectionItems: CollectionItem[] = [
-  {
-    id: 'cast-hero',
-    collection_id: 'cast',
-    subject_type: 'asset',
-    asset_id: 'hero',
-    variant_id: null,
-    role: 'hero',
-    pinned_variant_id: 'hero-variant',
-    sort_index: 0,
-    created_by: 'user-1',
-    created_at: stackBaseTime,
-    updated_at: stackBaseTime,
-  },
-  {
-    id: 'style-hero',
-    collection_id: 'style',
-    subject_type: 'variant',
-    asset_id: null,
-    variant_id: 'hero-variant',
-    role: 'style_ref',
-    pinned_variant_id: null,
-    sort_index: 1,
-    created_by: 'user-1',
-    created_at: stackBaseTime,
-    updated_at: stackBaseTime,
-  },
-];
-
-const stackLineage: Lineage[] = [
-  {
-    id: 'lineage-hero-atlas',
-    parent_variant_id: 'hero-variant',
-    child_variant_id: 'atlas-variant',
-    relation_type: 'derived',
-    severed: false,
-    created_at: stackBaseTime,
-  },
-  {
-    id: 'lineage-atlas-output',
-    parent_variant_id: 'atlas-variant',
-    child_variant_id: 'output-variant',
-    relation_type: 'refined',
-    severed: false,
-    created_at: stackBaseTime + 1,
-  },
 ];
 
 function AssetDetailControlsHarness(props: Record<string, unknown>) {

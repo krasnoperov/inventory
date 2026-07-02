@@ -1618,46 +1618,6 @@
         "com.inventory.cssValue": "light-dark(oklch(52% 0.20 276), oklch(72% 0.16 276))"
       }
     },
-    "threadRelation": {
-      "$value": {
-        "colorSpace": "oklch",
-        "components": [
-          0.66,
-          0.15,
-          66
-        ]
-      },
-      "$type": "color",
-      "$extensions": {
-        "com.inventory.cssVar": "--canvas-thread-relation",
-        "com.inventory.sourceFile": "theme.css",
-        "com.inventory.lightDark": [
-          "oklch(66% 0.15 66)",
-          "oklch(80% 0.14 72)"
-        ],
-        "com.inventory.cssValue": "light-dark(oklch(66% 0.15 66), oklch(80% 0.14 72))"
-      }
-    },
-    "threadComposition": {
-      "$value": {
-        "colorSpace": "oklch",
-        "components": [
-          0.55,
-          0.15,
-          145
-        ]
-      },
-      "$type": "color",
-      "$extensions": {
-        "com.inventory.cssVar": "--canvas-thread-composition",
-        "com.inventory.sourceFile": "theme.css",
-        "com.inventory.lightDark": [
-          "oklch(55% 0.15 145)",
-          "oklch(70% 0.13 145)"
-        ],
-        "com.inventory.cssValue": "light-dark(oklch(55% 0.15 145), oklch(70% 0.13 145))"
-      }
-    },
     "starInk": {
       "$value": {
         "colorSpace": "oklch",

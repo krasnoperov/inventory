@@ -39,7 +39,7 @@ import { TileGrid } from '../components/TileGrid/TileGrid';
 import { formatMediaKind } from '../mediaKind';
 import { assetDetailsQueryOptions, sessionQueryOptions, spacePageQueryOptions } from '../queries';
 import { isWebRotationEnabled } from '../feature-flags';
-import { Button, ButtonLink, IconButton, TextInput, UiSelect, type SelectOption } from '../ui';
+import { Button, ButtonLink, TextInput, UiSelect, type SelectOption } from '../ui';
 import styles from './AssetDetailPage.module.css';
 
 // Confirmation dialog types
@@ -87,10 +87,6 @@ type AssetDetailsContextProps = AssetDetailsStripProps;
 
 function titleizeAssetType(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1).replace('-', ' ');
-}
-
-function getVariantOptionLabel(variant: Variant, index: number) {
-  return `Variant ${index + 1}${variant.starred ? ' star' : ''}`;
 }
 
 function titleizeStatus(value: string) {
