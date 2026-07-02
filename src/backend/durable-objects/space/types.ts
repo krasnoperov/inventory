@@ -106,7 +106,7 @@ export interface Variant {
   plan_step_id: string | null; // If this variant was created by a plan step
   description: string | null; // Cached AI-generated description for vision-aware enhancement
   batch_id: string | null; // Batch generation group ID
-  quality_rating: 'approved' | 'rejected' | null; // Curation rating for training data
+  quality_rating: 'approved' | 'rejected' | null; // Curation rating
   rated_at: number | null; // Timestamp of rating
   deleted_at: number | null;
 }
@@ -148,7 +148,7 @@ export interface ChatMessageClient {
 }
 
 // ============================================================================
-// Rotation & Tile Set Types
+// Rotation Types
 // ============================================================================
 
 export type RotationConfig = '4-directional' | '8-directional' | 'turnaround';
@@ -182,40 +182,6 @@ export interface RotationView {
   variant_id: string;
   direction: string;
   step_index: number;
-  created_at: number;
-  deleted_at: number | null;
-}
-
-export type TileType = 'terrain' | 'building' | 'decoration' | 'custom';
-export type TileSetStatus = 'pending' | 'generating' | 'completed' | 'failed' | 'cancelled';
-
-export interface TileSet {
-  id: string;
-  asset_id: string;
-  tile_type: TileType;
-  grid_width: number;
-  grid_height: number;
-  status: TileSetStatus;
-  seed_variant_id: string | null;
-  config: string; // JSON: { prompt: string }
-  current_step: number;
-  total_steps: number;
-  error_message: string | null;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-  deleted_at: number | null;
-}
-
-export type TilePositionStatus = 'pending' | 'generating' | 'completed' | 'failed';
-
-export interface TilePosition {
-  id: string;
-  tile_set_id: string;
-  variant_id: string;
-  grid_x: number;
-  grid_y: number;
-  status: TilePositionStatus;
   created_at: number;
   deleted_at: number | null;
 }
@@ -525,12 +491,6 @@ export type ClientMessage =
   // Rotation pipeline messages
   | { type: 'rotation:request'; requestId: string; sourceVariantId: string; config: RotationConfig; subjectDescription?: string; aspectRatio?: string; disableStyle?: boolean; generationMode?: 'sequential' | 'single-shot' }
   | { type: 'rotation:cancel'; rotationSetId: string }
-  // Tile pipeline messages
-  | { type: 'tileset:request'; requestId: string; tileType: TileType; gridWidth: number; gridHeight: number; prompt: string; seedVariantId?: string; aspectRatio?: string; disableStyle?: boolean; generationMode?: 'sequential' | 'single-shot' }
-  | { type: 'tileset:cancel'; tileSetId: string }
-  | { type: 'tileset:retry_tile'; tileSetId: string; gridX: number; gridY: number }
-  | { type: 'tileset:refine_edges'; tileSetId: string }
-  | { type: 'tileset:refine_tile'; tileSetId: string; gridX: number; gridY: number }
   // Variant quality rating
   | { type: 'variant:rate'; variantId: string; rating: 'approved' | 'rejected' };
 
@@ -543,8 +503,8 @@ export type ClientMessage =
  */
 export type ServerMessage =
   // Sync (full state)
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[] }
-  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollectionOverview[]; collectionItems?: CollectionItem[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[] }
+  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollectionOverview[]; collectionItems?: CollectionItem[] }
   // TODO: sync:chat_state is currently unused - chat history is loaded via REST API instead.
   // Consider implementing for WebSocket reconnection state recovery.
   // | { type: 'sync:chat_state'; messages: ChatMessage[]; plan: Plan | null; planSteps: PlanStep[]; approvals: PendingApproval[]; autoExecuted: AutoExecuted[] }
@@ -631,14 +591,7 @@ export type ServerMessage =
   | { type: 'rotation:step_completed'; rotationSetId: string; direction: string; variantId: string; step: number; total: number }
   | { type: 'rotation:completed'; rotationSetId: string; views: RotationView[] }
   | { type: 'rotation:failed'; rotationSetId: string; error: string; failedStep: number }
-  | { type: 'rotation:cancelled'; rotationSetId: string }
-  // Tile pipeline responses
-  | { type: 'tileset:started'; requestId: string; tileSetId: string; assetId: string; gridWidth: number; gridHeight: number; totalTiles: number }
-  | { type: 'tileset:tile_completed'; tileSetId: string; variantId: string; gridX: number; gridY: number; step: number; total: number }
-  | { type: 'tileset:tile_failed'; tileSetId: string; variantId: string; gridX: number; gridY: number; error: string }
-  | { type: 'tileset:completed'; tileSetId: string; positions: TilePosition[] }
-  | { type: 'tileset:failed'; tileSetId: string; error: string; failedStep: number }
-  | { type: 'tileset:cancelled'; tileSetId: string };
+  | { type: 'rotation:cancelled'; rotationSetId: string };
 
 // ============================================================================
 // Helper Types

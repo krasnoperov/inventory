@@ -36,7 +36,6 @@ import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { findAcceptedUploadFile } from '../mediaUpload';
 import { RotationPanel } from '../components/RotationPanel/RotationPanel';
-import { TileGrid } from '../components/TileGrid/TileGrid';
 import { formatMediaKind } from '../mediaKind';
 import { assetDetailsQueryOptions, sessionQueryOptions, spacePageQueryOptions } from '../queries';
 import { isWebRotationEnabled } from '../feature-flags';
@@ -392,11 +391,6 @@ export default function AssetDetailPage() {
     sendRotationRequest,
     sendRotationCancel,
     sendVariantRate,
-    tileSets,
-    tilePositions,
-    sendRetryTile,
-    sendRefineEdges,
-    sendRefineTile,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     syncMode: 'full',
@@ -711,11 +705,6 @@ export default function AssetDetailPage() {
     await uploadImage(file, assetId);
   }, [assetId, canEdit, isUploading, uploadImage]);
 
-  const handleExportTrainingData = useCallback((pipeline: 'tiles' | 'rotations' | 'all') => {
-    if (!spaceId) return;
-    window.open(`/api/spaces/${spaceId}/training-data?pipeline=${pipeline}`, '_blank');
-  }, [spaceId]);
-
   // Handle persistent chat message - wraps sendPersistentChatMessage to manage loading state
   const handleSendChatMessage = useCallback((content: string, forgeContext?: ChatForgeContext) => {
     // Add user message to UI immediately (optimistic) and set loading
@@ -804,28 +793,6 @@ export default function AssetDetailPage() {
           expandedVariantId={expandedVariantId}
           onExpandedVariantIdChange={setExpandedVariantId}
         />
-
-        {/* Tile Grid overlay for tile-set assets */}
-        {(() => {
-          const tileSet = tileSets.find(ts => ts.asset_id === assetId);
-          if (!tileSet) return null;
-          return (
-            <div className={styles.tileGridOverlay}>
-              <TileGrid
-                tileSet={tileSet}
-                tilePositions={tilePositions}
-                variants={wsVariants}
-                selectedVariantId={selectedVariant?.id}
-                onCellClick={(variantId) => setSelectedVariantId(assetId!, variantId)}
-                onRetryTile={sendRetryTile}
-                onRefineTile={sendRefineTile}
-                onRefineEdges={sendRefineEdges}
-                onRateVariant={sendVariantRate}
-                onExportTrainingData={() => handleExportTrainingData('tiles')}
-              />
-            </div>
-          );
-        })()}
 
         {/* Asset info overlay - top left */}
         <div className={styles.assetOverlay}>
@@ -1028,7 +995,6 @@ export default function AssetDetailPage() {
           }}
           onClose={() => setShowRotationPanel(false)}
           onRateVariant={sendVariantRate}
-          onExportTrainingData={() => handleExportTrainingData('rotations')}
         />
       )}
     </div>

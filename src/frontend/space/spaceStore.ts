@@ -7,8 +7,6 @@ import type {
   Lineage,
   RotationSet,
   RotationView,
-  TilePosition,
-  TileSet,
   UserPresence,
   Variant,
   SpaceCollection,
@@ -37,8 +35,6 @@ export interface SpaceSessionState {
   presence: UserPresence[];
   rotationSets: RotationSet[];
   rotationViews: RotationView[];
-  tileSets: TileSet[];
-  tilePositions: TilePosition[];
   stylePresets: StylePresetRaw[];
   styleReferenceCollections: StyleReferenceCollectionRaw[];
   hydrateFromSnapshot: (spaceId: string, snapshot: SpaceStateSnapshot | null) => void;
@@ -54,8 +50,6 @@ export interface SpaceSessionState {
   setPresence: (updater: StateUpdater<UserPresence[]>) => void;
   setRotationSets: (updater: StateUpdater<RotationSet[]>) => void;
   setRotationViews: (updater: StateUpdater<RotationView[]>) => void;
-  setTileSets: (updater: StateUpdater<TileSet[]>) => void;
-  setTilePositions: (updater: StateUpdater<TilePosition[]>) => void;
   setStylePresets: (updater: StateUpdater<StylePresetRaw[]>) => void;
   setStyleReferenceCollections: (updater: StateUpdater<StyleReferenceCollectionRaw[]>) => void;
 }
@@ -74,8 +68,6 @@ export const useSpaceSessionStore = create<SpaceSessionState>()((set) => ({
   presence: [],
   rotationSets: [],
   rotationViews: [],
-  tileSets: [],
-  tilePositions: [],
   stylePresets: [],
   styleReferenceCollections: [],
   hydrateFromSnapshot: (spaceId, snapshot) => set({
@@ -91,8 +83,6 @@ export const useSpaceSessionStore = create<SpaceSessionState>()((set) => ({
     presence: snapshot?.presence ?? [],
     rotationSets: snapshot?.rotationSets ?? [],
     rotationViews: snapshot?.rotationViews ?? [],
-    tileSets: snapshot?.tileSets ?? [],
-    tilePositions: snapshot?.tilePositions ?? [],
     stylePresets: snapshot?.stylePresets ?? [],
     styleReferenceCollections: snapshot?.styleReferenceCollections ?? [],
     jobs: new Map(),
@@ -109,8 +99,6 @@ export const useSpaceSessionStore = create<SpaceSessionState>()((set) => ({
   setPresence: (updater) => set((state) => ({ presence: resolveStateUpdater(state.presence, updater) })),
   setRotationSets: (updater) => set((state) => ({ rotationSets: resolveStateUpdater(state.rotationSets, updater) })),
   setRotationViews: (updater) => set((state) => ({ rotationViews: resolveStateUpdater(state.rotationViews, updater) })),
-  setTileSets: (updater) => set((state) => ({ tileSets: resolveStateUpdater(state.tileSets, updater) })),
-  setTilePositions: (updater) => set((state) => ({ tilePositions: resolveStateUpdater(state.tilePositions, updater) })),
   setStylePresets: (updater) => set((state) => ({ stylePresets: resolveStateUpdater(state.stylePresets, updater) })),
   setStyleReferenceCollections: (updater) => set((state) => ({ styleReferenceCollections: resolveStateUpdater(state.styleReferenceCollections, updater) })),
 }));
@@ -124,7 +112,5 @@ export const EMPTY_JOBS = new Map<string, JobStatus>();
 export const EMPTY_PRESENCE: UserPresence[] = [];
 export const EMPTY_ROTATION_SETS: RotationSet[] = [];
 export const EMPTY_ROTATION_VIEWS: RotationView[] = [];
-export const EMPTY_TILE_SETS: TileSet[] = [];
-export const EMPTY_TILE_POSITIONS: TilePosition[] = [];
 export const EMPTY_STYLE_PRESETS: StylePresetRaw[] = [];
 export const EMPTY_STYLE_REFERENCE_COLLECTIONS: StyleReferenceCollectionRaw[] = [];

@@ -18,7 +18,7 @@ import { handleAssets } from './commands/assets';
 import { handleVariants } from './commands/variants';
 import { handleUsage } from './commands/usage';
 import { handleSpend } from './commands/spend';
-import { handleRotation, handleTileSet } from './commands/pipelines';
+import { handleRotation } from './commands/pipelines';
 import { isCliRotationEnabled, rotationDisabledMessage } from './lib/feature-flags';
 import {
   AUDIO_FORGE_MEDIA_MODES,
@@ -222,10 +222,6 @@ function printCommandHelp(command: string, positionals: string[]): void {
     case 'rotation':
       printRotationHelp();
       return;
-    case 'tileset':
-    case 'tile-set':
-      printTileSetHelp();
-      return;
     default:
       console.error(`Unknown command: ${command}`);
       printHelp();
@@ -272,9 +268,6 @@ Project:
   variants rate <variant-id> approved|rejected
                                  Rate a variant for quality curation
 ${rotationHelp}
-  tileset "prompt" --type terrain --grid 3x3
-                                 Generate a consistent tile set
-  tileset cancel <tile-set-id>    Cancel an active tile-set pipeline
   usage [summary] [--space <id>] Show platform storage and workflow consumption
   spend [summary]               Show admin provider cost summary
 
@@ -353,7 +346,7 @@ Examples:
   makefx variants retry variant_456
   makefx variants delete variant_456
   makefx generate "A market background" --style-preset Painterly --name "Market" --type scene -o market.png
-${rotationExample}  makefx tileset "grass and stone path tiles" --type terrain --grid 3x3
+${rotationExample}
 `);
 }
 
@@ -730,29 +723,6 @@ Options:
 `);
 }
 
-function printTileSetHelp(): void {
-  console.log(`
-Usage:
-  makefx tileset "prompt" --type terrain --grid 3x3
-  makefx tileset "prompt" --type custom --width 4 --height 2 --seed-variant <variant-id>
-  makefx tileset cancel <tile-set-id>
-
-Options:
-  --space <id>        Target space ID; defaults from the initialized project
-  --type <type>       terrain, building, decoration, or custom (default: terrain)
-  --grid <size>       Square size or WIDTHxHEIGHT, each dimension 2-5 (default: 3)
-  --width <n>         Grid width, 2-5
-  --height <n>        Grid height, 2-5
-  --seed-variant <id> Optional completed image variant to place at the center (sequential mode only)
-  --aspect <ratio>    Optional generation aspect ratio
-  --mode <mode>       sequential or single-shot (default: sequential)
-  --no-style          Disable style preset injection for this pipeline
-  --detach            Return after the pipeline starts instead of waiting for completion
-  --timeout <sec>     Override the pipeline wait timeout
-  --json              Print machine-readable output
-`);
-}
-
 function printAssetsHelp(): void {
   console.log(`
 Usage:
@@ -860,10 +830,6 @@ async function dispatchCommand(command: string, parsed: ReturnType<typeof parseA
       break;
     case 'rotation':
       await handleRotation(parsed);
-      break;
-    case 'tileset':
-    case 'tile-set':
-      await handleTileSet(parsed);
       break;
     default:
       console.error(`Unknown command: ${command}`);

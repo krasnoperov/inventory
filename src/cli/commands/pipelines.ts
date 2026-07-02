@@ -13,17 +13,13 @@ import {
   type RotationConfig,
   type RotationGenerationMode,
   type RotationPipelineResult,
-  type TileSetPipelineResult,
-  type TileType,
 } from '../lib/websocket-client';
 import { isCliRotationEnabled, rotationDisabledMessage } from '../lib/feature-flags';
 
-type PipelineCommand = 'rotation' | 'tileset';
+type PipelineCommand = 'rotation';
 type PipelineResult =
   | RotationPipelineResult
-  | TileSetPipelineResult
-  | { type: 'rotation:cancelled'; rotationSetId: string }
-  | { type: 'tileset:cancelled'; tileSetId: string };
+  | { type: 'rotation:cancelled'; rotationSetId: string };
 
 interface PipelineDeps {
   loadConfig: (env: string) => Promise<StoredConfig | null>;
@@ -40,7 +36,6 @@ interface PipelineContext {
 }
 
 const ROTATION_CONFIGS: RotationConfig[] = ['4-directional', '8-directional', 'turnaround'];
-const TILE_TYPES: TileType[] = ['terrain', 'building', 'decoration', 'custom'];
 const GENERATION_MODES: RotationGenerationMode[] = ['sequential', 'single-shot'];
 
 const defaultDeps: PipelineDeps = {
@@ -56,10 +51,6 @@ export async function handleRotation(parsed: ParsedArgs): Promise<void> {
   await handlePipelineCommand('rotation', parsed);
 }
 
-export async function handleTileSet(parsed: ParsedArgs): Promise<void> {
-  await handlePipelineCommand('tileset', parsed);
-}
-
 async function handlePipelineCommand(command: PipelineCommand, parsed: ParsedArgs): Promise<void> {
   try {
     const result = await executePipelineCommand(command, parsed, defaultDeps);
@@ -70,7 +61,7 @@ async function handlePipelineCommand(command: PipelineCommand, parsed: ParsedArg
     const message = error instanceof Error ? error.message : String(error);
     console.error('Error:', message);
     if (message !== rotationDisabledMessage()) {
-      printUsage(command);
+      printUsage();
     }
     process.exitCode = 1;
   }
@@ -94,10 +85,7 @@ export async function executePipelineCommand(
       client.setConnectionLogging?.(false);
     }
     await client.connect();
-    if (command === 'rotation') {
-      return await executeRotation(parsed, ctx, client, deps);
-    }
-    return await executeTileSet(parsed, ctx, client, deps);
+    return await executeRotation(parsed, ctx, client, deps);
   } finally {
     client.disconnect();
   }
@@ -186,72 +174,6 @@ async function executeRotation(
   return result;
 }
 
-async function executeTileSet(
-  parsed: ParsedArgs,
-  ctx: PipelineContext,
-  client: PipelineClient,
-  deps: PipelineDeps
-): Promise<PipelineResult> {
-  const subcommand = parsed.positionals[0];
-  const json = parsed.options.json === 'true';
-
-  if (subcommand === 'cancel') {
-    const tileSetId = parsed.positionals[1];
-    if (!tileSetId) throw new Error('Usage: makefx tileset cancel <tile-set-id>');
-    const result = await client.cancelTileSet(tileSetId);
-    printJsonOrText(json, result, `Cancelled tile set ${tileSetId}`, deps);
-    return result;
-  }
-
-  const prompt = parsed.positionals.join(' ').trim();
-  if (!prompt) {
-    throw new Error('Prompt is required: makefx tileset "prompt" --type terrain --grid 3x3');
-  }
-
-  const tileType = parseTileType(optionValue(parsed, 'type') || 'terrain');
-  const { width, height } = parseGrid(parsed);
-  const generationMode = parseGenerationMode(optionValue(parsed, 'mode') || 'sequential');
-  const seedVariantId = optionValue(parsed, 'seed-variant') || optionValue(parsed, 'seed');
-  if (generationMode === 'single-shot' && seedVariantId) {
-    throw new Error('--seed-variant is only supported with sequential tile-set generation');
-  }
-  const waitForCompletion = parsed.options.detach !== 'true';
-  const timeoutMs = parseTimeoutMs(parsed.options.timeout);
-
-  if (!json) {
-    deps.print(`Starting ${width}x${height} ${tileType} tile set in space ${ctx.spaceId}...`);
-  }
-
-  const result = await client.sendTileSetRequest({
-    tileType,
-    gridWidth: width,
-    gridHeight: height,
-    prompt,
-    seedVariantId,
-    aspectRatio: optionValue(parsed, 'aspect'),
-    disableStyle: parsed.options['no-style'] === 'true',
-    generationMode,
-    waitForCompletion,
-    timeoutMs,
-    onStarted: json ? undefined : (started) => {
-      deps.print(`Tile set ${started.tileSetId} started for asset ${started.assetId}`);
-      deps.print(`Grid: ${started.gridWidth}x${started.gridHeight} (${started.totalTiles} tiles)`);
-      if (!waitForCompletion) {
-        deps.print('Detached. Use `makefx listen` or `makefx assets show` to watch progress.');
-      }
-    },
-    onTileCompleted: json ? undefined : (tile) => {
-      deps.print(`Tile set ${tile.tileSetId}: ${tile.step}/${tile.total} (${tile.gridX},${tile.gridY}) -> ${tile.variantId}`);
-    },
-    onTileFailed: json ? undefined : (tile) => {
-      deps.print(`Tile set ${tile.tileSetId}: tile (${tile.gridX},${tile.gridY}) failed: ${tile.error}`);
-    },
-  });
-
-  printTileSetResult(result, json, deps);
-  return result;
-}
-
 function parseRotationConfig(value: string): RotationConfig {
   if (ROTATION_CONFIGS.includes(value as RotationConfig)) {
     return value as RotationConfig;
@@ -259,45 +181,11 @@ function parseRotationConfig(value: string): RotationConfig {
   throw new Error(`Invalid rotation config: ${value}. Expected ${ROTATION_CONFIGS.join('|')}`);
 }
 
-function parseTileType(value: string): TileType {
-  if (TILE_TYPES.includes(value as TileType)) {
-    return value as TileType;
-  }
-  throw new Error(`Invalid tile type: ${value}. Expected ${TILE_TYPES.join('|')}`);
-}
-
 function parseGenerationMode(value: string): RotationGenerationMode {
   if (GENERATION_MODES.includes(value as RotationGenerationMode)) {
     return value as RotationGenerationMode;
   }
   throw new Error(`Invalid generation mode: ${value}. Expected ${GENERATION_MODES.join('|')}`);
-}
-
-function parseGrid(parsed: ParsedArgs): { width: number; height: number } {
-  const grid = optionValue(parsed, 'grid');
-  if (grid) {
-    const match = /^(\d+)(?:x(\d+))?$/.exec(grid);
-    if (!match) {
-      throw new Error('Invalid grid size. Use --grid 3 or --grid 3x4');
-    }
-    const width = Number(match[1]);
-    const height = Number(match[2] || match[1]);
-    validateGridDimension(width, 'width');
-    validateGridDimension(height, 'height');
-    return { width, height };
-  }
-
-  const width = Number(optionValue(parsed, 'width') || '3');
-  const height = Number(optionValue(parsed, 'height') || String(width));
-  validateGridDimension(width, 'width');
-  validateGridDimension(height, 'height');
-  return { width, height };
-}
-
-function validateGridDimension(value: number, label: string): void {
-  if (!Number.isInteger(value) || value < 2 || value > 5) {
-    throw new Error(`Grid ${label} must be an integer between 2 and 5`);
-  }
 }
 
 function parseTimeoutMs(value: string | undefined): number | undefined {
@@ -335,27 +223,6 @@ function printRotationResult(result: RotationPipelineResult, json: boolean, deps
   deps.print(`Rotation cancelled: ${result.rotationSetId}`);
 }
 
-function printTileSetResult(result: TileSetPipelineResult, json: boolean, deps: PipelineDeps): void {
-  if (json) {
-    deps.print(JSON.stringify(result, null, 2));
-    return;
-  }
-
-  if (result.status === 'started') {
-    deps.print(`Tile set queued: ${result.tileSetId}`);
-    return;
-  }
-  if (result.status === 'completed') {
-    deps.print(`Tile set completed: ${result.tileSetId} (${result.positions?.length ?? 0} positions)`);
-    return;
-  }
-  if (result.status === 'failed') {
-    deps.print(`Tile set failed at step ${result.failedStep}: ${result.error}`);
-    return;
-  }
-  deps.print(`Tile set cancelled: ${result.tileSetId}`);
-}
-
 function printJsonOrText(
   json: boolean,
   result: PipelineResult,
@@ -365,14 +232,13 @@ function printJsonOrText(
   deps.print(json ? JSON.stringify(result, null, 2) : text);
 }
 
-function printUsage(command: PipelineCommand): void {
-  if (command === 'rotation') {
-    if (!isCliRotationEnabled()) {
-      console.log(rotationDisabledMessage());
-      return;
-    }
+function printUsage(): void {
+  if (!isCliRotationEnabled()) {
+    console.log(rotationDisabledMessage());
+    return;
+  }
 
-    console.log(`
+  console.log(`
 Usage:
   makefx rotation --variant <variant-id> [--config 4-directional|8-directional|turnaround]
   makefx rotation --variant <variant-id> --mode single-shot --subject "hero knight"
@@ -388,28 +254,5 @@ Options:
   --detach           Return after the pipeline starts instead of waiting for completion
   --timeout <sec>    Override the pipeline wait timeout
   --json             Print machine-readable output
-`);
-    return;
-  }
-
-  console.log(`
-Usage:
-  makefx tileset "prompt" --type terrain --grid 3x3
-  makefx tileset "prompt" --type custom --width 4 --height 2 --seed-variant <variant-id>
-  makefx tileset cancel <tile-set-id>
-
-Options:
-  --space <id>        Target space ID; defaults from the initialized project
-  --type <type>       terrain, building, decoration, or custom (default: terrain)
-  --grid <size>       Square size or WIDTHxHEIGHT, each dimension 2-5 (default: 3)
-  --width <n>         Grid width, 2-5
-  --height <n>        Grid height, 2-5
-  --seed-variant <id> Optional completed image variant to place at the center (sequential mode only)
-  --aspect <ratio>    Optional generation aspect ratio
-  --mode <mode>       sequential or single-shot (default: sequential)
-  --no-style          Disable style preset injection for this pipeline
-  --detach            Return after the pipeline starts instead of waiting for completion
-  --timeout <sec>     Override the pipeline wait timeout
-  --json              Print machine-readable output
 `);
 }

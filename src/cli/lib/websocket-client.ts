@@ -424,7 +424,6 @@ type VariantDeletedMessage = { type: 'variant:deleted'; variantId: string };
 
 export type RotationConfig = '4-directional' | '8-directional' | 'turnaround';
 export type RotationGenerationMode = 'sequential' | 'single-shot';
-export type TileType = 'terrain' | 'building' | 'decoration' | 'custom';
 
 export interface RotationView {
   id: string;
@@ -432,16 +431,6 @@ export interface RotationView {
   variant_id: string;
   direction: string;
   step_index: number;
-  created_at: number;
-}
-
-export interface TilePosition {
-  id: string;
-  tile_set_id: string;
-  variant_id: string;
-  grid_x: number;
-  grid_y: number;
-  status: 'pending' | 'generating' | 'completed' | 'failed';
   created_at: number;
 }
 
@@ -493,80 +482,12 @@ export interface RotationPipelineResult {
   failedStep?: number;
 }
 
-export interface TileSetStarted {
-  type: 'tileset:started';
-  requestId: string;
-  tileSetId: string;
-  assetId: string;
-  gridWidth: number;
-  gridHeight: number;
-  totalTiles: number;
-}
-
-export interface TileSetTileCompleted {
-  type: 'tileset:tile_completed';
-  tileSetId: string;
-  variantId: string;
-  gridX: number;
-  gridY: number;
-  step: number;
-  total: number;
-}
-
-export interface TileSetTileFailed {
-  type: 'tileset:tile_failed';
-  tileSetId: string;
-  variantId: string;
-  gridX: number;
-  gridY: number;
-  error: string;
-}
-
-export interface TileSetCompleted {
-  type: 'tileset:completed';
-  tileSetId: string;
-  positions: TilePosition[];
-}
-
-export interface TileSetFailed {
-  type: 'tileset:failed';
-  tileSetId: string;
-  error: string;
-  failedStep: number;
-}
-
-export interface TileSetCancelled {
-  type: 'tileset:cancelled';
-  tileSetId: string;
-}
-
-export interface TileSetPipelineResult {
-  requestId: string;
-  tileSetId: string;
-  assetId: string;
-  gridWidth: number;
-  gridHeight: number;
-  totalTiles: number;
-  status: 'started' | 'completed' | 'failed' | 'cancelled';
-  positions?: TilePosition[];
-  error?: string;
-  failedStep?: number;
-}
-
 type RotationPipelineMessage =
   | RotationStarted
   | RotationStepCompleted
   | RotationCompleted
   | RotationFailed
   | RotationCancelled;
-
-type TileSetPipelineMessage =
-  | TileSetStarted
-  | TileSetTileCompleted
-  | TileSetTileFailed
-  | TileSetCompleted
-  | TileSetFailed
-  | TileSetCancelled;
 
 // Server message type union (discriminated union for type narrowing)
 type ServerMessage =
@@ -598,8 +519,7 @@ type ServerMessage =
   | AssetDeletedMessage
   | AssetForkedMessage
   | VariantDeletedMessage
-  | RotationPipelineMessage
-  | TileSetPipelineMessage;
+  | RotationPipelineMessage;
 
 /**
  * Client surface for asset-management mutations. Implemented by WebSocketClient;
@@ -643,24 +563,6 @@ export interface PipelineClient {
     onStepCompleted?: (data: RotationStepCompleted) => void;
   }): Promise<RotationPipelineResult>;
   cancelRotation(rotationSetId: string): Promise<RotationCancelled>;
-  sendTileSetRequest(params: {
-    tileType: TileType;
-    gridWidth: number;
-    gridHeight: number;
-    prompt: string;
-    seedVariantId?: string;
-    aspectRatio?: string;
-    disableStyle?: boolean;
-    stylePresetId?: string;
-    styleVariantIds?: string[];
-    generationMode?: RotationGenerationMode;
-    waitForCompletion?: boolean;
-    timeoutMs?: number;
-    onStarted?: (data: TileSetStarted) => void;
-    onTileCompleted?: (data: TileSetTileCompleted) => void;
-    onTileFailed?: (data: TileSetTileFailed) => void;
-  }): Promise<TileSetPipelineResult>;
-  cancelTileSet(tileSetId: string): Promise<TileSetCancelled>;
 }
 
 export class WebSocketClient {
@@ -744,20 +646,6 @@ export class WebSocketClient {
   }> = new Map();
 
   private rotationSetToRequestId: Map<string, string> = new Map();
-
-  private tileSetHandlers: Map<string, {
-    requestId: string;
-    waitForCompletion: boolean;
-    onStarted?: (data: TileSetStarted) => void;
-    onTileCompleted?: (data: TileSetTileCompleted) => void;
-    onTileFailed?: (data: TileSetTileFailed) => void;
-    resolve: (result: TileSetPipelineResult) => void;
-    reject: (error: Error) => void;
-    timeout: ReturnType<typeof setTimeout>;
-    started?: TileSetStarted;
-  }> = new Map();
-
-  private tileSetToRequestId: Map<string, string> = new Map();
 
   // Event handlers
   private onError?: (error: Error) => void;
@@ -1158,15 +1046,6 @@ export class WebSocketClient {
         this.handleRotationPipelineMessage(message as RotationPipelineMessage);
         break;
 
-      case 'tileset:started':
-      case 'tileset:tile_completed':
-      case 'tileset:tile_failed':
-      case 'tileset:completed':
-      case 'tileset:failed':
-      case 'tileset:cancelled':
-        this.handleTileSetPipelineMessage(message as TileSetPipelineMessage);
-        break;
-
       // SimplePlan message handlers
       case 'simple_plan:updated': {
         const planMsg = message as SimplePlanUpdatedMessage;
@@ -1247,7 +1126,7 @@ export class WebSocketClient {
 
   /** Reject all in-flight pipeline requests. Returns true if any were pending. */
   private failPipelineHandlers(error: Error): boolean {
-    const hadHandlers = this.rotationHandlers.size > 0 || this.tileSetHandlers.size > 0;
+    const hadHandlers = this.rotationHandlers.size > 0;
     if (!hadHandlers) return false;
 
     for (const [requestId, handler] of this.rotationHandlers) {
@@ -1256,13 +1135,6 @@ export class WebSocketClient {
       handler.reject(error);
     }
     this.rotationSetToRequestId.clear();
-
-    for (const [requestId, handler] of this.tileSetHandlers) {
-      clearTimeout(handler.timeout);
-      this.tileSetHandlers.delete(requestId);
-      handler.reject(error);
-    }
-    this.tileSetToRequestId.clear();
 
     return true;
   }
@@ -1351,93 +1223,6 @@ export class WebSocketClient {
       assetId: started.assetId,
       totalSteps: started.totalSteps,
       directions: started.directions,
-      status: 'cancelled',
-    });
-  }
-
-  private handleTileSetPipelineMessage(message: TileSetPipelineMessage): void {
-    if (message.type === 'tileset:started') {
-      const handler = this.tileSetHandlers.get(message.requestId);
-      if (!handler) return;
-      handler.started = message;
-      this.tileSetToRequestId.set(message.tileSetId, message.requestId);
-      handler.onStarted?.(message);
-
-      if (!handler.waitForCompletion) {
-        this.tileSetHandlers.delete(message.requestId);
-        this.tileSetToRequestId.delete(message.tileSetId);
-        clearTimeout(handler.timeout);
-        handler.resolve({
-          requestId: message.requestId,
-          tileSetId: message.tileSetId,
-          assetId: message.assetId,
-          gridWidth: message.gridWidth,
-          gridHeight: message.gridHeight,
-          totalTiles: message.totalTiles,
-          status: 'started',
-        });
-      }
-      return;
-    }
-
-    const requestId = this.tileSetToRequestId.get(message.tileSetId);
-    if (!requestId) return;
-    const handler = this.tileSetHandlers.get(requestId);
-    if (!handler) return;
-
-    if (message.type === 'tileset:tile_completed') {
-      handler.onTileCompleted?.(message);
-      return;
-    }
-
-    if (message.type === 'tileset:tile_failed') {
-      handler.onTileFailed?.(message);
-      return;
-    }
-
-    const started = handler.started;
-    if (!started) return;
-
-    this.tileSetHandlers.delete(requestId);
-    this.tileSetToRequestId.delete(message.tileSetId);
-    clearTimeout(handler.timeout);
-
-    if (message.type === 'tileset:completed') {
-      handler.resolve({
-        requestId,
-        tileSetId: message.tileSetId,
-        assetId: started.assetId,
-        gridWidth: started.gridWidth,
-        gridHeight: started.gridHeight,
-        totalTiles: started.totalTiles,
-        status: 'completed',
-        positions: message.positions,
-      });
-      return;
-    }
-
-    if (message.type === 'tileset:failed') {
-      handler.resolve({
-        requestId,
-        tileSetId: message.tileSetId,
-        assetId: started.assetId,
-        gridWidth: started.gridWidth,
-        gridHeight: started.gridHeight,
-        totalTiles: started.totalTiles,
-        status: 'failed',
-        error: message.error,
-        failedStep: message.failedStep,
-      });
-      return;
-    }
-
-    handler.resolve({
-      requestId,
-      tileSetId: message.tileSetId,
-      assetId: started.assetId,
-      gridWidth: started.gridWidth,
-      gridHeight: started.gridHeight,
-      totalTiles: started.totalTiles,
       status: 'cancelled',
     });
   }
@@ -1559,7 +1344,7 @@ export class WebSocketClient {
   }
 
   // ==========================================================================
-  // Rotation and tile-set pipelines
+  // Rotation pipelines
   // ==========================================================================
 
   async sendRotationRequest(params: {
@@ -1626,79 +1411,6 @@ export class WebSocketClient {
       { type: 'rotation:cancel', rotationSetId },
       (msg): msg is RotationCancelled =>
         msg.type === 'rotation:cancelled' && msg.rotationSetId === rotationSetId
-    );
-  }
-
-  async sendTileSetRequest(params: {
-    tileType: TileType;
-    gridWidth: number;
-    gridHeight: number;
-    prompt: string;
-    seedVariantId?: string;
-    aspectRatio?: string;
-    disableStyle?: boolean;
-    stylePresetId?: string;
-    styleVariantIds?: string[];
-    generationMode?: RotationGenerationMode;
-    waitForCompletion?: boolean;
-    timeoutMs?: number;
-    onStarted?: (data: TileSetStarted) => void;
-    onTileCompleted?: (data: TileSetTileCompleted) => void;
-    onTileFailed?: (data: TileSetTileFailed) => void;
-  }): Promise<TileSetPipelineResult> {
-    const requestId = crypto.randomUUID();
-    const waitForCompletion = params.waitForCompletion ?? true;
-
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        const handler = this.tileSetHandlers.get(requestId);
-        if (!handler) return;
-        this.tileSetHandlers.delete(requestId);
-        if (handler.started) {
-          this.tileSetToRequestId.delete(handler.started.tileSetId);
-        }
-        reject(new Error('Tile set pipeline request timed out'));
-      }, params.timeoutMs ?? PIPELINE_REQUEST_TIMEOUT_MS);
-
-      this.tileSetHandlers.set(requestId, {
-        requestId,
-        waitForCompletion,
-        onStarted: params.onStarted,
-        onTileCompleted: params.onTileCompleted,
-        onTileFailed: params.onTileFailed,
-        resolve,
-        reject,
-        timeout,
-      });
-
-      try {
-        this.send({
-          type: 'tileset:request',
-          requestId,
-          tileType: params.tileType,
-          gridWidth: params.gridWidth,
-          gridHeight: params.gridHeight,
-          prompt: params.prompt,
-          seedVariantId: params.seedVariantId,
-          aspectRatio: params.aspectRatio,
-          disableStyle: params.disableStyle,
-          stylePresetId: params.stylePresetId,
-          styleVariantIds: params.styleVariantIds,
-          generationMode: params.generationMode,
-        });
-      } catch (err) {
-        this.tileSetHandlers.delete(requestId);
-        clearTimeout(timeout);
-        reject(err instanceof Error ? err : new Error(String(err)));
-      }
-    });
-  }
-
-  async cancelTileSet(tileSetId: string): Promise<TileSetCancelled> {
-    return this.awaitServerMessage(
-      { type: 'tileset:cancel', tileSetId },
-      (msg): msg is TileSetCancelled =>
-        msg.type === 'tileset:cancelled' && msg.tileSetId === tileSetId
     );
   }
 

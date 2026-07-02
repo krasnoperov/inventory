@@ -22,7 +22,6 @@ import { exportRoutes } from './export';
 import { billingRoutes } from './billing';
 import { webhookRoutes } from './webhooks';
 import { uploadRoutes } from './upload';
-import { trainingExportRoutes } from './training-export';
 import { voicesRoutes } from './voices';
 import { renderStartApp } from '../frontend-start-ssr';
 
@@ -73,9 +72,6 @@ export function registerRoutes(
 
   // Upload routes (image upload to create variants)
   app.route('/', uploadRoutes);
-
-  // Training data export routes
-  app.route('/', trainingExportRoutes);
 
   // Voice listing routes (ElevenLabs audio provider)
   app.route('/', voicesRoutes);

@@ -4,8 +4,6 @@ import type {
   Lineage,
   RotationSet,
   RotationView,
-  TilePosition,
-  TileSet,
   UserPresence,
   Variant,
   SpaceCollection,
@@ -22,8 +20,6 @@ export interface SpaceStateSnapshot {
   presence: UserPresence[];
   rotationSets: RotationSet[];
   rotationViews: RotationView[];
-  tileSets: TileSet[];
-  tilePositions: TilePosition[];
   stylePresets?: StylePresetRaw[];
   styleReferenceCollections?: StyleReferenceCollectionRaw[];
   syncMode: 'full' | 'overview';
@@ -42,8 +38,6 @@ function cloneSpaceStateSnapshot(snapshot: SpaceStateSnapshot): SpaceStateSnapsh
     presence: [...snapshot.presence],
     rotationSets: [...snapshot.rotationSets],
     rotationViews: [...snapshot.rotationViews],
-    tileSets: [...snapshot.tileSets],
-    tilePositions: [...snapshot.tilePositions],
     stylePresets: [...(snapshot.stylePresets ?? [])],
     styleReferenceCollections: [...(snapshot.styleReferenceCollections ?? [])],
     syncMode: snapshot.syncMode,
@@ -95,8 +89,6 @@ export function persistSpaceStateSnapshot(args: {
   presence: UserPresence[];
   rotationSets: RotationSet[];
   rotationViews: RotationView[];
-  tileSets: TileSet[];
-  tilePositions: TilePosition[];
   stylePresets: StylePresetRaw[];
   styleReferenceCollections: StyleReferenceCollectionRaw[];
   syncMode: 'full' | 'overview' | null;
@@ -111,8 +103,6 @@ export function persistSpaceStateSnapshot(args: {
     presence: [...args.presence],
     rotationSets: [...args.rotationSets],
     rotationViews: [...args.rotationViews],
-    tileSets: [...args.tileSets],
-    tilePositions: [...args.tilePositions],
     stylePresets: [...args.stylePresets],
     styleReferenceCollections: [...args.styleReferenceCollections],
     syncMode: args.syncMode ?? existing?.syncMode ?? 'overview',

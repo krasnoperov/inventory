@@ -36,7 +36,7 @@ export interface ResolvedStyleReferences {
  * Always keeps the source image AND the front/first generated view (masterKey),
  * then fills remaining budget with most recent views.
  *
- * Pinning the front view ensures later steps in rotation/tile pipelines
+ * Pinning the front view ensures later steps in rotation pipelines
  * always have the canonical reference, reducing inter-step drift.
  */
 export function capRefs(

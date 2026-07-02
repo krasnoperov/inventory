@@ -19,8 +19,6 @@ export interface SpaceMessageContext {
   setPresence: SpaceSessionState['setPresence'];
   setRotationSets: SpaceSessionState['setRotationSets'];
   setRotationViews: SpaceSessionState['setRotationViews'];
-  setTileSets: SpaceSessionState['setTileSets'];
-  setTilePositions: SpaceSessionState['setTilePositions'];
   setStylePresets?: SpaceSessionState['setStylePresets'];
   setStyleReferenceCollections?: SpaceSessionState['setStyleReferenceCollections'];
   setError: SpaceSessionState['setError'];
@@ -46,8 +44,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
     setPresence,
     setRotationSets,
     setRotationViews,
-    setTileSets,
-    setTilePositions,
     setStylePresets,
     setStyleReferenceCollections,
     setError,
@@ -81,11 +77,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
     onRotationCompletedRef,
     onRotationFailedRef,
     onRotationCancelledRef,
-    onTileSetStartedRef,
-    onTileSetTileCompletedRef,
-    onTileSetCompletedRef,
-    onTileSetFailedRef,
-    onTileSetCancelledRef,
     onGenerateErrorRef,
     onRefineErrorRef,
     onBatchErrorRef,
@@ -106,8 +97,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setPresence(message.presence || []);
                 setRotationSets(message.rotationSets || []);
                 setRotationViews(message.rotationViews || []);
-                setTileSets(message.tileSets || []);
-                setTilePositions(message.tilePositions || []);
                 setStylePresets?.(message.stylePresets || []);
                 setStyleReferenceCollections?.(message.styleReferenceCollections || []);
                 setError(null);
@@ -131,8 +120,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setPresence(message.presence || []);
                 setRotationSets(message.rotationSets || []);
                 setRotationViews(message.rotationViews || []);
-                setTileSets(message.tileSets || []);
-                setTilePositions(message.tilePositions || []);
                 setStylePresets?.(message.stylePresets || []);
                 setStyleReferenceCollections?.(message.styleReferenceCollections || []);
                 setError(null);
@@ -786,99 +773,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                   )
                 );
                 onRotationCancelledRef.current?.(message.rotationSetId);
-                break;
-
-              // Tile set pipeline messages
-              case 'tileset:started':
-                setTileSets((prev) => {
-                  const existing = prev.find(ts => ts.id === message.tileSetId);
-                  if (existing) {
-                    return prev.map(ts => ts.id === message.tileSetId
-                      ? { ...ts, status: 'generating' as const, total_steps: message.totalTiles }
-                      : ts
-                    );
-                  }
-                  // Add new set from broadcast data
-                  return [...prev, {
-                    id: message.tileSetId,
-                    asset_id: message.assetId,
-                    tile_type: 'custom' as const,
-                    grid_width: message.gridWidth,
-                    grid_height: message.gridHeight,
-                    status: 'generating' as const,
-                    seed_variant_id: null,
-                    config: '',
-                    current_step: 0,
-                    total_steps: message.totalTiles,
-                    error_message: null,
-                    created_by: '',
-                    created_at: Date.now(),
-                    updated_at: Date.now(),
-                  }];
-                });
-                onTileSetStartedRef.current?.({
-                  tileSetId: message.tileSetId,
-                  assetId: message.assetId,
-                  gridWidth: message.gridWidth,
-                  gridHeight: message.gridHeight,
-                  totalTiles: message.totalTiles,
-                });
-                break;
-
-              case 'tileset:tile_completed':
-                setTileSets((prev) =>
-                  prev.map(ts => ts.id === message.tileSetId
-                    ? { ...ts, current_step: message.step + 1 }
-                    : ts
-                  )
-                );
-                onTileSetTileCompletedRef.current?.({
-                  tileSetId: message.tileSetId,
-                  gridX: message.gridX,
-                  gridY: message.gridY,
-                  step: message.step,
-                  total: message.total,
-                  variantId: message.variantId,
-                });
-                break;
-
-              case 'tileset:completed':
-                setTileSets((prev) =>
-                  prev.map(ts => ts.id === message.tileSetId
-                    ? { ...ts, status: 'completed' as const }
-                    : ts
-                  )
-                );
-                setTilePositions((prev) => {
-                  const existingIds = new Set(prev.map(tp => tp.id));
-                  const newPositions = message.positions.filter(p => !existingIds.has(p.id));
-                  return newPositions.length > 0 ? [...prev, ...newPositions] : prev;
-                });
-                onTileSetCompletedRef.current?.({ tileSetId: message.tileSetId, positions: message.positions });
-                break;
-
-              case 'tileset:failed':
-                setTileSets((prev) =>
-                  prev.map(ts => ts.id === message.tileSetId
-                    ? { ...ts, status: 'failed' as const, error_message: message.error }
-                    : ts
-                  )
-                );
-                onTileSetFailedRef.current?.({
-                  tileSetId: message.tileSetId,
-                  error: message.error,
-                  failedStep: message.failedStep,
-                });
-                break;
-
-              case 'tileset:cancelled':
-                setTileSets((prev) =>
-                  prev.map(ts => ts.id === message.tileSetId
-                    ? { ...ts, status: 'cancelled' as const }
-                    : ts
-                  )
-                );
-                onTileSetCancelledRef.current?.(message.tileSetId);
                 break;
 
               default:

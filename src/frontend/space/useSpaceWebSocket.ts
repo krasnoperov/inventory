@@ -11,8 +11,6 @@ import {
   EMPTY_ROTATION_VIEWS,
   EMPTY_STYLE_PRESETS,
   EMPTY_STYLE_REFERENCE_COLLECTIONS,
-  EMPTY_TILE_POSITIONS,
-  EMPTY_TILE_SETS,
   EMPTY_VARIANTS,
   useSpaceSessionStore,
 } from './spaceStore';
@@ -75,11 +73,6 @@ export function useSpaceWebSocket({
   onRotationCompleted,
   onRotationFailed,
   onRotationCancelled,
-  onTileSetStarted,
-  onTileSetTileCompleted,
-  onTileSetCompleted,
-  onTileSetFailed,
-  onTileSetCancelled,
   onGenerateError,
   onRefineError,
   onBatchError,
@@ -98,8 +91,6 @@ export function useSpaceWebSocket({
   const rawPresence = useSpaceSessionStore((state) => state.presence);
   const rawRotationSets = useSpaceSessionStore((state) => state.rotationSets);
   const rawRotationViews = useSpaceSessionStore((state) => state.rotationViews);
-  const rawTileSets = useSpaceSessionStore((state) => state.tileSets);
-  const rawTilePositions = useSpaceSessionStore((state) => state.tilePositions);
   const rawStylePresets = useSpaceSessionStore((state) => state.stylePresets);
   const rawStyleReferenceCollections = useSpaceSessionStore((state) => state.styleReferenceCollections);
   const setJobs = useSpaceSessionStore((state) => state.setJobs);
@@ -117,8 +108,6 @@ export function useSpaceWebSocket({
   const presence = ownsState ? rawPresence : EMPTY_PRESENCE;
   const rotationSets = ownsState ? rawRotationSets : EMPTY_ROTATION_SETS;
   const rotationViews = ownsState ? rawRotationViews : EMPTY_ROTATION_VIEWS;
-  const tileSets = ownsState ? rawTileSets : EMPTY_TILE_SETS;
-  const tilePositions = ownsState ? rawTilePositions : EMPTY_TILE_POSITIONS;
   const stylePresets = ownsState ? rawStylePresets : EMPTY_STYLE_PRESETS;
   const styleReferenceCollections = ownsState ? rawStyleReferenceCollections : EMPTY_STYLE_REFERENCE_COLLECTIONS;
 
@@ -164,11 +153,6 @@ export function useSpaceWebSocket({
     sendGenerationEstimateRequest,
     sendRotationRequest,
     sendRotationCancel,
-    sendTileSetRequest,
-    sendTileSetCancel,
-    sendRetryTile,
-    sendRefineEdges,
-    sendRefineTile,
     sendVariantRate,
   } = commands;
 
@@ -207,11 +191,6 @@ export function useSpaceWebSocket({
     onRotationCompleted,
     onRotationFailed,
     onRotationCancelled,
-    onTileSetStarted,
-    onTileSetTileCompleted,
-    onTileSetCompleted,
-    onTileSetFailed,
-    onTileSetCancelled,
     onGenerateError,
     onRefineError,
     onBatchError,
@@ -288,14 +267,6 @@ export function useSpaceWebSocket({
     rotationViews,
     sendRotationRequest,
     sendRotationCancel,
-    // Tile set pipeline
-    tileSets,
-    tilePositions,
-    sendTileSetRequest,
-    sendTileSetCancel,
-    sendRetryTile,
-    sendRefineEdges,
-    sendRefineTile,
     sendVariantRate,
   };
 }

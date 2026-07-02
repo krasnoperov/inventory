@@ -62,7 +62,6 @@ makefx assets download VARIANT_ID -o references/variant.png
 | `usage` | Show platform storage and workflow consumption for a space |
 | `spend` | Show admin provider cost summaries |
 | `rotation` | Experimental rotation views from a completed image variant; hidden unless rotation flags are enabled |
-| `tileset` | Generate and monitor consistent tile sets |
 | `listen` | Connect to WebSocket and stream all events |
 | `upload` | Upload local media files and return Space IDs for chaining |
 | `generate` | Create a new asset through the website generation workflow |
@@ -250,12 +249,12 @@ Notes:
 
 ---
 
-## Rotation Views And Tile Sets
+## Rotation Views
 
-Rotation and tile-set pipelines use the same authenticated Space WebSocket as
-the web app. By default the CLI starts the pipeline, streams progress, and waits
-for a terminal `completed`, `failed`, or `cancelled` event. Pass `--detach` to
-return after the Space confirms the pipeline has started.
+Rotation pipelines use the same authenticated Space WebSocket as the web app.
+By default the CLI starts the pipeline, streams progress, and waits for a
+terminal `completed`, `failed`, or `cancelled` event. Pass `--detach` to return
+after the Space confirms the pipeline has started.
 
 Rotation generation is currently experimental and hidden by default. Set
 `MAKEFX_ROTATION_ENABLED=true` before exposing it end to end.
@@ -280,30 +279,6 @@ Rotation options:
 | `--mode <mode>` | `sequential` or `single-shot` (default: `sequential`) |
 | `--no-style` | Disable style preset injection for this request |
 | `--detach` | Return after `rotation:started` |
-| `--timeout <sec>` | Override the wait timeout |
-| `--json` | Print machine-readable output |
-
-Generate a tile set:
-
-```bash
-makefx tileset "grass and stone path tiles" --type terrain --grid 3x3
-makefx tileset "shop wall and roof tiles" --type building --width 4 --height 2
-makefx tileset "crystal floor tiles" --type custom --grid 3 --seed-variant VARIANT_ID
-makefx tileset cancel TILE_SET_ID
-```
-
-Tile-set options:
-
-| Option | Description |
-|--------|-------------|
-| `--type <type>` | `terrain`, `building`, `decoration`, or `custom` (default: `terrain`) |
-| `--grid <size>` | Square size or `WIDTHxHEIGHT`, each dimension 2-5 (default: `3`) |
-| `--width <n>` / `--height <n>` | Grid dimensions when not using `--grid` |
-| `--seed-variant <id>` | Optional completed image variant to place at the center; sequential mode only |
-| `--aspect <ratio>` | Optional generation aspect ratio |
-| `--mode <mode>` | `sequential` or `single-shot` (default: `sequential`) |
-| `--no-style` | Disable style preset injection for this request |
-| `--detach` | Return after `tileset:started` |
 | `--timeout <sec>` | Override the wait timeout |
 | `--json` | Print machine-readable output |
 

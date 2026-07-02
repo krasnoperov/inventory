@@ -30,7 +30,7 @@ scene by passing *both* the sheet and the previous frame, each labelled — "Ima
 which character it is editing.[^picard]
 
 **In Make Effects, you don't build the sheet by hand.** The
-[rotation pipeline](../rotation-and-tiles.md) does it for you: seed it with one
+[rotation pipeline](../rotation-pipeline.md) does it for you: seed it with one
 strong variant, pick `turnaround` (front, 3/4-front, side, 3/4-back, back),
 `4-directional`, or `8-directional`, and each step feeds every completed view
 back as a reference for the next. The injected prompt literally instructs the
@@ -157,20 +157,12 @@ and verify before stacking the next edit. For long sequences (storyboards of
 dozens of frames), this incrementalism plus a fixed reference sheet is what keeps
 frame fifty recognisable as the same character from frame one.[^flowith]
 
-## Scenes That Tile Or Rotate
+## Scenes That Rotate
 
-Two production patterns get their own automated pipelines, both built on the
-feed-forward reference idea:
-
-- **Rotation sets** turn one subject into a consistent multi-angle sheet
-  (covered above). Use them for character turnarounds and prop views.
-- **Tile sets** grow a seamless map outward from a center tile using
-  adjacency-aware prompting, spiralling from the middle so each new tile
-  references its finished neighbours. Grids run 2×2 up to 5×5. See
-  [rotation-and-tiles.md](../rotation-and-tiles.md).
-
-Both exist precisely because feeding completed images back as references is what
-holds a set together — the same reason the character-sheet method works.
+Rotation sets turn one subject into a consistent multi-angle sheet. Use them
+for character turnarounds and prop views. The same feed-forward reference idea
+is what holds the sheet together: completed images become named references for
+the next view.
 
 ## Quick Reference
 

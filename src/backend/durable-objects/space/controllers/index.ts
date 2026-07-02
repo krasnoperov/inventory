@@ -27,5 +27,4 @@ export { GenerationController } from './GenerationController';
 export { VisionController } from './VisionController';
 export { StylePresetController } from './StylePresetController';
 export { RotationController } from './RotationController';
-export { TileController } from './TileController';
 export { OrganizationController } from './OrganizationController';

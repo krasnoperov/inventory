@@ -32,11 +32,6 @@ export function useSpaceCallbackRefs({
   onRotationCompleted,
   onRotationFailed,
   onRotationCancelled,
-  onTileSetStarted,
-  onTileSetTileCompleted,
-  onTileSetCompleted,
-  onTileSetFailed,
-  onTileSetCancelled,
   onGenerateError,
   onRefineError,
   onBatchError,
@@ -74,11 +69,6 @@ export function useSpaceCallbackRefs({
   const onRotationCompletedRef = useRef(onRotationCompleted);
   const onRotationFailedRef = useRef(onRotationFailed);
   const onRotationCancelledRef = useRef(onRotationCancelled);
-  const onTileSetStartedRef = useRef(onTileSetStarted);
-  const onTileSetTileCompletedRef = useRef(onTileSetTileCompleted);
-  const onTileSetCompletedRef = useRef(onTileSetCompleted);
-  const onTileSetFailedRef = useRef(onTileSetFailed);
-  const onTileSetCancelledRef = useRef(onTileSetCancelled);
   const onGenerateErrorRef = useRef(onGenerateError);
   const onRefineErrorRef = useRef(onRefineError);
   const onBatchErrorRef = useRef(onBatchError);
@@ -117,11 +107,6 @@ export function useSpaceCallbackRefs({
     onRotationCompletedRef.current = onRotationCompleted;
     onRotationFailedRef.current = onRotationFailed;
     onRotationCancelledRef.current = onRotationCancelled;
-    onTileSetStartedRef.current = onTileSetStarted;
-    onTileSetTileCompletedRef.current = onTileSetTileCompleted;
-    onTileSetCompletedRef.current = onTileSetCompleted;
-    onTileSetFailedRef.current = onTileSetFailed;
-    onTileSetCancelledRef.current = onTileSetCancelled;
     onGenerateErrorRef.current = onGenerateError;
     onRefineErrorRef.current = onRefineError;
     onBatchErrorRef.current = onBatchError;
@@ -160,11 +145,6 @@ export function useSpaceCallbackRefs({
     onRotationCompletedRef,
     onRotationFailedRef,
     onRotationCancelledRef,
-    onTileSetStartedRef,
-    onTileSetTileCompletedRef,
-    onTileSetCompletedRef,
-    onTileSetFailedRef,
-    onTileSetCancelledRef,
     onGenerateErrorRef,
     onRefineErrorRef,
     onBatchErrorRef,

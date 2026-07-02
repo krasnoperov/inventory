@@ -97,8 +97,6 @@ function getStoreActions() {
     setPresence: store.setPresence,
     setRotationSets: store.setRotationSets,
     setRotationViews: store.setRotationViews,
-    setTileSets: store.setTileSets,
-    setTilePositions: store.setTilePositions,
     setStylePresets: store.setStylePresets,
     setStyleReferenceCollections: store.setStyleReferenceCollections,
   };
@@ -242,8 +240,6 @@ function startSnapshotPersistence(spaceId: string): void {
       presence: state.presence,
       rotationSets: state.rotationSets,
       rotationViews: state.rotationViews,
-      tileSets: state.tileSets,
-      tilePositions: state.tilePositions,
       stylePresets: state.stylePresets,
       styleReferenceCollections: state.styleReferenceCollections,
       syncMode: syncModeRef.current,

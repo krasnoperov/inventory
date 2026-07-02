@@ -451,7 +451,6 @@ test('asset detail overlays use flat chrome', async ({ page }) => {
   await expect(toolbar).toContainText('Crystal Gate with readable scoped title');
   await expect(toolbar).toHaveCSS('flex-wrap', 'nowrap');
   await expect(toolbar.locator('[class*="assetTitleSlot"]')).toHaveCSS('text-overflow', 'clip');
-  await expect(page.getByRole('region', { name: 'Tile grid overlay' })).toHaveCSS('box-shadow', 'none');
   const generationJobs = page.getByRole('region', { name: 'Generation jobs' });
   await expect(generationJobs.locator('[class*="jobCard"]')).toHaveCSS('box-shadow', 'none');
   await expect(generationJobs.getByLabel('Generating job')).toBeVisible();

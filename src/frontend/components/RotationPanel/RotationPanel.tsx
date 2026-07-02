@@ -49,7 +49,6 @@ interface RotationPanelProps {
   onClose: () => void;
   hasDefaultStyle?: boolean;
   onRateVariant?: (variantId: string, rating: 'approved' | 'rejected') => void;
-  onExportTrainingData?: () => void;
 }
 
 export function RotationPanel({
@@ -63,7 +62,6 @@ export function RotationPanel({
   onClose,
   hasDefaultStyle = false,
   onRateVariant,
-  onExportTrainingData,
 }: RotationPanelProps) {
   const [config, setConfig] = useState<RotationConfig>('4-directional');
   const [subjectDescription, setSubjectDescription] = useState(
@@ -307,11 +305,6 @@ export function RotationPanel({
             <Button variant="secondary" onClick={onClose}>
               Close
             </Button>
-            {onExportTrainingData && (
-              <Button variant="secondary" onClick={onExportTrainingData}>
-                Export Training Data
-              </Button>
-            )}
             <Button
               variant="primary"
               onClick={handleStart}

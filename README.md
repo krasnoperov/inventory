@@ -90,7 +90,6 @@ makefx assets download VARIANT_ID -o references/variant.png
 makefx usage --from 2026-06-01
 makefx spend --from 2026-06-01 --provider gemini
 makefx listen --space YOUR_SPACE_ID
-makefx tileset "cohesive grass, path, and stone terrain tiles" --type terrain --grid 3x3
 ```
 
 Use run manifests for debugging agent workflows:
@@ -122,7 +121,6 @@ staging or `--local` for a local development server.
 | `makefx usage` | Show platform storage and workflow consumption for a space |
 | `makefx spend` | Show admin provider cost summaries |
 | `makefx rotation` | Experimental rotation views from a completed image variant; hidden unless rotation flags are enabled |
-| `makefx tileset` | Generate and monitor consistent tile sets |
 | `makefx listen` | Stream real-time space events |
 | `makefx runs` | Inspect debug-only local generation manifests |
 

@@ -133,38 +133,33 @@ test('rotation pipeline waits for the matching terminal event after progress', a
   assert.equal(result.views?.length, 1);
 });
 
-test('tileset pipeline detach resolves on started and server errors reject pending pipelines', async () => {
+test('rotation pipeline detach resolves on started and server errors reject pending pipelines', async () => {
   const first = newClient();
-  const detached = first.client.sendTileSetRequest({
-    tileType: 'terrain',
-    gridWidth: 3,
-    gridHeight: 2,
-    prompt: 'grass path',
+  const detached = first.client.sendRotationRequest({
+    sourceVariantId: 'variant-source',
+    config: '4-directional',
     waitForCompletion: false,
   });
   const startRequest = first.sentMessages[0] as { requestId: string };
   first.internals.handleMessage({
-    type: 'tileset:started',
+    type: 'rotation:started',
     requestId: startRequest.requestId,
-    tileSetId: 'tile-set-1',
-    assetId: 'asset-tiles',
-    gridWidth: 3,
-    gridHeight: 2,
-    totalTiles: 6,
+    rotationSetId: 'rotation-set-1',
+    assetId: 'asset-rotation',
+    totalSteps: 4,
+    directions: ['S', 'E', 'N', 'W'],
   });
   assert.equal((await detached).status, 'started');
 
   const second = newClient();
-  const pending = second.client.sendTileSetRequest({
-    tileType: 'custom',
-    gridWidth: 2,
-    gridHeight: 2,
-    prompt: 'crystal floor',
+  const pending = second.client.sendRotationRequest({
+    sourceVariantId: 'variant-source',
+    config: '4-directional',
   });
   second.internals.handleMessage({
     type: 'error',
     code: 'VALIDATION_ERROR',
-    message: 'Seed variant must be completed with an image',
+    message: 'Source variant must be completed with an image',
   });
-  await assert.rejects(pending, /VALIDATION_ERROR: Seed variant must be completed with an image/);
+  await assert.rejects(pending, /VALIDATION_ERROR: Source variant must be completed with an image/);
 });

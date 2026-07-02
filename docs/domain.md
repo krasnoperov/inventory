@@ -23,7 +23,7 @@ AI-powered generation, refinement, import, audio, and video.
 
 A named catalog entry representing a conceptual thing (character, item, scene, style reference).
 
-- **Type** describes what it represents: `character`, `item`, `scene`, `sprite-sheet`, `style-sheet`, `reference`, `tile-set`, `animation` (unconstrained string — additional types can be added freely)
+- **Type** describes what it represents: `character`, `item`, `scene`, `sprite-sheet`, `style-sheet`, `reference`, `animation` (unconstrained string — additional types can be added freely)
 - **Media kind** describes the stored output medium: `image`, `audio`, or `video`
 - **Space position/grouping** organizes assets without changing generation lineage
 - **Active variant** — one variant represents the asset in catalog view
