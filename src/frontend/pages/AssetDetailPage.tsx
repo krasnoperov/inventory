@@ -9,7 +9,7 @@ import { useForgeTrayStore } from '../stores/forgeTrayStore';
 import { useChatStore } from '../stores/chatStore';
 import { useAssetDetailStore, useSelectedVariantId } from '../stores/assetDetailStore';
 import { HeaderNav } from '../components/HeaderNav';
-import { WorkspaceChrome } from '../components/WorkspaceChrome';
+import { WorkspaceBottomStack, WorkspaceCanvas, WorkspaceChrome, WorkspaceLayout } from '../components/WorkspaceChrome';
 import { CanvasDropHint } from '../components/CanvasDropHint';
 import {
   CanvasToolbar,
@@ -31,6 +31,7 @@ import {
 } from '../hooks/useSpaceWebSocket';
 import { ForgeTray } from '../components/ForgeTray';
 import { VariantCanvas } from '../components/VariantCanvas';
+import { VariantDetailsPanel } from '../components/VariantCanvas/VariantDetailsPanel';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { findAcceptedUploadFile } from '../mediaUpload';
@@ -259,20 +260,34 @@ export function AssetDetailsContext({
 
 export function AssetGenerationDock({
   details,
+  inspector,
+  status,
   tray,
 }: {
   details?: React.ReactNode;
+  inspector?: React.ReactNode;
+  status?: React.ReactNode;
   tray: React.ReactNode;
 }) {
   return (
-    <section className={styles.assetGenerationDock} aria-label="Asset generation controls">
+    <WorkspaceBottomStack className={styles.assetGenerationDock} ariaLabel="Asset generation controls">
+      {inspector && (
+        <div className={styles.assetInspectorDock}>
+          {inspector}
+        </div>
+      )}
+      {status && (
+        <div className={styles.assetStatusDock}>
+          {status}
+        </div>
+      )}
       {details && (
         <div className={styles.assetDetailsDock}>
           {details}
         </div>
       )}
       {tray}
-    </section>
+    </WorkspaceBottomStack>
   );
 }
 
@@ -479,6 +494,19 @@ export default function AssetDetailPage() {
   const selectedVariantIndex = selectedVariant
     ? variants.findIndex((variant) => variant.id === selectedVariant.id)
     : -1;
+  const [expandedVariantId, setExpandedVariantId] = useState<string | null>(null);
+  const expandedVariant = expandedVariantId
+    ? variants.find((variant) => variant.id === expandedVariantId) ?? null
+    : null;
+  const expandedVariantIndex = expandedVariant
+    ? variants.findIndex((variant) => variant.id === expandedVariant.id)
+    : -1;
+  const assetJobs = useMemo(() => {
+    if (!asset) return [];
+    return Array.from(jobs.values()).filter(
+      job => job.assetId === assetId || job.assetName === asset.name
+    );
+  }, [asset, assetId, jobs]);
   // Set page title
   useDocumentTitle(asset?.name);
 
@@ -540,6 +568,12 @@ export default function AssetDetailPage() {
       setSelectedVariantId(assetId, assetVariants[0]?.id || null);
     }
   }, [wsStatus, wsVariants, assetId, selectedVariantId, setSelectedVariantId]);
+
+  useEffect(() => {
+    if (expandedVariantId && !variants.some((variant) => variant.id === expandedVariantId)) {
+      setExpandedVariantId(null);
+    }
+  }, [expandedVariantId, variants]);
 
   // Action handlers
   const handleSetActiveVariant = useCallback((variantId: string) => {
@@ -739,14 +773,13 @@ export default function AssetDetailPage() {
         statusSlot={<UsageIndicator />}
       />
 
-      {/* Full-screen canvas container */}
-      <div
+      <WorkspaceLayout
         className={`${styles.canvasContainer} ${isDetailsDragOver ? styles.canvasDropActive : ''}`}
         onDragOver={handleDetailsDragOver}
         onDragLeave={handleDetailsDragLeave}
         onDrop={handleDetailsDrop}
       >
-        <div className={styles.canvasStage}>
+        <WorkspaceCanvas className={styles.canvasStage}>
         {/* Variant Canvas - fills entire container */}
         <VariantCanvas
           spaceId={spaceId}
@@ -767,6 +800,9 @@ export default function AssetDetailPage() {
           onGhostNodeClick={(assetId) => navigate(`/spaces/${spaceId}/assets/${assetId}`)}
           onStarVariant={handleStarVariant}
           onDeleteVariant={handleDeleteVariant}
+          detailsPlacement="external"
+          expandedVariantId={expandedVariantId}
+          onExpandedVariantIdChange={setExpandedVariantId}
         />
 
         {/* Tile Grid overlay for tile-set assets */}
@@ -856,43 +892,6 @@ export default function AssetDetailPage() {
           />
         )}
 
-        {/* Jobs overlay - bottom left */}
-        {jobs.size > 0 && (() => {
-          const assetJobs = Array.from(jobs.values()).filter(
-            j => j.assetId === assetId || j.assetName === asset.name
-          );
-          if (assetJobs.length === 0) return null;
-
-          return (
-            <div className={styles.jobsOverlay}>
-              {assetJobs.map((job) => (
-                <div key={job.jobId} className={`${styles.jobCard} ${styles[job.status]}`}>
-                  <span className={styles.jobStatus} aria-label={`${JOB_STATUS_LABELS[job.status]} job`} />
-                  <div className={styles.jobInfo}>
-                    <span className={styles.jobTitle}>{JOB_STATUS_LABELS[job.status]}</span>
-                    {job.prompt && job.status !== 'completed' && (
-                      <span className={styles.jobPrompt}>
-                        "{job.prompt}"
-                      </span>
-                    )}
-                    {job.error && <span className={styles.jobError}>{job.error}</span>}
-                  </div>
-                  {(job.status === 'completed' || job.status === 'failed') && (
-                    <Button
-                      className={styles.dismissButton}
-                      onClick={() => clearJob(job.jobId)}
-                      variant="ghost"
-                      size="sm"
-                    >
-                      Dismiss
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          );
-        })()}
-
       {/* Confirmation Dialog */}
       {confirmDialog && (
         <div className={styles.dialogOverlay} onClick={() => setConfirmDialog(null)}>
@@ -919,10 +918,57 @@ export default function AssetDetailPage() {
         </div>
       )}
 
-        </div>
+        </WorkspaceCanvas>
 
       {/* Asset details + Forge Tray - persistent bottom controls */}
       <AssetGenerationDock
+        inspector={expandedVariant ? (
+          <VariantDetailsPanel
+            variant={expandedVariant}
+            asset={asset}
+            spaceId={spaceId}
+            avoidGenerationDock
+            isActive={expandedVariant.id === asset.active_variant_id}
+            variantIndex={expandedVariantIndex >= 0 ? expandedVariantIndex : undefined}
+            variantCount={variants.length}
+            lineage={lineage}
+            allVariants={wsVariants}
+            allAssets={wsAssets}
+            onClose={() => setExpandedVariantId(null)}
+            onStarVariant={handleStarVariant}
+            onDeleteVariant={handleDeleteVariant}
+            onAddToTray={handleAddToTray}
+            onSetActive={handleSetActiveVariant}
+          />
+        ) : undefined}
+        status={assetJobs.length > 0 ? (
+          <div className={styles.jobsDock} role="region" aria-label="Generation jobs">
+            {assetJobs.map((job) => (
+              <div key={job.jobId} className={`${styles.jobCard} ${styles[job.status]}`}>
+                <span className={styles.jobStatus} aria-label={`${JOB_STATUS_LABELS[job.status]} job`} />
+                <div className={styles.jobInfo}>
+                  <span className={styles.jobTitle}>{JOB_STATUS_LABELS[job.status]}</span>
+                  {job.prompt && job.status !== 'completed' && (
+                    <span className={styles.jobPrompt}>
+                      "{job.prompt}"
+                    </span>
+                  )}
+                  {job.error && <span className={styles.jobError}>{job.error}</span>}
+                </div>
+                {(job.status === 'completed' || job.status === 'failed') && (
+                  <Button
+                    className={styles.dismissButton}
+                    onClick={() => clearJob(job.jobId)}
+                    variant="ghost"
+                    size="sm"
+                  >
+                    Dismiss
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : undefined}
         details={(
           <AssetDetailsContext
             asset={asset}
@@ -960,7 +1006,7 @@ export default function AssetDetailPage() {
           />
         )}
       />
-      </div>
+      </WorkspaceLayout>
 
       {/* Rotation Panel modal */}
       {showRotationPanel && selectedVariant && asset && (

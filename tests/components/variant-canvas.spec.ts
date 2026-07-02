@@ -241,6 +241,39 @@ test('asset-scoped variant details dock beside the full-page canvas', async ({ p
   await screenshot(page, 'variant-canvas-details-docked-below-node', { fullPage: true });
 });
 
+test('asset-scoped variant details can be composed outside the canvas', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 720 });
+  await mockMedia(page);
+  await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
+  await sizeCanvasHarness(page);
+  const scopedAsset = asset('icon', 'App Icon');
+  const scopedVariant = variant('icon');
+  await page.evaluate((p) => (window as unknown as { __setHarnessProps: (x: unknown) => void }).__setHarnessProps(p), {
+    spaceId: 'space-1',
+    canvasLabel: 'Details canvas',
+    scope: 'asset-details',
+    detailsPlacement: 'external',
+    expandedVariantId: null,
+    asset: scopedAsset,
+    variants: [scopedVariant],
+    lineage: [],
+    selectedVariantId: scopedVariant.id,
+    allVariants: [scopedVariant],
+    allAssets: [scopedAsset],
+    onVariantClick: '__noop__',
+    onExpandedVariantIdChange: '__record__:expand',
+  });
+
+  await page.waitForSelector('.react-flow__node');
+  await page.locator('.react-flow__node').first().click();
+  await expect(page.getByRole('complementary', { name: 'Variant details' })).toHaveCount(0);
+  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
+  expect(calls).toContainEqual(expect.objectContaining({
+    eventName: 'expand',
+    args: [scopedVariant.id],
+  }));
+});
+
 test('space-level variant details dock below the clicked node', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 720 });
   await mockMedia(page);

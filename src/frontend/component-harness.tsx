@@ -27,7 +27,7 @@ import { VariantCanvas } from './components/VariantCanvas';
 import { VariantDetailsPanel } from './components/VariantCanvas/VariantDetailsPanel';
 import { BillingPlanActions, UsageBar } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
-import { WorkspaceChrome } from './components/WorkspaceChrome';
+import { WorkspaceCanvas, WorkspaceChrome, WorkspaceLayout } from './components/WorkspaceChrome';
 import { AuthContext, type AuthContextType } from './contexts/AuthContextProvider';
 import { Button, ButtonLink, Checkbox, IconButton, SegmentedControl, TextArea, TextInput, UiSelect, type SelectOption } from './ui';
 import type { MeterStatus } from './hooks/useBillingStatus';
@@ -43,7 +43,6 @@ import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
 import profileStyles from './pages/ProfilePage.module.css';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
 import spacePageStyles from './pages/SpacePage.module.css';
-import variantCanvasStyles from './components/VariantCanvas/VariantCanvas.module.css';
 import UnknownPage from './pages/UnknownPage';
 import type {
   Asset,
@@ -242,24 +241,13 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
     : undefined;
 
   return (
-    <div
+    <WorkspaceLayout
       className={assetDetailStyles.canvasContainer}
       style={{ height: '100vh' }}
     >
-      <div className={assetDetailStyles.canvasStage}>
-        {variantInspector ? (
-          <div
-            className={`${variantCanvasStyles.canvas} ${variantCanvasStyles.assetScoped} ${variantCanvasStyles.detailsOpen} ${variantCanvasStyles.ready}`}
-            data-canvas-scope="asset-details"
-          >
-            <div className={variantCanvasStyles.flowPane} />
-            <div className={`${variantCanvasStyles.detailsDock} ${variantCanvasStyles.detailsDockReady}`}>
-              {variantInspector}
-            </div>
-          </div>
-        ) : null}
-      </div>
+      <WorkspaceCanvas className={assetDetailStyles.canvasStage} />
       <AssetGenerationDockHarness
+        inspector={variantInspector}
         details={renderDockSummary ? (
           <AssetDetailsContextHarness
             {...contextProps}
@@ -279,7 +267,7 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
           />
         )}
       />
-    </div>
+    </WorkspaceLayout>
   );
 }
 
@@ -327,8 +315,8 @@ function AssetGenerationDockAudioNoEllipsisPreview() {
 
 function AssetGenerationDockClosedCanvasPreview() {
   return (
-    <div className={assetDetailStyles.canvasContainer} style={{ height: '100vh' }}>
-      <div className={assetDetailStyles.canvasStage} />
+    <WorkspaceLayout className={assetDetailStyles.canvasContainer} style={{ height: '100vh' }}>
+      <WorkspaceCanvas className={assetDetailStyles.canvasStage} />
       <AssetGenerationDockHarness
         tray={(
           <ForgeTray
@@ -340,7 +328,7 @@ function AssetGenerationDockClosedCanvasPreview() {
           />
         )}
       />
-    </div>
+    </WorkspaceLayout>
   );
 }
 
