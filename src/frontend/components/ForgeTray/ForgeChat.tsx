@@ -176,7 +176,7 @@ export function ForgeChat({
   }, [clearChat]);
 
   return (
-    <div className={styles.backdrop}>
+    <div className={styles.sheetHost}>
       <div className={styles.chatPanel}>
       {/* Header */}
       <div className={styles.header}>

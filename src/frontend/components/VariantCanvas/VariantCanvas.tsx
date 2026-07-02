@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useEffect } from 'react';
+import { useMemo, useCallback, useState, useEffect, useLayoutEffect } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -277,6 +277,7 @@ function VariantCanvasInner({
   const [isReady, setIsReady] = useState(false);
   // Which variant's fixed details panel is open (single-select on the canvas).
   const [expandedVariantId, setExpandedVariantId] = useState<string | null>(null);
+  const [settledDetailsVariantId, setSettledDetailsVariantId] = useState<string | null>(null);
   const toggleExpanded = useCallback((variantId: string) => {
     setExpandedVariantId((prev) => (prev === variantId ? null : variantId));
   }, []);
@@ -614,13 +615,25 @@ function VariantCanvasInner({
     }
   }, [dimensionsReady, nodes.length, fitView]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (dimensionsReady && expandedVariantId && nodes.length > 0) {
-      requestAnimationFrame(() => {
-        fitView({ padding: 0.14, maxZoom: 1 });
-      });
+      setSettledDetailsVariantId(null);
+      fitView({ padding: 0.2, maxZoom: avoidGenerationDock ? 0.72 : 0.85 });
+      let frame = 0;
+      const timeout = window.setTimeout(() => {
+        fitView({ padding: 0.2, maxZoom: avoidGenerationDock ? 0.72 : 0.85 });
+        frame = requestAnimationFrame(() => {
+          setSettledDetailsVariantId(expandedVariantId);
+        });
+      }, 80);
+      return () => {
+        window.clearTimeout(timeout);
+        if (frame) cancelAnimationFrame(frame);
+      };
     }
-  }, [dimensionsReady, expandedVariantId, nodes.length, fitView]);
+    setSettledDetailsVariantId(null);
+    return undefined;
+  }, [avoidGenerationDock, dimensionsReady, expandedVariantId, nodes.length, fitView]);
 
   // Close the details panel if its variant disappears (deleted, filtered out).
   useEffect(() => {
@@ -687,7 +700,12 @@ function VariantCanvasInner({
       </div>
 
       {expandedVariant && (
-        <div className={styles.detailsDock}>
+        <div
+          className={[
+            styles.detailsDock,
+            settledDetailsVariantId === expandedVariant.id ? styles.detailsDockReady : '',
+          ].filter(Boolean).join(' ')}
+        >
           <VariantDetailsPanel
             variant={expandedVariant}
             asset={asset}

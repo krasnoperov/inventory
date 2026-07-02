@@ -16,10 +16,10 @@
 }
 
 .canvas.detailsOpen {
-  --variant-details-dock-height: min(32vh, 18rem);
+  --variant-details-dock-height: clamp(9rem, 26vh, 14rem);
   --variant-details-dock-gap: 0.75rem;
 
-  grid-template-rows: minmax(0, 1fr) var(--variant-details-dock-height);
+  grid-template-rows: minmax(12rem, 1fr) minmax(0, var(--variant-details-dock-height));
   gap: var(--variant-details-dock-gap);
   box-sizing: border-box;
   padding: 0 1rem calc(var(--variant-details-generation-dock-clearance, 0px) + 1rem);
@@ -40,7 +40,13 @@
 .detailsDock {
   min-width: 0;
   min-height: 0;
+  height: 100%;
   z-index: 20;
+  visibility: hidden;
+}
+
+.detailsDockReady {
+  visibility: visible;
 }
 
 .canvas.assetScoped,
@@ -100,9 +106,10 @@
 
 @media (max-width: 768px) {
   .canvas.detailsOpen {
-    --variant-details-dock-height: min(22vh, 11rem);
+    --variant-details-dock-height: clamp(8rem, 22vh, 11rem);
     --variant-details-dock-gap: 0.5rem;
 
+    grid-template-rows: minmax(10rem, 1fr) minmax(0, var(--variant-details-dock-height));
     padding: 0 1rem calc(var(--variant-details-generation-dock-clearance, 0px) + 1rem);
   }
 }

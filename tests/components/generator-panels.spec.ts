@@ -28,15 +28,15 @@ async function selectOption(page: Page, label: string, optionName: string | RegE
   await page.getByRole('option', { name: optionName }).click();
 }
 
-async function expectTransparentBackdrop(page: Page) {
-  const backdrop = page.locator('[class*="backdrop"]').first();
-  await expect(backdrop).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(backdrop).toHaveCSS('backdrop-filter', 'none');
+async function expectTransparentSheetHost(page: Page) {
+  const sheetHost = page.locator('[class*="sheetHost"]').first();
+  await expect(sheetHost).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(sheetHost).toHaveCSS('backdrop-filter', 'none');
 }
 
 async function expectDockedGeneratorSheet(page: Page, panel: Locator) {
-  const backdrop = page.locator('[class*="backdrop"]').first();
-  await expect(backdrop).toHaveCSS('pointer-events', 'none');
+  const sheetHost = page.locator('[class*="sheetHost"]').first();
+  await expect(sheetHost).toHaveCSS('pointer-events', 'none');
   await expect(panel).toHaveCSS('pointer-events', 'auto');
   await expect(panel).toHaveCSS('background-color', await resolvedBackground(page, 'var(--workspace-panel-bg)'));
 
@@ -56,8 +56,8 @@ async function expectDockedGeneratorSheet(page: Page, panel: Locator) {
 }
 
 async function expectMobileGeneratorSheetAboveTray(page: Page, panel: Locator) {
-  const backdrop = page.locator('[class*="backdrop"]').first();
-  await expect(backdrop).toHaveCSS('pointer-events', 'none');
+  const sheetHost = page.locator('[class*="sheetHost"]').first();
+  await expect(sheetHost).toHaveCSS('pointer-events', 'none');
   await expect(panel).toHaveCSS('pointer-events', 'auto');
 
   const geometry = await panel.evaluate((node) => {
@@ -163,15 +163,15 @@ test('tile set panel uses shared fields without changing submit payload', async 
   });
 
   await expect(page.getByRole('heading', { name: 'Create Tile Set' })).toBeVisible();
-  await expectTransparentBackdrop(page);
-  const tileSetModal = page.locator('[class*="modal"]').first();
-  await expect(tileSetModal).toHaveCSS('box-shadow', 'none');
-  await expect(tileSetModal).toHaveCSS('transform', 'none');
-  await expect(tileSetModal).toHaveCSS('border-radius', '8px');
-  await expectDockedGeneratorSheet(page, tileSetModal);
+  await expectTransparentSheetHost(page);
+  const tileSetPanel = page.locator('[class*="sheetPanel"]').first();
+  await expect(tileSetPanel).toHaveCSS('box-shadow', 'none');
+  await expect(tileSetPanel).toHaveCSS('transform', 'none');
+  await expect(tileSetPanel).toHaveCSS('border-radius', '8px');
+  await expectDockedGeneratorSheet(page, tileSetPanel);
   await expect(page.getByText('Tile Type')).toHaveCSS('text-transform', 'none');
   await expect.poll(
-    () => tileSetModal.evaluate((node) => getComputedStyle(node).animationName),
+    () => tileSetPanel.evaluate((node) => getComputedStyle(node).animationName),
   ).not.toContain('slideUp');
   await selectOption(page, 'Tile Type', 'Building');
   await selectOption(page, 'Grid Size', '4x4');
@@ -213,17 +213,17 @@ test('rotation panel uses shared fields without changing submit payload', async 
   });
 
   await expect(page.getByRole('heading', { name: 'Generate Rotation Set' })).toBeVisible();
-  await expectTransparentBackdrop(page);
-  const rotationModal = page.locator('[class*="modal"]').first();
-  await expect(rotationModal).toHaveCSS('box-shadow', 'none');
-  await expect(rotationModal).toHaveCSS('transform', 'none');
-  await expect(rotationModal).toHaveCSS('border-radius', '8px');
-  await expectDockedGeneratorSheet(page, rotationModal);
+  await expectTransparentSheetHost(page);
+  const rotationPanel = page.locator('[class*="sheetPanel"]').first();
+  await expect(rotationPanel).toHaveCSS('box-shadow', 'none');
+  await expect(rotationPanel).toHaveCSS('transform', 'none');
+  await expect(rotationPanel).toHaveCSS('border-radius', '8px');
+  await expectDockedGeneratorSheet(page, rotationPanel);
   await expect(page.locator('[class*="sourceName"]')).toHaveCSS('white-space', 'normal');
   await expect(page.locator('[class*="sourceName"]')).toHaveCSS('text-overflow', 'clip');
   await expect(page.getByText('Configuration')).toHaveCSS('text-transform', 'none');
   await expect.poll(
-    () => rotationModal.evaluate((node) => getComputedStyle(node).animationName),
+    () => rotationPanel.evaluate((node) => getComputedStyle(node).animationName),
   ).not.toContain('slideUp');
   await selectOption(page, 'Configuration', /Turnaround/);
   await selectOption(page, 'Generation Mode', 'Single-Shot');
@@ -289,7 +289,7 @@ test('rotation panel keeps rating controls in footer chrome', async ({ page }) =
   });
 
   await expect(page.getByRole('heading', { name: 'Rotation Complete' })).toBeVisible();
-  await expectTransparentBackdrop(page);
+  await expectTransparentSheetHost(page);
   await expect(page.getByRole('radiogroup', { name: 'Selected rotation view rating' })).toBeVisible();
   await expect(page.getByRole('radio', { name: 'Approve' })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('radio', { name: 'Reject' })).toHaveAttribute('aria-checked', 'false');
@@ -356,7 +356,7 @@ test('generator panels stay above mobile ForgeTray offset', async ({ page }) => 
     onCancel: '__record__:cancelTileSet',
     onClose: '__record__:closeTileSet',
   });
-  await expectMobileGeneratorSheetAboveTray(page, page.locator('[class*="modal"]').first());
+  await expectMobileGeneratorSheetAboveTray(page, page.locator('[class*="sheetPanel"]').first());
 
   await mountComponent(page, 'RotationPanel', {
     sourceVariant,
@@ -369,7 +369,7 @@ test('generator panels stay above mobile ForgeTray offset', async ({ page }) => 
     onCancel: '__record__:cancelRotation',
     onClose: '__record__:closeRotation',
   });
-  await expectMobileGeneratorSheetAboveTray(page, page.locator('[class*="modal"]').first());
+  await expectMobileGeneratorSheetAboveTray(page, page.locator('[class*="sheetPanel"]').first());
 });
 
 test('generator panels use tokenized completed progress surfaces', async ({ page }) => {
