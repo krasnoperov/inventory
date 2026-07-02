@@ -49,6 +49,24 @@
   visibility: visible;
 }
 
+.canvas.assetScoped.detailsOpen {
+  --variant-details-dock-height: clamp(6.5rem, 16vh, 8rem);
+
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  padding: 0;
+}
+
+.canvas.assetScoped .detailsDock {
+  position: absolute;
+  right: 1rem;
+  bottom: calc(var(--variant-details-generation-dock-clearance, 0px) + 1rem);
+  width: min(22rem, calc(100% - 2rem));
+  height: var(--variant-details-dock-height);
+  max-height: calc(100% - var(--variant-details-generation-dock-clearance, 0px) - 2rem);
+  pointer-events: auto;
+}
+
 .canvas.assetScoped,
 .empty.assetScoped {
   background:
@@ -111,6 +129,20 @@
 
     grid-template-rows: minmax(10rem, 1fr) minmax(0, var(--variant-details-dock-height));
     padding: 0 1rem calc(var(--variant-details-generation-dock-clearance, 0px) + 1rem);
+  }
+
+  .canvas.assetScoped.detailsOpen {
+    --variant-details-dock-height: clamp(6.25rem, 15vh, 7.5rem);
+
+    grid-template-rows: minmax(0, 1fr);
+    padding: 0;
+  }
+
+  .canvas.assetScoped .detailsDock {
+    right: 0.5rem;
+    bottom: calc(var(--variant-details-generation-dock-clearance, 0px) + 1rem);
+    width: min(17rem, calc(100% - 1rem));
+    max-height: calc(100% - var(--variant-details-generation-dock-clearance, 0px) - 1rem);
   }
 }
 
