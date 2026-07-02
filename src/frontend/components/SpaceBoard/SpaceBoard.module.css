@@ -97,38 +97,22 @@
   fill: currentColor;
 }
 
-.createPanel,
-.collectionMenuPanel,
-.cardMenuPanel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.4rem);
-  z-index: 8;
-  width: min(320px, calc(100vw - 2rem));
-  display: grid;
-  gap: 0.375rem;
-  padding: 0.5rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: none;
-}
-
 .createPanel {
+  composes: surface from "../WorkspaceMenuSurface.module.css";
+  position: absolute;
   top: 0;
   right: calc(100% + 0.4rem);
+  z-index: 8;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
 }
 
-.createPanel,
-.collectionMenuPanel,
-.cardMenuPanel {
-  --ui-text-input-height: 30px;
-  --ui-text-field-font-size: var(--font-size-small-sm);
-  --ui-button-height: 28px;
-  --ctl-surface: var(--color-surface);
-  --ctl-line: var(--color-border);
+.collectionMenuPanel {
+  composes: surface from "../WorkspaceMenuSurface.module.css";
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 8;
 }
 
 .starterPanel {
@@ -613,13 +597,10 @@
 }
 
 .cardMenuPanel {
+  composes: surface from "../WorkspaceMenuSurface.module.css";
   position: static;
+  --workspace-menu-surface-width: 100%;
   width: 100%;
-  padding: 0.45rem 0 0;
-  border: 0;
-  border-top: 1px solid var(--color-border);
-  border-radius: 0;
-  background: transparent;
   transform: none;
 }
 
