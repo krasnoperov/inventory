@@ -860,9 +860,27 @@ test('asset details closed mobile layout keeps the canvas stage in the primary r
 
   await expect(page.getByRole('region', { name: 'Asset details inspector' })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Asset generation controls' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toBeVisible();
-  const stageTop = await page.locator('[class*="canvasStage"]').evaluate((node) => node.getBoundingClientRect().top);
-  expect(stageTop).toBe(0);
+  await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCount(0);
+  const geometry = await page.locator('[class*="canvasContainer"]').first().evaluate((container) => {
+    const stage = container.querySelector('[class*="canvasStage"]');
+    const dock = container.querySelector('[aria-label="Asset generation controls"]');
+    const stageBox = stage?.getBoundingClientRect();
+    const dockBox = dock?.getBoundingClientRect();
+    return stageBox && dockBox
+      ? {
+          stageTop: stageBox.top,
+          stageBottom: stageBox.bottom,
+          dockTop: dockBox.top,
+          dockBottom: dockBox.bottom,
+          viewportHeight: window.innerHeight,
+        }
+      : null;
+  });
+  expect(geometry).not.toBeNull();
+  expect(geometry!.stageTop).toBe(0);
+  expect(Math.abs(geometry!.stageBottom - geometry!.viewportHeight)).toBeLessThanOrEqual(1);
+  expect(geometry!.dockTop).toBeLessThan(geometry!.stageBottom);
+  expect(geometry!.dockBottom).toBeLessThanOrEqual(geometry!.stageBottom);
   await screenshot(page, 'asset-details-closed-mobile-layout', { fullPage: true });
 });
 
@@ -872,24 +890,31 @@ test('asset variant inspector stays clear of the generation dock', async ({ page
 
   const inspector = page.getByRole('complementary', { name: 'Variant details' });
   const dock = page.getByRole('region', { name: 'Asset generation controls' });
-  const flowPane = page.locator('[class*="flowPane"]').first();
   await expect(inspector).toBeVisible();
   await expect(dock).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCount(0);
   await expectNoOverlap(inspector, dock);
-  await expectNoOverlap(inspector, flowPane);
 
   const geometry = await page.evaluate(() => {
+    const stage = document.querySelector('[class*="canvasStage"]');
+    const canvas = document.querySelector('[data-canvas-scope="asset-details"]');
     const panel = document.querySelector('[aria-label="Variant details"]');
-    const flowPane = document.querySelector('[class*="flowPane"]');
+    const dock = document.querySelector('[aria-label="Asset generation controls"]');
     const panelBox = panel?.getBoundingClientRect();
-    const flowPaneBox = flowPane?.getBoundingClientRect();
-    return panelBox
+    const stageBox = stage?.getBoundingClientRect();
+    const canvasBox = canvas?.getBoundingClientRect();
+    const dockBox = dock?.getBoundingClientRect();
+    return panelBox && stageBox && canvasBox && dockBox
       ? {
           panelLeft: panelBox.left,
           panelRight: panelBox.right,
           panelTop: panelBox.top,
           panelBottom: panelBox.bottom,
-          flowPaneBottom: flowPaneBox?.bottom ?? null,
+          panelWidth: panelBox.width,
+          dockTop: dockBox.top,
+          stageTop: stageBox.top,
+          stageBottom: stageBox.bottom,
+          canvasBottom: canvasBox.bottom,
           viewportWidth: window.innerWidth,
           viewportHeight: window.innerHeight,
         }
@@ -899,9 +924,11 @@ test('asset variant inspector stays clear of the generation dock', async ({ page
   expect(geometry!.panelLeft).toBeGreaterThanOrEqual(16);
   expect(geometry!.panelRight).toBeLessThanOrEqual(geometry!.viewportWidth - 16);
   expect(geometry!.panelTop).toBeGreaterThanOrEqual(16);
-  expect(geometry!.flowPaneBottom).not.toBeNull();
-  expect(geometry!.panelTop).toBeGreaterThanOrEqual(geometry!.flowPaneBottom! + 8);
-  expect(geometry!.panelBottom).toBeLessThanOrEqual(geometry!.viewportHeight - 16);
+  expect(geometry!.panelWidth).toBeLessThanOrEqual(360);
+  expect(geometry!.panelBottom).toBeLessThanOrEqual(geometry!.dockTop - 16);
+  expect(geometry!.stageTop).toBe(0);
+  expect(Math.abs(geometry!.stageBottom - geometry!.viewportHeight)).toBeLessThanOrEqual(1);
+  expect(Math.abs(geometry!.canvasBottom - geometry!.stageBottom)).toBeLessThanOrEqual(1);
 
   await screenshot(page, 'asset-details-variant-inspector-clear-of-dock', { fullPage: true });
 });
@@ -912,37 +939,45 @@ test('asset variant inspector stays clear of the generation dock on tablet width
 
   const inspector = page.getByRole('complementary', { name: 'Variant details' });
   const dock = page.getByRole('region', { name: 'Asset generation controls' });
-  const flowPane = page.locator('[class*="flowPane"]').first();
   await expect(inspector).toBeVisible();
   await expect(dock).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toHaveCount(0);
   await expectNoOverlap(inspector, dock);
-  await expectNoOverlap(inspector, flowPane);
 
   const geometry = await page.evaluate(() => {
+    const stage = document.querySelector('[class*="canvasStage"]');
+    const canvas = document.querySelector('[data-canvas-scope="asset-details"]');
     const panel = document.querySelector('[aria-label="Variant details"]');
     const generationDock = document.querySelector('[aria-label="Asset generation controls"]');
-    const flowPane = document.querySelector('[class*="flowPane"]');
     const panelBox = panel?.getBoundingClientRect();
     const dockBox = generationDock?.getBoundingClientRect();
-    const flowPaneBox = flowPane?.getBoundingClientRect();
-    return panelBox && dockBox
+    const stageBox = stage?.getBoundingClientRect();
+    const canvasBox = canvas?.getBoundingClientRect();
+    return panelBox && dockBox && stageBox && canvasBox
       ? {
           panelLeft: panelBox.left,
           panelRight: panelBox.right,
           panelTop: panelBox.top,
           panelBottom: panelBox.bottom,
+          panelWidth: panelBox.width,
           dockTop: dockBox.top,
-          flowPaneBottom: flowPaneBox?.bottom ?? null,
+          stageTop: stageBox.top,
+          stageBottom: stageBox.bottom,
+          canvasBottom: canvasBox.bottom,
+          viewportHeight: window.innerHeight,
           viewportWidth: window.innerWidth,
         }
       : null;
   });
   expect(geometry).not.toBeNull();
-  expect(geometry!.panelLeft).toBeGreaterThanOrEqual(16);
-  expect(geometry!.panelRight).toBeLessThanOrEqual(geometry!.viewportWidth - 16);
-  expect(geometry!.flowPaneBottom).not.toBeNull();
-  expect(geometry!.panelTop).toBeGreaterThanOrEqual(geometry!.flowPaneBottom! + 4);
+  expect(geometry!.panelLeft).toBeGreaterThanOrEqual(8);
+  expect(geometry!.panelRight).toBeLessThanOrEqual(geometry!.viewportWidth - 8);
+  expect(geometry!.panelTop).toBeGreaterThanOrEqual(8);
+  expect(geometry!.panelWidth).toBeLessThanOrEqual(288);
   expect(geometry!.panelBottom).toBeLessThanOrEqual(geometry!.dockTop - 4);
+  expect(geometry!.stageTop).toBe(0);
+  expect(Math.abs(geometry!.stageBottom - geometry!.viewportHeight)).toBeLessThanOrEqual(1);
+  expect(Math.abs(geometry!.canvasBottom - geometry!.stageBottom)).toBeLessThanOrEqual(1);
 
   await screenshot(page, 'asset-details-variant-inspector-tablet-clear-of-dock', { fullPage: true });
 });

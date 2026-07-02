@@ -734,14 +734,16 @@ export function AssetGenerationDock({
   details,
   tray,
 }: {
-  details: React.ReactNode;
+  details?: React.ReactNode;
   tray: React.ReactNode;
 }) {
   return (
     <section className={styles.assetGenerationDock} aria-label="Asset generation controls">
-      <div className={styles.assetDetailsDock}>
-        {details}
-      </div>
+      {details && (
+        <div className={styles.assetDetailsDock}>
+          {details}
+        </div>
+      )}
       {tray}
     </section>
   );
@@ -986,9 +988,6 @@ export default function AssetDetailPage() {
     if (!selectedVariantId) return null;
     return variants.find(v => v.id === selectedVariantId) || null;
   }, [selectedVariantId, variants]);
-  const selectedVariantIndex = selectedVariant
-    ? variants.findIndex((variant) => variant.id === selectedVariant.id)
-    : undefined;
   const assetCollectionMemberships = useMemo(() => {
     if (!assetId) return [];
     return collectionItems.filter((item) => item.subject_type === 'asset' && item.asset_id === assetId);
@@ -1146,11 +1145,6 @@ export default function AssetDetailPage() {
       handleCancelEditName();
     }
   }, [handleSaveName, handleCancelEditName]);
-
-  const handleTypeChange = useCallback((newType: string) => {
-    if (!asset || !assetId || newType === asset.type) return;
-    updateAsset(assetId, { type: newType });
-  }, [asset, assetId, updateAsset]);
 
   const handleDeleteVariant = useCallback((variant: Variant) => {
     setConfirmDialog({
@@ -1634,18 +1628,6 @@ export default function AssetDetailPage() {
 
       {/* Asset details + Forge Tray - persistent bottom controls */}
       <AssetGenerationDock
-        details={(
-          <AssetDetailsContext
-            asset={asset}
-            assetCollectionCount={assetCollectionMemberships.length}
-            assetTypeDisabled={actionInProgress}
-            onAssetTypeChange={handleTypeChange}
-            selectedVariant={selectedVariant}
-            selectedVariantIndex={selectedVariantIndex}
-            selectedVariantCollectionCount={selectedVariantCollectionMemberships.length}
-            variantCount={variants.length}
-          />
-        )}
         tray={(
           <ForgeTray
             allAssets={wsAssets}

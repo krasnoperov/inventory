@@ -485,8 +485,15 @@ function AssetDetailsContextPreview(props: Record<string, unknown>) {
 }
 
 function AssetGenerationDockPreview(props: Record<string, unknown>) {
-  const { variantInspector: rawVariantInspector, showCompositionDetail, showRelationEditor, ...contextProps } = props;
+  const {
+    variantInspector: rawVariantInspector,
+    showCompositionDetail,
+    showDockSummary,
+    showRelationEditor,
+    ...contextProps
+  } = props;
   const variantInspector = rawVariantInspector as ReactNode | undefined;
+  const renderDockSummary = showDockSummary !== false;
   const selectedVariant = stackVariants.find((variant) => variant.id === 'hero-variant') ?? null;
   const selectedVariantIndex = selectedVariant
     ? stackVariants.filter((variant) => variant.asset_id === 'hero').findIndex((variant) => variant.id === selectedVariant.id)
@@ -583,7 +590,10 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
     >
       <div className={assetDetailStyles.canvasStage}>
         {variantInspector ? (
-          <div className={`${variantCanvasStyles.canvas} ${variantCanvasStyles.assetScoped} ${variantCanvasStyles.detailsOpen} ${variantCanvasStyles.ready}`}>
+          <div
+            className={`${variantCanvasStyles.canvas} ${variantCanvasStyles.assetScoped} ${variantCanvasStyles.detailsOpen} ${variantCanvasStyles.ready}`}
+            data-canvas-scope="asset-details"
+          >
             <div className={variantCanvasStyles.flowPane} />
             <div className={`${variantCanvasStyles.detailsDock} ${variantCanvasStyles.detailsDockReady}`}>
               {variantInspector}
@@ -592,7 +602,7 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
         ) : null}
       </div>
       <AssetGenerationDockHarness
-        details={(
+        details={renderDockSummary ? (
           <AssetDetailsContextHarness
             {...contextProps}
             asset={stackAssets[0]}
@@ -602,7 +612,7 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
             selectedVariantCollectionCount={1}
             variantCount={stackVariants.filter((variant) => variant.asset_id === 'hero').length}
           />
-        )}
+        ) : undefined}
         tray={(
           <ForgeTray
             allAssets={stackAssets}
@@ -663,25 +673,10 @@ function AssetGenerationDockAudioNoEllipsisPreview() {
 }
 
 function AssetGenerationDockClosedCanvasPreview() {
-  const selectedVariant = stackVariants.find((variant) => variant.id === 'hero-variant') ?? null;
-  const selectedVariantIndex = selectedVariant
-    ? stackVariants.filter((variant) => variant.asset_id === 'hero').findIndex((variant) => variant.id === selectedVariant.id)
-    : undefined;
-
   return (
     <div className={assetDetailStyles.canvasContainer} style={{ height: '100vh' }}>
       <div className={assetDetailStyles.canvasStage} />
       <AssetGenerationDockHarness
-        details={(
-          <AssetDetailsContextHarness
-            asset={stackAssets[0]}
-            assetCollectionCount={1}
-            selectedVariant={selectedVariant}
-            selectedVariantIndex={selectedVariantIndex}
-            selectedVariantCollectionCount={1}
-            variantCount={stackVariants.filter((variant) => variant.asset_id === 'hero').length}
-          />
-        )}
         tray={(
           <ForgeTray
             allAssets={stackAssets}
@@ -703,6 +698,7 @@ function AssetGenerationDockWithVariantInspectorPreview(props: Record<string, un
   return (
     <AssetGenerationDockPreview
       {...props}
+      showDockSummary={false}
       variantInspector={(
         <VariantDetailsPanel
           asset={stackAssets[0]}

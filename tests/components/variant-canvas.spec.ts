@@ -173,7 +173,7 @@ test('variant canvas shows derivatives as lineage nodes', async ({ page }) => {
   await screenshot(page, 'variant-canvas-flat-flow-controls', { fullPage: true });
 });
 
-test('asset-scoped variant details dock below the clicked node', async ({ page }) => {
+test('asset-scoped variant details dock beside the full-page canvas', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 720 });
   await mockMedia(page);
   await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
@@ -200,51 +200,44 @@ test('asset-scoped variant details dock below the clicked node', async ({ page }
   await node.click();
   const detailsPanel = page.getByRole('complementary', { name: 'Variant details' });
   await expect(detailsPanel).toBeVisible();
-  await expect(detailsPanel).toHaveCSS('position', 'static');
   await expect(detailsPanel).toHaveCSS('border-radius', '8px');
 
-  const overlaps = await page.evaluate(() => {
+  const geometry = await page.evaluate(() => {
+    const canvas = document.querySelector('[data-canvas-scope="asset-details"]');
     const node = document.querySelector('.react-flow__node');
     const panel = document.querySelector('[aria-label="Variant details"]');
-    if (!node || !panel) return true;
-    const a = node.getBoundingClientRect();
-    const b = panel.getBoundingClientRect();
-    return !(
+    const controls = document.querySelector('.react-flow__controls');
+    const flowPane = document.querySelector('[class*="flowPane"]');
+    if (!canvas || !node || !panel || !controls || !flowPane) return null;
+    const canvasBox = canvas.getBoundingClientRect();
+    const nodeBox = node.getBoundingClientRect();
+    const panelBox = panel.getBoundingClientRect();
+    const controlsBox = controls.getBoundingClientRect();
+    const flowPaneBox = flowPane.getBoundingClientRect();
+    const overlaps = (a: DOMRect, b: DOMRect) => !(
       a.right <= b.left ||
       b.right <= a.left ||
       a.bottom <= b.top ||
       b.bottom <= a.top
     );
-  });
-  expect(overlaps).toBe(false);
-  const verticalOrder = await page.evaluate(() => {
-    const node = document.querySelector('.react-flow__node');
-    const panel = document.querySelector('[aria-label="Variant details"]');
-    const flowPane = document.querySelector('[class*="flowPane"]');
-    if (!node || !panel || !flowPane) return null;
     return {
-      nodeBottom: node.getBoundingClientRect().bottom,
-      panelTop: panel.getBoundingClientRect().top,
-      flowPaneBottom: flowPane.getBoundingClientRect().bottom,
+      panelOverlapsNode: overlaps(nodeBox, panelBox),
+      panelOverlapsControls: overlaps(controlsBox, panelBox),
+      panelDockPosition: panel.parentElement ? getComputedStyle(panel.parentElement).position : null,
+      panelWidth: panelBox.width,
+      panelRight: panelBox.right,
+      flowPaneBottom: flowPaneBox.bottom,
+      canvasBottom: canvasBox.bottom,
+      viewportWidth: window.innerWidth,
     };
   });
-  expect(verticalOrder).not.toBeNull();
-  expect(verticalOrder!.panelTop).toBeGreaterThanOrEqual(verticalOrder!.nodeBottom);
-  expect(verticalOrder!.panelTop).toBeGreaterThanOrEqual(verticalOrder!.flowPaneBottom + 8);
-  const overlapsControls = await page.evaluate(() => {
-    const controls = document.querySelector('.react-flow__controls');
-    const panel = document.querySelector('[aria-label="Variant details"]');
-    if (!controls || !panel) return true;
-    const a = controls.getBoundingClientRect();
-    const b = panel.getBoundingClientRect();
-    return !(
-      a.right <= b.left ||
-      b.right <= a.left ||
-      a.bottom <= b.top ||
-      b.bottom <= a.top
-    );
-  });
-  expect(overlapsControls).toBe(false);
+  expect(geometry).not.toBeNull();
+  expect(geometry!.panelOverlapsNode).toBe(false);
+  expect(geometry!.panelOverlapsControls).toBe(false);
+  expect(geometry!.panelDockPosition).toBe('absolute');
+  expect(geometry!.panelWidth).toBeLessThanOrEqual(360);
+  expect(geometry!.panelRight).toBeLessThanOrEqual(geometry!.viewportWidth - 16);
+  expect(Math.abs(geometry!.flowPaneBottom - geometry!.canvasBottom)).toBeLessThanOrEqual(1);
   await page.waitForTimeout(200);
   await screenshot(page, 'variant-canvas-details-docked-below-node', { fullPage: true });
 });
@@ -310,7 +303,7 @@ test('space-level variant details dock below the clicked node', async ({ page })
   await screenshot(page, 'variant-canvas-space-details-docked-below-node', { fullPage: true });
 });
 
-test('asset-scoped variant details keep the clicked node visible on tablet widths', async ({ page }) => {
+test('asset-scoped variant details stay compact on tablet widths', async ({ page }) => {
   await page.setViewportSize({ width: 760, height: 720 });
   await mockMedia(page);
   await page.goto('/component-harness.html?component=VariantCanvas', { waitUntil: 'domcontentloaded' });
@@ -336,17 +329,19 @@ test('asset-scoped variant details keep the clicked node visible on tablet width
   await node.click();
   const detailsPanel = page.getByRole('complementary', { name: 'Variant details' });
   await expect(detailsPanel).toBeVisible();
-  await expect(detailsPanel).toHaveCSS('position', 'static');
 
   const geometry = await page.evaluate(() => {
+    const canvas = document.querySelector('[data-canvas-scope="asset-details"]');
     const node = document.querySelector('.react-flow__node');
     const panel = document.querySelector('[aria-label="Variant details"]');
     const controls = document.querySelector('.react-flow__controls');
     const flowPane = document.querySelector('[class*="flowPane"]');
-    if (!node || !panel || !controls || !flowPane) return null;
+    if (!canvas || !node || !panel || !controls || !flowPane) return null;
+    const canvasBox = canvas.getBoundingClientRect();
     const nodeBox = node.getBoundingClientRect();
     const panelBox = panel.getBoundingClientRect();
     const controlsBox = controls.getBoundingClientRect();
+    const flowPaneBox = flowPane.getBoundingClientRect();
     const overlaps = (a: DOMRect, b: DOMRect) => !(
       a.right <= b.left ||
       b.right <= a.left ||
@@ -356,16 +351,21 @@ test('asset-scoped variant details keep the clicked node visible on tablet width
     return {
       panelOverlapsNode: overlaps(nodeBox, panelBox),
       panelOverlapsControls: overlaps(controlsBox, panelBox),
-      panelTop: panelBox.top,
-      nodeBottom: nodeBox.bottom,
-      flowPaneBottom: flowPane.getBoundingClientRect().bottom,
+      panelDockPosition: panel.parentElement ? getComputedStyle(panel.parentElement).position : null,
+      panelWidth: panelBox.width,
+      panelRight: panelBox.right,
+      flowPaneBottom: flowPaneBox.bottom,
+      canvasBottom: canvasBox.bottom,
+      viewportWidth: window.innerWidth,
     };
   });
   expect(geometry).not.toBeNull();
   expect(geometry!.panelOverlapsNode).toBe(false);
   expect(geometry!.panelOverlapsControls).toBe(false);
-  expect(geometry!.panelTop).toBeGreaterThan(geometry!.nodeBottom);
-  expect(geometry!.panelTop).toBeGreaterThanOrEqual(geometry!.flowPaneBottom + 4);
+  expect(geometry!.panelDockPosition).toBe('absolute');
+  expect(geometry!.panelWidth).toBeLessThanOrEqual(288);
+  expect(geometry!.panelRight).toBeLessThanOrEqual(geometry!.viewportWidth - 8);
+  expect(Math.abs(geometry!.flowPaneBottom - geometry!.canvasBottom)).toBeLessThanOrEqual(1);
 
   await page.waitForTimeout(200);
   await screenshot(page, 'variant-canvas-details-tablet-visible-node', { fullPage: true });
@@ -455,8 +455,8 @@ test('asset-scoped variant details do not cover a clicked audio node', async ({ 
     );
     return {
       overlaps,
-      nodeBottom: nodeBox.bottom,
-      panelTop: panelBox.top,
+      panelDockPosition: panel.parentElement ? getComputedStyle(panel.parentElement).position : null,
+      panelWidth: panelBox.width,
       panelRadius: getComputedStyle(panel).borderRadius,
       panelBottom: panelBox.bottom,
       reservedDockTop: reservedDockBox.top,
@@ -470,7 +470,8 @@ test('asset-scoped variant details do not cover a clicked audio node', async ({ 
   const geometry = await readGeometry();
   expect(geometry).not.toBeNull();
   expect(geometry!.overlaps).toBe(false);
-  expect(geometry!.panelTop).toBeGreaterThanOrEqual(geometry!.nodeBottom);
+  expect(geometry!.panelDockPosition).toBe('absolute');
+  expect(geometry!.panelWidth).toBeLessThanOrEqual(288);
   expect(geometry!.panelRadius).toBe('8px');
   expect(geometry!.panelBottom).toBeLessThanOrEqual(geometry!.reservedDockTop - 16);
   expect(geometry!.reservedDockTop).toBeLessThan(geometry!.viewportHeight);
