@@ -1,0 +1,49 @@
+.host {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: var(--docked-sheet-padding, 1rem 1rem var(--forge-sheet-bottom-offset, 13rem));
+  z-index: var(--docked-sheet-z-index, 650);
+  pointer-events: none;
+  background: transparent;
+  backdrop-filter: none;
+  animation: dockedSheetFadeIn 0.15s ease;
+}
+
+.panel {
+  width: var(--docked-sheet-width, min(520px, calc(100vw - 2rem)));
+  max-width: var(--docked-sheet-max-width, 520px);
+  height: var(--docked-sheet-height, auto);
+  max-height: var(--docked-sheet-max-height, min(80vh, calc(100vh - var(--forge-sheet-bottom-offset, 13rem) - 1rem)));
+  display: flex;
+  flex-direction: column;
+  overflow: var(--docked-sheet-overflow, visible);
+  pointer-events: auto;
+  background: var(--workspace-panel-bg);
+  border: var(--docked-sheet-border, 1px solid var(--workspace-panel-border));
+  border-inline: var(--docked-sheet-border-inline, var(--docked-sheet-border, 1px solid var(--workspace-panel-border)));
+  border-bottom: var(--docked-sheet-border-bottom, var(--docked-sheet-border, 1px solid var(--workspace-panel-border)));
+  border-radius: var(--docked-sheet-radius, var(--workspace-panel-radius));
+  box-shadow: var(--workspace-panel-shadow);
+  animation: dockedSheetFadeIn 0.15s ease;
+}
+
+@keyframes dockedSheetFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 768px) {
+  .host {
+    padding: var(--docked-sheet-mobile-padding, 0.5rem 0.5rem calc(var(--forge-sheet-bottom-offset, 10rem) + 0.5rem));
+  }
+
+  .panel {
+    width: var(--docked-sheet-mobile-width, 100%);
+    max-width: var(--docked-sheet-mobile-max-width, none);
+    max-height: var(--docked-sheet-mobile-max-height, min(58vh, calc(100vh - var(--forge-sheet-bottom-offset, 10rem) - 1rem)));
+    border-radius: var(--docked-sheet-mobile-radius, var(--docked-sheet-radius, var(--workspace-panel-radius)));
+  }
+}

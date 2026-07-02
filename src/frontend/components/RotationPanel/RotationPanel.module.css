@@ -1,32 +1,9 @@
 .sheetHost {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  padding: 1rem 1rem var(--forge-sheet-bottom-offset, 13rem);
-  z-index: 650;
-  pointer-events: none;
-  animation: fadeIn 0.15s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  composes: host from "../DockedSheet.module.css";
 }
 
 .sheetPanel {
-  background: var(--workspace-panel-bg);
-  border-radius: var(--workspace-panel-radius);
-  border: 1px solid var(--workspace-panel-border);
-  box-shadow: var(--workspace-panel-shadow);
-  width: min(520px, calc(100vw - 2rem));
-  max-width: 520px;
-  max-height: min(80vh, calc(100vh - var(--forge-sheet-bottom-offset, 13rem) - 1rem));
-  display: flex;
-  flex-direction: column;
-  pointer-events: auto;
-  animation: fadeIn 0.15s ease;
+  composes: panel from "../DockedSheet.module.css";
 }
 
 .header {
@@ -353,17 +330,4 @@
 
 .noStyleCheck:hover {
   color: var(--color-text);
-}
-
-@media (max-width: 768px) {
-  .sheetHost {
-    padding: 0.5rem 0.5rem calc(var(--forge-sheet-bottom-offset, 10rem) + 0.5rem);
-    z-index: 650;
-  }
-
-  .sheetPanel {
-    width: 100%;
-    max-width: none;
-    max-height: min(58vh, calc(100vh - var(--forge-sheet-bottom-offset, 10rem) - 1rem));
-  }
 }

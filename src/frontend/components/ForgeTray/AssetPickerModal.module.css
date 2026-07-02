@@ -1,33 +1,12 @@
 /* Docked sheet host: positions the panel without blocking the workspace. */
 .sheetHost {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  padding: 1rem 1rem var(--forge-sheet-bottom-offset, 13rem);
-  z-index: 650;
-  pointer-events: none;
-  animation: fadeIn 0.15s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  composes: host from "../DockedSheet.module.css";
 }
 
 .sheetPanel {
-  background: var(--workspace-panel-bg);
-  border-radius: var(--workspace-panel-radius);
-  border: 1px solid var(--workspace-panel-border);
-  box-shadow: var(--workspace-panel-shadow);
-  width: min(640px, calc(100vw - 2rem));
-  max-width: 640px;
-  max-height: min(80vh, calc(100vh - var(--forge-sheet-bottom-offset, 13rem) - 1rem));
-  display: flex;
-  flex-direction: column;
-  pointer-events: auto;
-  animation: fadeIn 0.15s ease;
+  composes: panel from "../DockedSheet.module.css";
+  --docked-sheet-width: min(640px, calc(100vw - 2rem));
+  --docked-sheet-max-width: 640px;
 }
 
 .header {
@@ -292,17 +271,14 @@
 /* Responsive */
 @media (max-width: 768px) {
   .sheetHost {
-    padding: 0;
-    z-index: 650;
+    --docked-sheet-mobile-padding: 0;
   }
 
   .sheetPanel {
-    width: 100%;
-    max-width: none;
-    max-height: min(58vh, calc(100vh - var(--forge-sheet-bottom-offset, 10rem)));
-    border-radius: var(--workspace-panel-radius) var(--workspace-panel-radius) 0 0;
-    border-inline: 0;
-    border-bottom: 0;
+    --docked-sheet-mobile-max-height: min(58vh, calc(100vh - var(--forge-sheet-bottom-offset, 10rem)));
+    --docked-sheet-mobile-radius: var(--workspace-panel-radius) var(--workspace-panel-radius) 0 0;
+    --docked-sheet-border-inline: 0;
+    --docked-sheet-border-bottom: 0;
   }
 
   .filters {
