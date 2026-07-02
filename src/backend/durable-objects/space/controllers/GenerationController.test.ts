@@ -8,7 +8,6 @@ import type { Env } from '../../../../core/types';
 import type {
   Variant,
   RotationView,
-  TilePosition,
   ServerMessage,
 } from '../types';
 
@@ -171,9 +170,7 @@ function createMockRepo(): SpaceRepository {
     updateAsset: mock.fn(async () => null),
     createLineage: mock.fn(async (input) => ({ id: input.id })),
     getRotationViewByVariant: mock.fn(async () => null),
-    getTilePositionByVariant: mock.fn(async () => null),
     failRotationSet: mock.fn(async () => null),
-    failTileSet: mock.fn(async () => null),
     getBatchProgress: mock.fn(async () => ({ completedCount: 0, failedCount: 0, totalCount: 1, pendingCount: 1 })),
     getActiveStyle: mock.fn(async () => null),
   } as unknown as SpaceRepository;
@@ -1125,10 +1122,7 @@ describe('GenerationController pipeline hooks', () => {
       });
 
       const controller = new GenerationController(ctx);
-      controller.setPipelineControllers(
-        { advanceRotation } as any,
-        { advanceTileSet: mock.fn() } as any
-      );
+      controller.setPipelineControllers({ advanceRotation } as any);
 
       await controller.httpCompleteVariant({
         variantId: 'variant-1',
@@ -1140,47 +1134,12 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(advanceRotation.mock.calls[0].arguments[0], 'rotset-1');
     });
 
-    test('calls advanceTileSet for tile position', async () => {
-      const tilePos: TilePosition = {
-        id: 'tp-1',
-        tile_set_id: 'tileset-1',
-        variant_id: 'variant-1',
-        grid_x: 2,
-        grid_y: 1,
-        created_at: Date.now(),
-      };
-
-      const advanceTileSet = mock.fn(async () => {});
-      const { ctx } = createMockContext({
-        getTilePositionByVariant: mock.fn(async () => tilePos),
-      });
-
-      const controller = new GenerationController(ctx);
-      controller.setPipelineControllers(
-        { advanceRotation: mock.fn() } as any,
-        { advanceTileSet } as any
-      );
-
-      await controller.httpCompleteVariant({
-        variantId: 'variant-1',
-        imageKey: 'img/done.png',
-        thumbKey: 'thumb/done.png',
-      });
-
-      assert.strictEqual(advanceTileSet.mock.calls.length, 1);
-      assert.strictEqual(advanceTileSet.mock.calls[0].arguments[0], 'tileset-1');
-    });
-
     test('calls neither for standalone variant', async () => {
       const advanceRotation = mock.fn(async () => {});
-      const advanceTileSet = mock.fn(async () => {});
       const { ctx } = createMockContext();
 
       const controller = new GenerationController(ctx);
-      controller.setPipelineControllers(
-        { advanceRotation } as any,
-        { advanceTileSet } as any
-      );
+      controller.setPipelineControllers({ advanceRotation } as any);
 
       await controller.httpCompleteVariant({
         variantId: 'variant-1',
@@ -1189,7 +1148,6 @@ describe('GenerationController pipeline hooks', () => {
       });
 
       assert.strictEqual(advanceRotation.mock.calls.length, 0);
-      assert.strictEqual(advanceTileSet.mock.calls.length, 0);
     });
 
     test('passes media metadata to repository completion', async () => {
@@ -1934,10 +1892,7 @@ describe('GenerationController pipeline hooks', () => {
       });
 
       const controller = new GenerationController(ctx);
-      controller.setPipelineControllers(
-        { advanceRotation } as any,
-        { advanceTileSet: mock.fn() } as any
-      );
+      controller.setPipelineControllers({ advanceRotation } as any);
 
       // Should not throw
       const result = await controller.httpCompleteVariant({
@@ -1970,10 +1925,7 @@ describe('GenerationController pipeline hooks', () => {
       });
 
       const controller = new GenerationController(ctx);
-      controller.setPipelineControllers(
-        { advanceRotation: mock.fn() } as any,
-        { advanceTileSet: mock.fn() } as any
-      );
+      controller.setPipelineControllers({ advanceRotation: mock.fn() } as any);
 
       await controller.httpFailVariant({
         variantId: 'variant-1',
@@ -1989,60 +1941,13 @@ describe('GenerationController pipeline hooks', () => {
       assert.strictEqual(failBroadcast.error, 'generation failed');
     });
 
-    test('marks tile position failed and advances tile set', async () => {
-      const tilePos: TilePosition = {
-        id: 'tp-1',
-        tile_set_id: 'tileset-1',
-        variant_id: 'variant-1',
-        grid_x: 2,
-        grid_y: 1,
-        created_at: Date.now(),
-      };
-
-      const { ctx, broadcasts } = createMockContext({
-        getTilePositionByVariant: mock.fn(async () => tilePos),
-        updateTilePositionStatus: mock.fn(async () => tilePos),
-      });
-
-      const advanceTileSetMock = mock.fn();
-      const controller = new GenerationController(ctx);
-      controller.setPipelineControllers(
-        { advanceRotation: mock.fn() } as any,
-        { advanceTileSet: advanceTileSetMock } as any
-      );
-
-      await controller.httpFailVariant({
-        variantId: 'variant-1',
-        error: 'tile failed',
-      });
-
-      assert.strictEqual(asMock(ctx.repo.updateTilePositionStatus).mock.calls.length, 1);
-      assert.deepStrictEqual(
-        asMock(ctx.repo.updateTilePositionStatus).mock.calls[0].arguments,
-        ['tp-1', 'failed']
-      );
-      assert.strictEqual(advanceTileSetMock.mock.calls.length, 1);
-      assert.strictEqual(advanceTileSetMock.mock.calls[0].arguments[0], 'tileset-1');
-
-      const failBroadcast = broadcasts.find((b) => b.type === 'tileset:tile_failed');
-      assert.ok(failBroadcast);
-      assert.strictEqual(failBroadcast.tileSetId, 'tileset-1');
-      assert.strictEqual(failBroadcast.variantId, 'variant-1');
-      assert.strictEqual(failBroadcast.gridX, 2);
-      assert.strictEqual(failBroadcast.gridY, 1);
-      assert.strictEqual(failBroadcast.error, 'tile failed');
-    });
-
     test('hook errors do not fail the failure handler', async () => {
       const { ctx } = createMockContext({
         getRotationViewByVariant: mock.fn(async () => { throw new Error('lookup boom'); }),
       });
 
       const controller = new GenerationController(ctx);
-      controller.setPipelineControllers(
-        { advanceRotation: mock.fn() } as any,
-        { advanceTileSet: mock.fn() } as any
-      );
+      controller.setPipelineControllers({ advanceRotation: mock.fn() } as any);
 
       // Should not throw
       const result = await controller.httpFailVariant({

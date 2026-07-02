@@ -65,7 +65,7 @@ Authentication is via JWT in cookie (`auth_token`) or Authorization header (`Bea
 |---------|--------|-------------|
 | `variant:delete` | `variantId` | Delete variant |
 | `variant:star` | `variantId`, `starred: boolean` | Star/unstar variant |
-| `variant:rate` | `variantId`, `rating: 'approved'\|'rejected'` | Rate variant quality (training data) |
+| `variant:rate` | `variantId`, `rating: 'approved'\|'rejected'` | Rate variant quality for curation |
 | `variant:retry` | `variantId` | Retry failed generation |
 | `variant:regenerate` | `variantId` | Create a new same-recipe audio variant from a completed variant |
 
@@ -162,7 +162,7 @@ default to `image`.
 
 `mediaKind` is a medium discriminator, not an asset taxonomy or provider
 selector. Keep using `assetType`/`type` for catalog categories such as
-`character`, `tile-set`, or `animation`. Audio and video generation remain
+`character`, `scene`, or `animation`. Audio and video generation remain
 website-controlled SpaceDO workflows: set `mediaKind` explicitly and choose the
 capable provider/model through provider/model fields.
 When `INVENTORY_AUDIO_PROVIDER=elevenlabs`, website-created `music` assets use

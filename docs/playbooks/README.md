@@ -6,7 +6,7 @@ while keeping everything visually and tonally consistent.
 
 These playbooks are the *why* and *how-to-prompt* companion to the technical
 docs. Where a feature is described mechanically elsewhere (style presets,
-rotation sets, tile sets, the CLI), these pages explain how to use it well.
+rotation sets, the CLI), these pages explain how to use it well.
 
 ## Who These Are For
 
@@ -36,9 +36,9 @@ images, video, and audio the same discipline produces consistent results:
    background — not all three — and check the result before the next step.
 
 Make Effects already bakes these into product features: a space-level
-[style](../style-and-batch.md) is injected into every request, and
-[rotation and tile pipelines](../rotation-and-tiles.md) feed completed images
-forward as references automatically. The playbooks show you how to lean on them.
+[style](../style-and-batch.md) is injected into every request, and the
+[rotation pipeline](../rotation-pipeline.md) feeds completed images forward as
+references automatically. The playbooks show you how to lean on them.
 
 ## Sources
 

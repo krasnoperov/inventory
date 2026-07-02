@@ -91,8 +91,6 @@ describe('space state snapshot cache', () => {
       presence: [],
       rotationSets: [],
       rotationViews: [],
-      tileSets: [],
-      tilePositions: [],
       syncMode: 'overview',
       updatedAt: 1,
     });
@@ -147,8 +145,6 @@ describe('space state snapshot cache', () => {
       presence: [],
       rotationSets: [],
       rotationViews: [],
-      tileSets: [],
-      tilePositions: [],
       syncMode: 'full',
       updatedAt: 1,
     });
@@ -182,8 +178,6 @@ describe('space message handling', () => {
       setPresence: store.setPresence,
       setRotationSets: store.setRotationSets,
       setRotationViews: store.setRotationViews,
-      setTileSets: store.setTileSets,
-      setTilePositions: store.setTilePositions,
       setError: store.setError,
     };
   }

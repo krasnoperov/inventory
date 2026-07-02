@@ -15,7 +15,6 @@ import type {
   RotationRequestParams,
   StylePresetCreateParams,
   StylePresetUpdateParams,
-  TileSetRequestParams,
   UseSpaceWebSocketReturn,
 } from './protocol';
 import type { SpaceSessionState } from './spaceStore';
@@ -68,11 +67,6 @@ type SpaceCommands = Pick<UseSpaceWebSocketReturn,
   | 'sendGenerationEstimateRequest'
   | 'sendRotationRequest'
   | 'sendRotationCancel'
-  | 'sendTileSetRequest'
-  | 'sendTileSetCancel'
-  | 'sendRetryTile'
-  | 'sendRefineEdges'
-  | 'sendRefineTile'
   | 'sendVariantRate'
 >;
 
@@ -420,41 +414,6 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
     sendMessage({ type: 'rotation:cancel', rotationSetId });
   }, [sendMessage]);
 
-  // Tile set pipeline methods
-  const sendTileSetRequest = useCallback((params: TileSetRequestParams) => {
-    const requestId = crypto.randomUUID();
-    sendMessage({
-      type: 'tileset:request',
-      requestId,
-      tileType: params.tileType,
-      gridWidth: params.gridWidth,
-      gridHeight: params.gridHeight,
-      prompt: params.prompt,
-      seedVariantId: params.seedVariantId,
-      aspectRatio: params.aspectRatio,
-      disableStyle: params.disableStyle,
-      stylePresetId: params.stylePresetId,
-      styleVariantIds: params.styleVariantIds,
-      generationMode: params.generationMode,
-    });
-  }, [sendMessage]);
-
-  const sendTileSetCancel = useCallback((tileSetId: string) => {
-    sendMessage({ type: 'tileset:cancel', tileSetId });
-  }, [sendMessage]);
-
-  const sendRetryTile = useCallback((tileSetId: string, gridX: number, gridY: number) => {
-    sendMessage({ type: 'tileset:retry_tile', tileSetId, gridX, gridY });
-  }, [sendMessage]);
-
-  const sendRefineEdges = useCallback((tileSetId: string) => {
-    sendMessage({ type: 'tileset:refine_edges', tileSetId });
-  }, [sendMessage]);
-
-  const sendRefineTile = useCallback((tileSetId: string, gridX: number, gridY: number) => {
-    sendMessage({ type: 'tileset:refine_tile', tileSetId, gridX, gridY });
-  }, [sendMessage]);
-
   const sendVariantRate = useCallback((variantId: string, rating: 'approved' | 'rejected') => {
     sendMessage({ type: 'variant:rate', variantId, rating });
   }, [sendMessage]);
@@ -518,11 +477,6 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
     sendGenerationEstimateRequest,
     sendRotationRequest,
     sendRotationCancel,
-    sendTileSetRequest,
-    sendTileSetCancel,
-    sendRetryTile,
-    sendRefineEdges,
-    sendRefineTile,
     sendVariantRate,
     trackJob,
     clearJob,

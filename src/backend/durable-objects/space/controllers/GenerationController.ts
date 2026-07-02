@@ -13,7 +13,6 @@
 
 import type { Variant, WebSocketMeta } from '../types';
 import type { RotationController } from './RotationController';
-import type { TileController } from './TileController';
 import type {
   GenerateRequestMessage,
   RefineRequestMessage,
@@ -579,7 +578,6 @@ async function preflightGenerationAdmission(input: GenerationPreflightInput): Pr
 export class GenerationController extends BaseController {
   private readonly variantFactory: VariantFactory;
   private rotationCtrl?: RotationController;
-  private tileCtrl?: TileController;
 
   constructor(ctx: ControllerContext) {
     super(ctx);
@@ -587,9 +585,8 @@ export class GenerationController extends BaseController {
   }
 
   /** Set pipeline controllers (called after all controllers are initialized to avoid circular deps) */
-  setPipelineControllers(rotation: RotationController, tile: TileController): void {
+  setPipelineControllers(rotation: RotationController): void {
     this.rotationCtrl = rotation;
-    this.tileCtrl = tile;
   }
 
   // ==========================================================================
@@ -1581,32 +1578,21 @@ export class GenerationController extends BaseController {
       }
     }
 
-    // Pipeline advancement hooks (rotation/tile sets)
+    // Pipeline advancement hooks (rotation)
     try {
       const rotView = await this.repo.getRotationViewByVariant(data.variantId);
       if (rotView && this.rotationCtrl) {
         await this.rotationCtrl.advanceRotation(rotView.rotation_set_id);
       }
 
-      const tilePos = await this.repo.getTilePositionByVariant(data.variantId);
-      if (tilePos && this.tileCtrl) {
-        await this.tileCtrl.advanceTileSet(tilePos.tile_set_id);
-      }
-
-      // Single-shot grid/sheet slicing: the grid/sheet variant has no
-      // tile_position or rotation_view, so the above hooks won't match.
+      // Single-shot sheet slicing: the sheet variant has no rotation_view, so
+      // the above hook won't match.
       // Detect via recipe.generationMode and slice into individual cells.
-      if (!rotView && !tilePos) {
+      if (!rotView) {
         try {
           const recipe = JSON.parse(variant.recipe);
-          if (recipe.generationMode === 'single-shot') {
-            if (recipe.gridWidth && recipe.gridHeight && this.tileCtrl) {
-              // Single-shot tile grid — slice into individual tile variants
-              await this.tileCtrl.sliceSingleShotGrid(variant);
-            } else if (recipe.gridLayout && this.rotationCtrl) {
-              // Single-shot rotation sheet — slice into individual view variants
-              await this.rotationCtrl.sliceSingleShotSheet(variant);
-            }
+          if (recipe.generationMode === 'single-shot' && recipe.gridLayout && this.rotationCtrl) {
+            await this.rotationCtrl.sliceSingleShotSheet(variant);
           }
         } catch {
           // Not a single-shot variant or parse error — ignore
@@ -1667,7 +1653,7 @@ export class GenerationController extends BaseController {
       }
     }
 
-    // Pipeline failure hooks (rotation/tile sets)
+    // Pipeline failure hooks (rotation)
     try {
       const rotView = await this.repo.getRotationViewByVariant(data.variantId);
       if (rotView && this.rotationCtrl) {
@@ -1678,22 +1664,6 @@ export class GenerationController extends BaseController {
           error: data.error,
           failedStep: rotView.step_index,
         });
-      }
-
-      const tilePos = await this.repo.getTilePositionByVariant(data.variantId);
-      if (tilePos && this.tileCtrl) {
-        // Mark individual tile position as failed (not the entire set)
-        await this.repo.updateTilePositionStatus(tilePos.id, 'failed');
-        this.broadcast({
-          type: 'tileset:tile_failed',
-          tileSetId: tilePos.tile_set_id,
-          variantId: data.variantId,
-          gridX: tilePos.grid_x,
-          gridY: tilePos.grid_y,
-          error: data.error,
-        });
-        // Continue pipeline — advance to next tile
-        await this.tileCtrl.advanceTileSet(tilePos.tile_set_id);
       }
     } catch (hookErr) {
       log.error('Pipeline failure hook failed', {

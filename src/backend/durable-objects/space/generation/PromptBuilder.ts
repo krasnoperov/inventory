@@ -1,15 +1,6 @@
-import type { TileType } from '../types';
-
 // ============================================================================
 // Templates
 // ============================================================================
-
-const TILE_TYPE_TEMPLATES: Record<TileType, string> = {
-  terrain: 'Emphasize ground continuity and natural transitions. Match ground level, vegetation density, and color palette at all edges.',
-  building: 'Maintain consistent wall alignment, window grid, and structural elements. Architectural features must align at boundaries.',
-  decoration: 'Object placement should respect adjacent context. Shadows must be consistent in direction and intensity.',
-  custom: '',
-};
 
 const ROTATION_CAMERA_SPECS: Record<string, string> = {
   // Turnaround directions
@@ -31,7 +22,6 @@ const ROTATION_CAMERA_SPECS: Record<string, string> = {
 
 const NEGATIVE_PROMPTS = {
   characters: 'No extra fingers, hands, or limbs. No floating body parts. No watermarks or text overlays.',
-  tiles: 'No isolated objects. No strong directional shadows. No elements that break at tile boundaries.',
   all: 'No watermarks. No artist signatures. No UI elements.',
 };
 
@@ -58,40 +48,6 @@ export class PromptBuilder {
     if (negatives.length > 0) {
       this.parts.push(`Avoid: ${negatives.join(', ')}`);
     }
-    return this;
-  }
-
-  withTileContext(
-    adjacents: Array<{ direction: string }>,
-    tileType: TileType
-  ): this {
-    this.parts.push(`Create an isometric ${tileType} game tile for a seamless tile map.`);
-
-    if (adjacents.length > 0) {
-      this.parts.push(
-        'The following reference images are adjacent tiles that this new tile must connect to seamlessly:'
-      );
-      for (let i = 0; i < adjacents.length; i++) {
-        this.parts.push(`Image ${i + 1}: tile to the ${adjacents[i].direction}`);
-      }
-      this.parts.push(
-        'CRITICAL: The edges facing these adjacent tiles must match perfectly — same ground level, same terrain features, same color palette at the boundary. The transition should be invisible.'
-      );
-    } else {
-      this.parts.push(
-        'This is the seed tile. It should have edges that are designed to be extended in all four cardinal directions.'
-      );
-    }
-
-    const template = TILE_TYPE_TEMPLATES[tileType];
-    if (template) {
-      this.parts.push(template);
-    }
-
-    this.parts.push('- Consistent isometric perspective (standard 2:1 ratio)');
-    this.parts.push('- Clean edges suitable for seamless tiling');
-    this.parts.push(`- ${tileType}-appropriate content`);
-
     return this;
   }
 
@@ -129,4 +85,4 @@ export class PromptBuilder {
   }
 }
 
-export { NEGATIVE_PROMPTS, TILE_TYPE_TEMPLATES, ROTATION_CAMERA_SPECS };
+export { NEGATIVE_PROMPTS, ROTATION_CAMERA_SPECS };

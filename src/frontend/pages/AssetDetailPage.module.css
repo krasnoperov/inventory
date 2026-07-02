@@ -345,19 +345,6 @@
   --ui-select-max-width: 7rem;
 }
 
-/* Tile Grid overlay - top right */
-.tileGridOverlay {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  z-index: 10;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: none;
-  max-width: 320px;
-}
-
 .jobsDock {
   display: flex;
   flex-direction: column;

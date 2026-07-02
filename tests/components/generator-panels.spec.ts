@@ -95,6 +95,28 @@ async function resolvedColor(page: Page, value: string) {
   }, value);
 }
 
+async function resolvedBackgroundIn(scope: Locator, value: string) {
+  return scope.evaluate((element, backgroundValue) => {
+    const probe = document.createElement('div');
+    probe.style.background = backgroundValue;
+    element.appendChild(probe);
+    const resolved = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
+async function resolvedColorIn(scope: Locator, value: string) {
+  return scope.evaluate((element, colorValue) => {
+    const probe = document.createElement('div');
+    probe.style.color = colorValue;
+    element.appendChild(probe);
+    const resolved = getComputedStyle(probe).color;
+    probe.remove();
+    return resolved;
+  }, value);
+}
+
 async function resolvedShadow(page: Page, value: string) {
   return page.evaluate((shadowValue) => {
     const probe = document.createElement('div');
@@ -149,53 +171,6 @@ const sourceVariant = {
   quality_rating: null,
   rated_at: null,
 };
-
-test('tile set panel uses shared fields without changing submit payload', async ({ page }) => {
-  await page.setViewportSize({ width: 900, height: 820 });
-  await mountComponent(page, 'TileSetPanel', {
-    tileSets: [],
-    tilePositions: [],
-    variants: [sourceVariant],
-    hasDefaultStyle: true,
-    onSubmit: '__record__:submitTileSet',
-    onCancel: '__record__:cancelTileSet',
-    onClose: '__record__:closeTileSet',
-  });
-
-  await expect(page.getByRole('heading', { name: 'Create Tile Set' })).toBeVisible();
-  await expectTransparentSheetHost(page);
-  const tileSetPanel = page.locator('[class*="sheetPanel"]').first();
-  await expect(tileSetPanel).toHaveCSS('box-shadow', 'none');
-  await expect(tileSetPanel).toHaveCSS('transform', 'none');
-  await expect(tileSetPanel).toHaveCSS('border-radius', '8px');
-  await expectDockedGeneratorSheet(page, tileSetPanel);
-  await expect(page.getByText('Tile Type')).toHaveCSS('text-transform', 'none');
-  await expect.poll(
-    () => tileSetPanel.evaluate((node) => getComputedStyle(node).animationName),
-  ).not.toContain('slideUp');
-  await selectOption(page, 'Tile Type', 'Building');
-  await selectOption(page, 'Grid Size', '4x4');
-  await selectOption(page, 'Generation Mode', 'Single-Shot');
-  await page.getByPlaceholder('e.g. lush green forest floor with mossy stones and fallen leaves').fill('mossy forest floor');
-  await page.getByLabel('No style').check();
-  await resetScrollablePanels(page);
-  await screenshot(page, 'tile-set-panel-shared-fields', { fullPage: true });
-
-  await page.getByRole('button', { name: 'Generate 4x4 Tiles' }).click();
-
-  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
-  expect(calls).toContainEqual(expect.objectContaining({
-    eventName: 'submitTileSet',
-    args: [expect.objectContaining({
-      tileType: 'building',
-      gridWidth: 4,
-      gridHeight: 4,
-      prompt: 'mossy forest floor',
-      disableStyle: true,
-      generationMode: 'single-shot',
-    })],
-  }));
-});
 
 test('rotation panel uses shared fields without changing submit payload', async ({ page }) => {
   await mockImages(page);
@@ -285,7 +260,6 @@ test('rotation panel keeps rating controls in footer chrome', async ({ page }) =
     onCancel: '__record__:cancelRotation',
     onClose: '__record__:closeRotation',
     onRateVariant: '__record__:rateRotation',
-    onExportTrainingData: '__record__:exportRotation',
   });
 
   await expect(page.getByRole('heading', { name: 'Rotation Complete' })).toBeVisible();
@@ -347,17 +321,6 @@ test('generator panels stay above mobile ForgeTray offset', async ({ page }) => 
   await mockImages(page);
   await page.setViewportSize({ width: 390, height: 844 });
 
-  await mountComponent(page, 'TileSetPanel', {
-    tileSets: [],
-    tilePositions: [],
-    variants: [sourceVariant],
-    hasDefaultStyle: true,
-    onSubmit: '__record__:submitTileSet',
-    onCancel: '__record__:cancelTileSet',
-    onClose: '__record__:closeTileSet',
-  });
-  await expectMobileGeneratorSheetAboveTray(page, page.locator('[class*="sheetPanel"]').first());
-
   await mountComponent(page, 'RotationPanel', {
     sourceVariant,
     sourceAsset,
@@ -375,45 +338,6 @@ test('generator panels stay above mobile ForgeTray offset', async ({ page }) => 
 test('generator panels use tokenized completed progress surfaces', async ({ page }) => {
   await mockImages(page);
   await page.setViewportSize({ width: 900, height: 820 });
-
-  const tileSet = {
-    id: 'tile-set-progress',
-    asset_id: sourceAsset.id,
-    tile_type: 'terrain',
-    grid_width: 2,
-    grid_height: 2,
-    status: 'generating',
-    seed_variant_id: null,
-    config: '{}',
-    current_step: 1,
-    total_steps: 4,
-    error_message: null,
-    created_by: 'user-1',
-    created_at: baseTime,
-    updated_at: baseTime,
-  };
-  const completedTileVariant = { ...sourceVariant, id: 'tile-complete' };
-  const processingTileVariant = { ...sourceVariant, id: 'tile-processing', status: 'processing', image_key: null, thumb_key: null };
-
-  await mountComponent(page, 'TileSetPanel', {
-    tileSets: [tileSet],
-    tilePositions: [
-      { id: 'tile-pos-1', tile_set_id: tileSet.id, variant_id: completedTileVariant.id, grid_x: 0, grid_y: 0, created_at: baseTime },
-      { id: 'tile-pos-2', tile_set_id: tileSet.id, variant_id: processingTileVariant.id, grid_x: 1, grid_y: 0, created_at: baseTime },
-    ],
-    variants: [completedTileVariant, processingTileVariant],
-    hasDefaultStyle: true,
-    onSubmit: '__record__:submitTileSet',
-    onCancel: '__record__:cancelTileSet',
-    onClose: '__record__:closeTileSet',
-  });
-
-  const completedSurface = await resolvedBackground(page, 'var(--color-status-completed-bg)');
-  const completedBorder = await resolvedColor(page, 'var(--color-status-completed)');
-  const tileProgressCell = page.locator('[class*="progressCell"][class*="completed"]').first();
-  await expect(tileProgressCell).toHaveCSS('background-color', completedSurface);
-  await expect(tileProgressCell).toHaveCSS('border-color', completedBorder);
-  await screenshot(page, 'tile-set-panel-tokenized-progress', { fullPage: true });
 
   const rotationSet = {
     id: 'rotation-progress',
@@ -446,6 +370,8 @@ test('generator panels use tokenized completed progress surfaces', async ({ page
   });
 
   const rotationProgressCell = page.locator('[class*="directionCell"][class*="completed"]').nth(1);
+  const completedSurface = await resolvedBackgroundIn(rotationProgressCell, 'var(--color-status-completed-bg)');
+  const completedBorder = await resolvedColorIn(rotationProgressCell, 'var(--color-status-completed)');
   await expect(rotationProgressCell).toHaveCSS('background-color', completedSurface);
   await expect(rotationProgressCell).toHaveCSS('border-color', completedBorder);
   await screenshot(page, 'rotation-panel-tokenized-progress', { fullPage: true });
@@ -453,38 +379,6 @@ test('generator panels use tokenized completed progress surfaces', async ({ page
 
 test('generator panels use tokenized failed error surfaces', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 820 });
-
-  const failedTileSet = {
-    id: 'tile-set-failed',
-    asset_id: sourceAsset.id,
-    tile_type: 'terrain',
-    grid_width: 2,
-    grid_height: 2,
-    status: 'failed',
-    seed_variant_id: null,
-    config: JSON.stringify({ prompt: 'mossy forest floor' }),
-    current_step: 1,
-    total_steps: 4,
-    error_message: 'Tile set provider failed',
-    created_by: 'user-1',
-    created_at: baseTime,
-    updated_at: baseTime,
-  };
-
-  await mountComponent(page, 'TileSetPanel', {
-    tileSets: [failedTileSet],
-    tilePositions: [],
-    variants: [sourceVariant],
-    hasDefaultStyle: true,
-    onSubmit: '__record__:submitTileSet',
-    onCancel: '__record__:cancelTileSet',
-    onClose: '__record__:closeTileSet',
-  });
-
-  const failedSurface = await resolvedBackground(page, 'var(--color-status-failed-bg)');
-  await expect(page.getByText('Tile Set Failed')).toBeVisible();
-  await expect(page.locator('[class*="errorIcon"]').first()).toHaveCSS('background-color', failedSurface);
-  await screenshot(page, 'tile-set-panel-tokenized-error', { fullPage: true });
 
   const failedRotationSet = {
     id: 'rotation-failed',
@@ -511,6 +405,8 @@ test('generator panels use tokenized failed error surfaces', async ({ page }) =>
   });
 
   await expect(page.getByText('Rotation Failed')).toBeVisible();
-  await expect(page.locator('[class*="errorIcon"]').first()).toHaveCSS('background-color', failedSurface);
+  const errorIcon = page.locator('[class*="errorIcon"]').first();
+  const failedSurface = await resolvedBackgroundIn(errorIcon, 'var(--color-status-failed-bg)');
+  await expect(errorIcon).toHaveCSS('background-color', failedSurface);
   await screenshot(page, 'rotation-panel-tokenized-error', { fullPage: true });
 });

@@ -33,7 +33,6 @@ import {
   VisionController,
   StylePresetController,
   RotationController,
-  TileController,
   OrganizationController,
 } from './space/controllers';
 import { ApprovalController } from './space/controllers/ApprovalController';
@@ -67,7 +66,6 @@ export class SpaceDO extends DurableObject<Env> {
   private sessionCtrl!: SessionController;
   private chatCtrl!: ChatController;
   private rotationCtrl!: RotationController;
-  private tileCtrl!: TileController;
   private organizationCtrl!: OrganizationController;
 
   constructor(ctx: DurableObjectState, env: Env) {
@@ -147,11 +145,10 @@ export class SpaceDO extends DurableObject<Env> {
       this.sessionCtrl = new SessionController(ctx);
       this.chatCtrl = new ChatController(ctx);
       this.rotationCtrl = new RotationController(ctx);
-      this.tileCtrl = new TileController(ctx);
       this.organizationCtrl = new OrganizationController(ctx);
 
       // Wire pipeline controllers to generation controller (avoids circular deps)
-      this.generationCtrl.setPipelineControllers(this.rotationCtrl, this.tileCtrl);
+      this.generationCtrl.setPipelineControllers(this.rotationCtrl);
 
       // Initialize internal HTTP router
       this.internalApi = createInternalApi({
@@ -385,18 +382,6 @@ export class SpaceDO extends DurableObject<Env> {
         return this.rotationCtrl.handleRotationRequest(ws, meta, msg as ClientMessage & { type: 'rotation:request' });
       case 'rotation:cancel':
         return this.rotationCtrl.handleRotationCancel(ws, meta, (msg as { type: 'rotation:cancel'; rotationSetId: string }).rotationSetId);
-
-      // Tile set pipeline
-      case 'tileset:request':
-        return this.tileCtrl.handleTileSetRequest(ws, meta, msg as ClientMessage & { type: 'tileset:request' });
-      case 'tileset:cancel':
-        return this.tileCtrl.handleTileSetCancel(ws, meta, (msg as { type: 'tileset:cancel'; tileSetId: string }).tileSetId);
-      case 'tileset:retry_tile':
-        return this.tileCtrl.handleRetryTile(ws, meta, msg as ClientMessage & { type: 'tileset:retry_tile' });
-      case 'tileset:refine_edges':
-        return this.tileCtrl.handleRefineEdges(ws, meta, msg as ClientMessage & { type: 'tileset:refine_edges' });
-      case 'tileset:refine_tile':
-        return this.tileCtrl.handleRefineTile(ws, meta, msg as ClientMessage & { type: 'tileset:refine_tile' });
 
       // Vision
       case 'describe:request':

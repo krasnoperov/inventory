@@ -63,7 +63,7 @@ export interface Variant {
   created_at: number;
   updated_at: number | null;  // Track status changes
   description: string | null;  // Cached AI-generated description for vision-aware enhancement
-  quality_rating?: 'approved' | 'rejected' | null;  // Curation rating for training data
+  quality_rating?: 'approved' | 'rejected' | null;  // Curation rating
   rated_at?: number | null;  // Timestamp of rating
 }
 
@@ -211,10 +211,9 @@ export interface CollectionItem {
   updated_at: number;
 }
 
-// Rotation & Tile Set types
+// Rotation types
 
 export type RotationConfig = '4-directional' | '8-directional' | 'turnaround';
-export type TileType = 'terrain' | 'building' | 'decoration' | 'custom';
 
 export interface RotationSet {
   id: string;
@@ -239,34 +238,7 @@ export interface RotationView {
   created_at: number;
 }
 
-export interface TileSet {
-  id: string;
-  asset_id: string;
-  tile_type: TileType;
-  grid_width: number;
-  grid_height: number;
-  status: 'pending' | 'generating' | 'completed' | 'failed' | 'cancelled';
-  seed_variant_id: string | null;
-  config: string;
-  current_step: number;
-  total_steps: number;
-  error_message: string | null;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-}
-
-export interface TilePosition {
-  id: string;
-  tile_set_id: string;
-  variant_id: string;
-  grid_x: number;
-  grid_y: number;
-  status?: 'pending' | 'generating' | 'completed' | 'failed';
-  created_at: number;
-}
-
-// Rotation/Tile request params
+// Rotation request params
 
 export interface RotationRequestParams {
   sourceVariantId: string;
@@ -276,19 +248,6 @@ export interface RotationRequestParams {
   disableStyle?: boolean;
   stylePresetId?: string;
   styleVariantIds?: string[];
-}
-
-export interface TileSetRequestParams {
-  tileType: TileType;
-  gridWidth: number;
-  gridHeight: number;
-  prompt: string;
-  seedVariantId?: string;
-  aspectRatio?: string;
-  disableStyle?: boolean;
-  stylePresetId?: string;
-  styleVariantIds?: string[];
-  generationMode?: 'sequential' | 'single-shot';
 }
 
 export interface RotationRequestParamsExtended extends RotationRequestParams {
@@ -770,12 +729,6 @@ export interface UseSpaceWebSocketParams {
   onRotationCompleted?: (data: { rotationSetId: string; views: RotationView[] }) => void;
   onRotationFailed?: (data: { rotationSetId: string; error: string; failedStep: number }) => void;
   onRotationCancelled?: (rotationSetId: string) => void;
-  // Tile set pipeline callbacks
-  onTileSetStarted?: (data: { tileSetId: string; assetId: string; gridWidth: number; gridHeight: number; totalTiles: number }) => void;
-  onTileSetTileCompleted?: (data: { tileSetId: string; gridX: number; gridY: number; step: number; total: number; variantId: string }) => void;
-  onTileSetCompleted?: (data: { tileSetId: string; positions: TilePosition[] }) => void;
-  onTileSetFailed?: (data: { tileSetId: string; error: string; failedStep: number }) => void;
-  onTileSetCancelled?: (tileSetId: string) => void;
   // Generation/refine/batch error callbacks
   onGenerateError?: (data: { requestId: string; error: string; code: string }) => void;
   onRefineError?: (data: { requestId: string; error: string; code: string }) => void;
@@ -814,8 +767,8 @@ export interface JobContext {
 
 // Server message types based on ARCHITECTURE.md
 export type ServerMessage =
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: unknown[]; compositionItems?: unknown[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
-  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: unknown[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: unknown[]; compositionItems?: unknown[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
+  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: unknown[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
@@ -884,12 +837,6 @@ export type ServerMessage =
   | { type: 'rotation:completed'; rotationSetId: string; views: RotationView[] }
   | { type: 'rotation:failed'; rotationSetId: string; error: string; failedStep: number }
   | { type: 'rotation:cancelled'; rotationSetId: string }
-  // Tile set pipeline messages
-  | { type: 'tileset:started'; requestId: string; tileSetId: string; assetId: string; gridWidth: number; gridHeight: number; totalTiles: number }
-  | { type: 'tileset:tile_completed'; tileSetId: string; variantId: string; gridX: number; gridY: number; step: number; total: number }
-  | { type: 'tileset:completed'; tileSetId: string; positions: TilePosition[] }
-  | { type: 'tileset:failed'; tileSetId: string; error: string; failedStep: number }
-  | { type: 'tileset:cancelled'; tileSetId: string }
   // Generation/refine/batch error messages
   | { type: 'generate:error'; requestId: string; error: string; code: string }
   | { type: 'refine:error'; requestId: string; error: string; code: string }
@@ -902,7 +849,6 @@ export const PREDEFINED_ASSET_TYPES = [
   'scene',
   'environment',
   'sprite-sheet',
-  'tile-set',
   'animation',
   'style-sheet',
   'reference',
@@ -990,13 +936,5 @@ export interface UseSpaceWebSocketReturn {
   rotationViews: RotationView[];
   sendRotationRequest: (params: RotationRequestParams) => void;
   sendRotationCancel: (rotationSetId: string) => void;
-  // Tile set pipeline
-  tileSets: TileSet[];
-  tilePositions: TilePosition[];
-  sendTileSetRequest: (params: TileSetRequestParams) => void;
-  sendTileSetCancel: (tileSetId: string) => void;
-  sendRetryTile: (tileSetId: string, gridX: number, gridY: number) => void;
-  sendRefineEdges: (tileSetId: string) => void;
-  sendRefineTile: (tileSetId: string, gridX: number, gridY: number) => void;
   sendVariantRate: (variantId: string, rating: 'approved' | 'rejected') => void;
 }

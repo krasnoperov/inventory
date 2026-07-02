@@ -156,7 +156,6 @@ Create game-ready helpers:
 
 \`\`\`bash
 makefx rotation --variant VARIANT_ID --config 8-directional
-makefx tileset "grass and stone path tiles" --type terrain --grid 3x3
 \`\`\`
 
 Watch real-time space activity:
@@ -198,7 +197,7 @@ lineage, and stored media.
 | \`video\` | Generate, refine, and derive video assets |
 | \`upload\` | Upload local media files and return Space IDs for chaining |
 | \`assets\`, \`variants\` | Inspect, download, curate, retry, or delete outputs |
-| \`rotation\`, \`tileset\` | Generate game-ready reference sets |
+| \`rotation\` | Generate game-ready reference sets |
 | \`listen\` | Stream real-time space events |
 | \`runs\` | Inspect local debug manifests |
 | \`usage\` | Inspect platform storage and workflow consumption |

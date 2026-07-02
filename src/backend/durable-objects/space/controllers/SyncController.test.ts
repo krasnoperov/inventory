@@ -27,8 +27,6 @@ function createContext(repoOverrides: Partial<SpaceRepository>): {
       styleReferenceCollections: [],
       rotationSets: [],
       rotationViews: [],
-      tileSets: [],
-      tilePositions: [],
       style: null,
     })),
     getOverviewState: mock.fn(async () => ({
@@ -40,8 +38,6 @@ function createContext(repoOverrides: Partial<SpaceRepository>): {
       styleReferenceCollections: [],
       rotationSets: [],
       rotationViews: [],
-      tileSets: [],
-      tilePositions: [],
       style: null,
     })),
     ...repoOverrides,
@@ -89,8 +85,6 @@ describe('SyncController', () => {
         }],
         rotationSets: [],
         rotationViews: [],
-        tileSets: [],
-        tilePositions: [],
         style: null,
       })),
     });
@@ -135,8 +129,6 @@ describe('SyncController', () => {
         styleReferenceCollections: [{ id: 'collection-2', name: 'Style refs', reference_count: 1 }],
         rotationSets: [],
         rotationViews: [],
-        tileSets: [],
-        tilePositions: [],
         style: null,
       })),
     });
@@ -167,8 +159,6 @@ describe('SyncController', () => {
         styleReferenceCollections: [{ id: 'collection-1', name: 'Style refs', reference_count: 1 }],
         rotationSets: [],
         rotationViews: [],
-        tileSets: [],
-        tilePositions: [],
         style: null,
       })),
     });

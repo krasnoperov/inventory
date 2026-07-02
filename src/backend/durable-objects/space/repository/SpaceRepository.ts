@@ -24,8 +24,6 @@ import type {
   SpaceStyle,
   RotationSet,
   RotationView,
-  TileSet,
-  TilePosition,
   SpaceSubjectType,
   SpaceCollection,
   CollectionItem,
@@ -47,8 +45,6 @@ import {
   UserSessionQueries,
   RotationSetQueries,
   RotationViewQueries,
-  TileSetQueries,
-  TilePositionQueries,
   SpaceCollectionQueries,
   CollectionItemQueries,
   buildAssetUpdateQuery,
@@ -105,8 +101,6 @@ export interface SpaceState {
   styleReferenceCollections: StyleReferenceCollectionPreview[];
   rotationSets: RotationSet[];
   rotationViews: RotationView[];
-  tileSets: TileSet[];
-  tilePositions: TilePosition[];
 }
 
 /** Lightweight state for the space overview canvas */
@@ -119,8 +113,6 @@ export interface SpaceOverviewState {
   styleReferenceCollections: StyleReferenceCollectionPreview[];
   rotationSets: RotationSet[];
   rotationViews: RotationView[];
-  tileSets: TileSet[];
-  tilePositions: TilePosition[];
 }
 
 /** Asset with variant count for bot context */
@@ -752,31 +744,6 @@ export class SpaceRepository {
       assetId,
       assetId
     );
-    await this.sql.exec(
-      `UPDATE tile_positions
-       SET deleted_at = ?
-       WHERE deleted_at IS NULL
-         AND (
-           tile_set_id IN (SELECT id FROM tile_sets WHERE asset_id = ?)
-           OR variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
-         )`,
-      now,
-      assetId,
-      assetId
-    );
-    await this.sql.exec(
-      `UPDATE tile_sets
-       SET deleted_at = ?, updated_at = ?
-       WHERE deleted_at IS NULL
-         AND (
-           asset_id = ?
-           OR seed_variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
-         )`,
-      now,
-      now,
-      assetId,
-      assetId
-    );
   }
 
   private async softDeleteRowsReferencingVariant(variantId: string, now: number): Promise<void> {
@@ -809,21 +776,6 @@ export class SpaceRepository {
       `UPDATE rotation_sets
        SET deleted_at = ?, updated_at = ?
        WHERE deleted_at IS NULL AND source_variant_id = ?`,
-      now,
-      now,
-      variantId
-    );
-    await this.sql.exec(
-      `UPDATE tile_positions
-       SET deleted_at = ?
-       WHERE deleted_at IS NULL AND variant_id = ?`,
-      now,
-      variantId
-    );
-    await this.sql.exec(
-      `UPDATE tile_sets
-       SET deleted_at = ?, updated_at = ?
-       WHERE deleted_at IS NULL AND seed_variant_id = ?`,
       now,
       now,
       variantId
@@ -994,7 +946,7 @@ export class SpaceRepository {
   }
 
   /**
-   * Update quality rating for a variant (approve/reject for training data curation).
+   * Update quality rating for a variant.
    */
   async updateVariantRating(
     variantId: string,
@@ -1012,23 +964,6 @@ export class SpaceRepository {
       variantId
     );
     return this.getVariantById(variantId);
-  }
-
-  /**
-   * Get all approved variants, optionally filtered by asset.
-   */
-  async getApprovedVariants(assetId?: string): Promise<Variant[]> {
-    if (assetId) {
-      const result = await this.sql.exec(
-      `SELECT * FROM variants WHERE quality_rating = 'approved' AND asset_id = ? AND deleted_at IS NULL ORDER BY rated_at DESC`,
-        assetId
-      );
-      return result.toArray() as Variant[];
-    }
-    const result = await this.sql.exec(
-      `SELECT * FROM variants WHERE quality_rating = 'approved' AND deleted_at IS NULL ORDER BY rated_at DESC`
-    );
-    return result.toArray() as Variant[];
   }
 
   // ==========================================================================
@@ -2133,8 +2068,6 @@ export class SpaceRepository {
       styleReferenceCollections,
       rotationSets,
       rotationViews,
-      tileSets,
-      tilePositions,
     ] = await Promise.all([
       this.getAllAssets(),
       this.getAllVariants(),
@@ -2145,8 +2078,6 @@ export class SpaceRepository {
       this.listStyleReferenceCollections(),
       this.getAllRotationSets(),
       this.getAllRotationViews(),
-      this.getAllTileSets(),
-      this.getAllTilePositions(),
     ]);
     return {
       assets,
@@ -2158,8 +2089,6 @@ export class SpaceRepository {
       styleReferenceCollections,
       rotationSets,
       rotationViews,
-      tileSets,
-      tilePositions,
     };
   }
 
@@ -2173,8 +2102,6 @@ export class SpaceRepository {
       styleReferenceCollections,
       rotationSets,
       rotationViews,
-      tileSets,
-      tilePositions,
     ] = await Promise.all([
       this.getAllAssets(),
       this.getOverviewVariants(),
@@ -2184,8 +2111,6 @@ export class SpaceRepository {
       this.listStyleReferenceCollections(),
       this.getAllRotationSets(),
       this.getAllRotationViews(),
-      this.getAllTileSets(),
-      this.getAllTilePositions(),
     ]);
     const inProgressVariants = await this.getInProgressVariants();
     const variantIds = new Set([
@@ -2195,8 +2120,6 @@ export class SpaceRepository {
     const referencedVariantIds = [
       ...rotationSets.map((set) => set.source_variant_id),
       ...rotationViews.map((view) => view.variant_id),
-      ...tileSets.flatMap((set) => set.seed_variant_id ? [set.seed_variant_id] : []),
-      ...tilePositions.map((position) => position.variant_id),
       ...collectionItems.flatMap((item) => [
         item.variant_id,
         item.pinned_variant_id,
@@ -2208,7 +2131,7 @@ export class SpaceRepository {
       ...inProgressVariants.filter((variant) => !overviewVariants.some((overviewVariant) => overviewVariant.id === variant.id)),
       ...referencedVariants.filter((variant) => !variantIds.has(variant.id)),
     ];
-    return { assets, variants, collections, collectionItems, stylePresets, styleReferenceCollections, rotationSets, rotationViews, tileSets, tilePositions };
+    return { assets, variants, collections, collectionItems, stylePresets, styleReferenceCollections, rotationSets, rotationViews };
   }
 
   // ==========================================================================
@@ -2668,176 +2591,6 @@ export class SpaceRepository {
       created_at: now,
       deleted_at: null,
     };
-  }
-
-  // ==========================================================================
-  // Tile Set Operations
-  // ==========================================================================
-
-  async getAllTileSets(): Promise<TileSet[]> {
-    try {
-      const result = await this.sql.exec(TileSetQueries.GET_ALL);
-      return result.toArray() as TileSet[];
-    } catch {
-      return [];
-    }
-  }
-
-  async getTileSetById(id: string): Promise<TileSet | null> {
-    const result = await this.sql.exec(TileSetQueries.GET_BY_ID, id);
-    return (result.toArray()[0] as TileSet) ?? null;
-  }
-
-  async getTileSetByAssetId(assetId: string): Promise<TileSet | null> {
-    const result = await this.sql.exec(
-      `SELECT ts.*
-       FROM tile_sets ts
-       JOIN assets a ON a.id = ts.asset_id AND a.deleted_at IS NULL
-       LEFT JOIN variants seed ON seed.id = ts.seed_variant_id
-       WHERE ts.asset_id = ? AND ts.deleted_at IS NULL
-         AND (ts.seed_variant_id IS NULL OR (seed.id IS NOT NULL AND seed.deleted_at IS NULL))
-       ORDER BY ts.created_at DESC LIMIT 1`,
-      assetId
-    );
-    return (result.toArray()[0] as TileSet) ?? null;
-  }
-
-  async createTileSet(data: {
-    id: string;
-    assetId: string;
-    tileType: string;
-    gridWidth: number;
-    gridHeight: number;
-    seedVariantId?: string;
-    config: string;
-    totalSteps: number;
-    createdBy: string;
-  }): Promise<TileSet> {
-    const now = Date.now();
-    await this.sql.exec(
-      TileSetQueries.INSERT,
-      data.id,
-      data.assetId,
-      data.tileType,
-      data.gridWidth,
-      data.gridHeight,
-      'generating',
-      data.seedVariantId ?? null,
-      data.config,
-      0,
-      data.totalSteps,
-      null,
-      data.createdBy,
-      now,
-      now
-    );
-    return (await this.getTileSetById(data.id))!;
-  }
-
-  async updateTileSetStatus(id: string, status: string): Promise<TileSet | null> {
-    await this.sql.exec(TileSetQueries.UPDATE_STATUS, status, Date.now(), id);
-    return this.getTileSetById(id);
-  }
-
-  async updateTileSetStep(id: string, step: number): Promise<TileSet | null> {
-    await this.sql.exec(TileSetQueries.UPDATE_STEP, step, Date.now(), id);
-    return this.getTileSetById(id);
-  }
-
-  async failTileSet(id: string, error: string): Promise<TileSet | null> {
-    await this.sql.exec(TileSetQueries.FAIL, error, Date.now(), id);
-    return this.getTileSetById(id);
-  }
-
-  async cancelTileSet(id: string): Promise<TileSet | null> {
-    await this.sql.exec(TileSetQueries.CANCEL, Date.now(), id);
-    return this.getTileSetById(id);
-  }
-
-  // ==========================================================================
-  // Tile Position Operations
-  // ==========================================================================
-
-  async getAllTilePositions(): Promise<TilePosition[]> {
-    try {
-      const result = await this.sql.exec(TilePositionQueries.GET_ALL);
-      return result.toArray() as TilePosition[];
-    } catch {
-      return [];
-    }
-  }
-
-  async getTilePositionsBySet(setId: string): Promise<TilePosition[]> {
-    const result = await this.sql.exec(TilePositionQueries.GET_BY_SET, setId);
-    return result.toArray() as TilePosition[];
-  }
-
-  async getTilePositionByVariant(variantId: string): Promise<TilePosition | null> {
-    const result = await this.sql.exec(TilePositionQueries.GET_BY_VARIANT, variantId);
-    return (result.toArray()[0] as TilePosition) ?? null;
-  }
-
-  async getAdjacentTiles(setId: string, x: number, y: number): Promise<Array<TilePosition & { image_key: string; thumb_key: string; direction: string }>> {
-    const result = await this.sql.exec(
-      TilePositionQueries.GET_ADJACENT,
-      // CASE params: N(y,x), E(x,y), S(y,x), W(x,y)
-      y, x, x, y, y, x, x, y,
-      // WHERE params: setId, then N(x,y-1), E(x+1,y), S(x,y+1), W(x-1,y)
-      setId, x, y, x, y, x, y, x, y
-    );
-    return result.toArray() as Array<TilePosition & { image_key: string; thumb_key: string; direction: string }>;
-  }
-
-  async createTilePosition(data: {
-    id: string;
-    tileSetId: string;
-    variantId: string;
-    gridX: number;
-    gridY: number;
-  }): Promise<TilePosition> {
-    const now = Date.now();
-    await this.sql.exec(
-      TilePositionQueries.INSERT,
-      data.id,
-      data.tileSetId,
-      data.variantId,
-      data.gridX,
-      data.gridY,
-      now
-    );
-    return {
-      id: data.id,
-      tile_set_id: data.tileSetId,
-      variant_id: data.variantId,
-      grid_x: data.gridX,
-      grid_y: data.gridY,
-      status: 'pending',
-      created_at: now,
-      deleted_at: null,
-    };
-  }
-
-  async updateTilePositionStatus(positionId: string, status: string): Promise<void> {
-    await this.sql.exec(
-      `UPDATE tile_positions SET status = ? WHERE id = ? AND deleted_at IS NULL`,
-      status,
-      positionId
-    );
-  }
-
-  async getTilePositionAt(tileSetId: string, gridX: number, gridY: number): Promise<TilePosition | null> {
-    const result = await this.sql.exec(
-      `SELECT tp.*
-       FROM tile_positions tp
-       JOIN tile_sets ts ON ts.id = tp.tile_set_id AND ts.deleted_at IS NULL
-       JOIN variants v ON v.id = tp.variant_id AND v.deleted_at IS NULL
-       JOIN assets a ON a.id = v.asset_id AND a.deleted_at IS NULL
-       WHERE tp.tile_set_id = ? AND tp.grid_x = ? AND tp.grid_y = ? AND tp.deleted_at IS NULL`,
-      tileSetId,
-      gridX,
-      gridY
-    );
-    return (result.toArray()[0] as TilePosition) ?? null;
   }
 
   // ==========================================================================

@@ -313,12 +313,6 @@ export class SchemaManager {
     // Migration: Add rotation_sets and rotation_views tables for multi-view pipelines
     await this.addRotationSets();
 
-    // Migration: Add tile_sets and tile_positions tables for tile map pipelines
-    await this.addTileSets();
-
-    // Migration: Add status column to tile_positions for per-tile retry
-    await this.addTilePositionStatus();
-
     // Migration: Add quality_rating and rated_at columns to variants for curation
     await this.addVariantQualityRating();
 
@@ -609,8 +603,6 @@ export class SchemaManager {
       'space_relations',
       'rotation_sets',
       'rotation_views',
-      'tile_sets',
-      'tile_positions',
     ];
 
     for (const table of tables) {
@@ -708,52 +700,6 @@ export class SchemaManager {
   }
 
   /**
-   * Add tile_sets and tile_positions tables for seamless tile map pipelines.
-   */
-  private async addTileSets(): Promise<void> {
-    // Check if table already exists
-    const result = await this.sql.exec(
-      `SELECT name FROM sqlite_schema WHERE type = 'table' AND name = 'tile_sets'`
-    );
-    if (result.toArray().length > 0) return;
-
-    await this.sql.exec(`
-      CREATE TABLE IF NOT EXISTS tile_sets (
-        id TEXT PRIMARY KEY,
-        asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
-        tile_type TEXT NOT NULL CHECK (tile_type IN ('terrain', 'building', 'decoration', 'custom')),
-        grid_width INTEGER NOT NULL DEFAULT 3,
-        grid_height INTEGER NOT NULL DEFAULT 3,
-        status TEXT NOT NULL DEFAULT 'pending'
-          CHECK (status IN ('pending', 'generating', 'completed', 'failed', 'cancelled')),
-        seed_variant_id TEXT,
-        config TEXT NOT NULL DEFAULT '{}',
-        current_step INTEGER NOT NULL DEFAULT 0,
-        total_steps INTEGER NOT NULL,
-        error_message TEXT,
-        created_by TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_tile_sets_asset ON tile_sets(asset_id);
-
-      CREATE TABLE IF NOT EXISTS tile_positions (
-        id TEXT PRIMARY KEY,
-        tile_set_id TEXT NOT NULL REFERENCES tile_sets(id) ON DELETE CASCADE,
-        variant_id TEXT NOT NULL,
-        grid_x INTEGER NOT NULL,
-        grid_y INTEGER NOT NULL,
-        created_at INTEGER NOT NULL,
-        UNIQUE(tile_set_id, grid_x, grid_y)
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_tile_positions_set ON tile_positions(tile_set_id);
-      CREATE INDEX IF NOT EXISTS idx_tile_positions_variant ON tile_positions(variant_id);
-    `);
-  }
-
-  /**
    * Add batch_id column to variants for batch generation grouping.
    */
   private async addBatchIdToVariants(): Promise<void> {
@@ -770,29 +716,8 @@ export class SchemaManager {
   }
 
   /**
-   * Add status column to tile_positions for per-tile retry-and-continue.
-   * Allows individual tile failures without failing the entire set.
-   */
-  private async addTilePositionStatus(): Promise<void> {
-    try {
-      const result = await this.sql.exec(`PRAGMA table_info(tile_positions)`);
-      const columns = result.toArray() as Array<{ name: string }>;
-      const hasColumn = columns.some(col => col.name === 'status');
-
-      if (!hasColumn) {
-        await this.sql.exec(`
-          ALTER TABLE tile_positions ADD COLUMN status TEXT DEFAULT 'pending'
-            CHECK (status IN ('pending', 'generating', 'completed', 'failed'));
-        `);
-      }
-    } catch {
-      // Table may not exist yet (pre-migration)
-    }
-  }
-
-  /**
    * Add quality_rating and rated_at columns to variants for curation.
-   * Allows users to approve/reject generated variants for training data export.
+   * Allows users to approve/reject generated variants while comparing options.
    */
   private async addVariantQualityRating(): Promise<void> {
     const result = await this.sql.exec(`PRAGMA table_info(variants)`);

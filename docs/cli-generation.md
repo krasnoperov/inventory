@@ -199,20 +199,16 @@ generation command. On completion it downloads the media and writes the usual
 debug run manifest from the variant recipe and asset record. Pass
 `--timeout <seconds>` to override the default wait window.
 
-Generate consistency pipelines for game-ready reference sheets:
+Generate a consistency pipeline for game-ready reference sheets:
 
 ```bash
 makefx rotation --variant IMAGE_VARIANT_ID --config 8-directional
 makefx rotation --variant IMAGE_VARIANT_ID --config turnaround --mode single-shot --subject "armored guard"
-
-makefx tileset "grass, dirt path, and stone border terrain tiles" \
-  --type terrain \
-  --grid 3x3
 ```
 
-Rotation and tile-set commands stream WebSocket progress and wait for completion
-by default. Use `--detach` when an agent only needs to enqueue the pipeline and
-continue with other work.
+Rotation commands stream WebSocket progress and wait for completion by default.
+Use `--detach` when an agent only needs to enqueue the pipeline and continue
+with other work.
 
 Rotation generation is experimental and hidden unless explicitly enabled with
 `MAKEFX_ROTATION_ENABLED=true`. Keep the flag off until rotation quality is good
@@ -297,9 +293,7 @@ endpoint rather than by dereferencing raw R2 keys.
 | `--size <1K\|2K\|4K>` | top-level image commands | Optional image output size; Flash supports only `1K` |
 | `--aspect <ratio>` | top-level image commands, video commands | Optional generation aspect ratio; video supports `16:9` or `9:16` |
 | `--no-style` | all generation and consistency pipeline commands | Disable style preset injection for this request |
-| `--detach` | `rotation`, `tileset` | Return after the pipeline starts instead of waiting for completion |
-| `--grid <size>` | `tileset` | Square tile grid size or `WIDTHxHEIGHT`, each dimension 2-5 |
-| `--seed-variant <id>` | `tileset` | Optional completed image variant to place at the center of the tile set; sequential mode only |
+| `--detach` | `rotation` | Return after the pipeline starts instead of waiting for completion |
 | `--env <env>` | all | `production`, `stage`, or `local`; overrides project binding |
 | `--local` | all | Shortcut for `--env local` |
 

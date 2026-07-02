@@ -84,7 +84,7 @@ provider reference channel.
 |-|-|-|
 | Final hero asset, multiple references | `pro` | `2K`–`4K` |
 | Quick draft, one or no reference | `flash` | `1K` |
-| Character turnaround / tile set | `pro` (pipeline-driven) | `1K`–`2K` |
+| Character turnaround | `pro` (pipeline-driven) | `1K`–`2K` |
 | Combining character + style + background | `pro` (needs >1 ref) | match output |
 
 ## Video (Veo 3.1)

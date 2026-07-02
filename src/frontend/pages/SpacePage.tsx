@@ -34,7 +34,6 @@ import { ForgeTray } from '../components/ForgeTray';
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { defaultAssetNameFromFile, findAcceptedUploadFile } from '../mediaUpload';
-import { TileSetPanel } from '../components/TileSetPanel/TileSetPanel';
 import { ButtonLink, IconButton } from '../ui';
 import {
   approveSpaceAccessRequest,
@@ -150,10 +149,6 @@ export default function SpacePage() {
     forkAsset,
     sendBatchRequest,
     sendGenerationEstimateRequest,
-    tileSets,
-    tilePositions,
-    sendTileSetRequest,
-    sendTileSetCancel,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     syncMode: 'overview',
@@ -230,13 +225,6 @@ export default function SpacePage() {
     }
   }, [wsStatus, requestSync]);
 
-  // Tile Set panel state
-  const [showTileSetPanel, setShowTileSetPanel] = useState(false);
-
-  const defaultStylePreset = stylePresets.find((preset) => (
-    (preset.enabled === true || preset.enabled === 1) &&
-    (preset.is_default === true || preset.is_default === 1)
-  ));
   const hasSpaceSidePanel = showSharingPanel && isOwner;
 
   useEffect(() => {
@@ -616,18 +604,6 @@ export default function SpacePage() {
                   if (file) handleImport(file);
                 }}
               />
-              <CanvasToolbarDivider />
-              <CanvasToolbarButton
-                onClick={() => setShowTileSetPanel(true)}
-                title="Create Tile Set"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="8" height="8" rx="1" />
-                  <rect x="13" y="3" width="8" height="8" rx="1" />
-                  <rect x="3" y="13" width="8" height="8" rx="1" />
-                  <rect x="13" y="13" width="8" height="8" rx="1" />
-                </svg>
-              </CanvasToolbarButton>
             </>
           )}
         </CanvasToolbar>
@@ -721,23 +697,6 @@ export default function SpacePage() {
           forgeErrorCode={forgeErrorCode}
           generationEstimate={generationEstimate}
           sendGenerationEstimateRequest={sendGenerationEstimateRequest}
-        />
-      )}
-
-      {/* Tile Set Panel modal */}
-      {showTileSetPanel && (
-        <TileSetPanel
-          tileSets={tileSets}
-          tilePositions={tilePositions}
-          variants={variants}
-          hasDefaultStyle={Boolean(defaultStylePreset)}
-          onSubmit={(params) => {
-            sendTileSetRequest(params);
-          }}
-          onCancel={(tileSetId) => {
-            sendTileSetCancel(tileSetId);
-          }}
-          onClose={() => setShowTileSetPanel(false)}
         />
       )}
 

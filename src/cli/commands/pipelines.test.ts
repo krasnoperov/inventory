@@ -4,7 +4,6 @@ import type { StoredConfig } from '../lib/types';
 import type {
   PipelineClient,
   RotationPipelineResult,
-  TileSetPipelineResult,
 } from '../lib/websocket-client';
 import { executePipelineCommand } from './pipelines';
 
@@ -25,9 +24,7 @@ class FakePipelineClient implements PipelineClient {
   connected = false;
   disconnected = false;
   rotationParams: Parameters<PipelineClient['sendRotationRequest']>[0] | undefined;
-  tileSetParams: Parameters<PipelineClient['sendTileSetRequest']>[0] | undefined;
   cancelledRotationSetId: string | undefined;
-  cancelledTileSetId: string | undefined;
   connectionLoggingEnabled = true;
 
   setConnectionLogging(enabled: boolean): void {
@@ -76,45 +73,6 @@ class FakePipelineClient implements PipelineClient {
   async cancelRotation(rotationSetId: string): Promise<{ type: 'rotation:cancelled'; rotationSetId: string }> {
     this.cancelledRotationSetId = rotationSetId;
     return { type: 'rotation:cancelled', rotationSetId };
-  }
-
-  async sendTileSetRequest(
-    params: Parameters<PipelineClient['sendTileSetRequest']>[0]
-  ): Promise<TileSetPipelineResult> {
-    this.tileSetParams = params;
-    params.onStarted?.({
-      type: 'tileset:started',
-      requestId: 'request-tiles',
-      tileSetId: 'tile-set-1',
-      assetId: 'asset-tiles',
-      gridWidth: params.gridWidth,
-      gridHeight: params.gridHeight,
-      totalTiles: params.gridWidth * params.gridHeight,
-    });
-    params.onTileCompleted?.({
-      type: 'tileset:tile_completed',
-      tileSetId: 'tile-set-1',
-      variantId: 'variant-tile',
-      gridX: 1,
-      gridY: 1,
-      step: 1,
-      total: params.gridWidth * params.gridHeight,
-    });
-    return {
-      requestId: 'request-tiles',
-      tileSetId: 'tile-set-1',
-      assetId: 'asset-tiles',
-      gridWidth: params.gridWidth,
-      gridHeight: params.gridHeight,
-      totalTiles: params.gridWidth * params.gridHeight,
-      status: params.waitForCompletion === false ? 'started' : 'completed',
-      positions: params.waitForCompletion === false ? undefined : [],
-    };
-  }
-
-  async cancelTileSet(tileSetId: string): Promise<{ type: 'tileset:cancelled'; tileSetId: string }> {
-    this.cancelledTileSetId = tileSetId;
-    return { type: 'tileset:cancelled', tileSetId };
   }
 }
 
@@ -227,10 +185,11 @@ test('pipeline pretty output leaves WebSocket lifecycle logs enabled', async () 
   const client = new FakePipelineClient();
   const { deps } = depsFor(client);
 
-  await executePipelineCommand('tileset', {
-    positionals: ['stone floor'],
+  await executePipelineCommand('rotation', {
+    positionals: [],
     options: {
       space: 'space-1',
+      variant: 'variant-source',
     },
   }, deps);
 
@@ -238,54 +197,7 @@ test('pipeline pretty output leaves WebSocket lifecycle logs enabled', async () 
   assert.equal(client.connectionLoggingEnabled, true);
 });
 
-test('tileset command parses grid, prompt, seed, and tile type', async () => {
-  const client = new FakePipelineClient();
-  const { deps } = depsFor(client);
-
-  const result = await executePipelineCommand('tileset', {
-    positionals: ['mossy', 'ruins'],
-    options: {
-      space: 'space-1',
-      type: 'decoration',
-      grid: '4x2',
-      seed: 'variant-seed',
-      aspect: '1:1',
-      mode: 'sequential',
-    },
-  }, deps);
-
-  assert.equal('status' in result, true);
-  if (!('status' in result)) throw new Error('expected pipeline result');
-  assert.equal(result.status, 'completed');
-  assert.equal(client.tileSetParams?.prompt, 'mossy ruins');
-  assert.equal(client.tileSetParams?.tileType, 'decoration');
-  assert.equal(client.tileSetParams?.gridWidth, 4);
-  assert.equal(client.tileSetParams?.gridHeight, 2);
-  assert.equal(client.tileSetParams?.seedVariantId, 'variant-seed');
-  assert.equal(client.tileSetParams?.generationMode, 'sequential');
-});
-
-test('tileset command rejects single-shot seed variants before sending', async () => {
-  const client = new FakePipelineClient();
-  const { deps } = depsFor(client);
-
-  await assert.rejects(
-    executePipelineCommand('tileset', {
-      positionals: ['seeded grid'],
-      options: {
-        space: 'space-1',
-        mode: 'single-shot',
-        'seed-variant': 'variant-seed',
-      },
-    }, deps),
-    /--seed-variant is only supported with sequential tile-set generation/
-  );
-
-  assert.equal(client.tileSetParams, undefined);
-  assert.equal(client.disconnected, true);
-});
-
-test('pipeline cancel commands send the matching cancel messages', async () => {
+test('pipeline cancel command sends the matching cancel message', async () => {
   const client = new FakePipelineClient();
   const { deps } = depsFor(client);
 
@@ -293,29 +205,7 @@ test('pipeline cancel commands send the matching cancel messages', async () => {
     positionals: ['cancel', 'rotation-set-1'],
     options: { space: 'space-1' },
   }, deps);
-  const tileSet = await executePipelineCommand('tileset', {
-    positionals: ['cancel', 'tile-set-1'],
-    options: { space: 'space-1' },
-  }, deps);
 
   assert.deepEqual(rotation, { type: 'rotation:cancelled', rotationSetId: 'rotation-set-1' });
-  assert.deepEqual(tileSet, { type: 'tileset:cancelled', tileSetId: 'tile-set-1' });
   assert.equal(client.cancelledRotationSetId, 'rotation-set-1');
-  assert.equal(client.cancelledTileSetId, 'tile-set-1');
-});
-
-test('tileset command rejects invalid grid dimensions before sending', async () => {
-  const client = new FakePipelineClient();
-  const { deps } = depsFor(client);
-
-  await assert.rejects(
-    executePipelineCommand('tileset', {
-      positionals: ['tiny grid'],
-      options: { space: 'space-1', grid: '1x6' },
-    }, deps),
-    /Grid width must be an integer between 2 and 5/
-  );
-
-  assert.equal(client.tileSetParams, undefined);
-  assert.equal(client.disconnected, true);
 });
