@@ -13,7 +13,6 @@ import type { ChatMessage } from '../types';
 import { loggers } from '../../../../shared/logger';
 import { nanoid } from 'nanoid';
 import { resolveRuntimeProviderApiKey } from '../../../services/runtimeProviderKeys';
-import { resolveStyleReferences } from '../generation/refLimits';
 
 const log = loggers.chatController;
 
@@ -299,14 +298,6 @@ export class ChatController extends BaseController {
         variantDescriptions.push(...cached);
       }
 
-      // Fetch asset-backed default style for context
-      const activeStyle = await resolveStyleReferences(this.repo);
-      const styleContext = activeStyle.styleDescription || activeStyle.styleKeys.length > 0 ? {
-        description: activeStyle.styleDescription ?? '',
-        imageCount: activeStyle.styleKeys.length,
-        enabled: true,
-      } : undefined;
-
       // Call Claude with all context
       const currentPrompt = msg.forgeContext?.prompt ?? '';
       const result = await claudeService.forgeChat(
@@ -314,8 +305,7 @@ export class ChatController extends BaseController {
         currentPrompt,
         variantDescriptions,
         conversationHistory,
-        images,
-        styleContext
+        images
       );
 
       // Store bot response

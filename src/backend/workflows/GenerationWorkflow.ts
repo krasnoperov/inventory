@@ -129,7 +129,6 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
       imageSize,
       sourceImageKeys,
       operation,
-      styleImageKeys,
       veoReferenceMode,
       generateAudio,
       videoResolution,
@@ -221,19 +220,10 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
               const base64 = arrayBufferToBase64(buffer);
               const mimeType = imageObject.httpMetadata?.contentType || 'image/png';
 
-              // Label style reference images distinctly from content references
-              const styleKeyCount = styleImageKeys?.length || 0;
-              let label: string;
-              if (styleKeyCount > 0 && i < styleKeyCount) {
-                label = `Style ref ${i + 1}:`;
-              } else {
-                label = `Image ${i + 1 - styleKeyCount}:`;
-              }
-
               sourceImages.push({
                 data: base64,
                 mimeType,
-                label,
+                label: `Image ${i + 1}:`,
               });
             }
             fetchTimer(true, { totalBytes, imageCount: sourceImages.length });
@@ -261,8 +251,7 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
           const durationSecondsToUse = (
             normalizeVideoGenerationDurationSeconds(videoDurationSeconds) ?? DEFAULT_VIDEO_GENERATION_DURATION_SECONDS
           ) as VideoDurationSeconds;
-          const styleImageCount = styleImageKeys?.length || 0;
-          const referenceModeToUse = veoReferenceMode ?? determineVeoReferenceMode(sourceImages.length, styleImageCount);
+          const referenceModeToUse = veoReferenceMode ?? determineVeoReferenceMode(sourceImages.length);
 
           const timer = log.startTimer('Veo video generation', {
             requestId,
@@ -302,7 +291,6 @@ export class GenerationWorkflow extends WorkflowEntrypoint<Env, GenerationWorkfl
                   durationSeconds: durationSecondsToUse,
                   generateAudio: generateAudio ?? VIDEO_GENERATION_AUDIO_ALWAYS_ON,
                   sourceImages,
-                  styleImageCount,
                   referenceMode: referenceModeToUse,
                 });
             timer(true, { resultSize: result.videoData.length });

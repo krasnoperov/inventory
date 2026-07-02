@@ -2,13 +2,9 @@ import type {
   Asset,
   CollectionItem,
   Lineage,
-  RotationSet,
-  RotationView,
   UserPresence,
   Variant,
   SpaceCollection,
-  StylePresetRaw,
-  StyleReferenceCollectionRaw,
 } from './protocol';
 
 export interface SpaceStateSnapshot {
@@ -18,10 +14,6 @@ export interface SpaceStateSnapshot {
   collections: SpaceCollection[];
   collectionItems: CollectionItem[];
   presence: UserPresence[];
-  rotationSets: RotationSet[];
-  rotationViews: RotationView[];
-  stylePresets?: StylePresetRaw[];
-  styleReferenceCollections?: StyleReferenceCollectionRaw[];
   syncMode: 'full' | 'overview';
   updatedAt: number;
 }
@@ -36,10 +28,6 @@ function cloneSpaceStateSnapshot(snapshot: SpaceStateSnapshot): SpaceStateSnapsh
     collections: [...snapshot.collections],
     collectionItems: [...snapshot.collectionItems],
     presence: [...snapshot.presence],
-    rotationSets: [...snapshot.rotationSets],
-    rotationViews: [...snapshot.rotationViews],
-    stylePresets: [...(snapshot.stylePresets ?? [])],
-    styleReferenceCollections: [...(snapshot.styleReferenceCollections ?? [])],
     syncMode: snapshot.syncMode,
     updatedAt: snapshot.updatedAt,
   };
@@ -87,10 +75,6 @@ export function persistSpaceStateSnapshot(args: {
   collections: SpaceCollection[];
   collectionItems: CollectionItem[];
   presence: UserPresence[];
-  rotationSets: RotationSet[];
-  rotationViews: RotationView[];
-  stylePresets: StylePresetRaw[];
-  styleReferenceCollections: StyleReferenceCollectionRaw[];
   syncMode: 'full' | 'overview' | null;
 }): void {
   const existing = spaceStateSnapshots.get(args.spaceId);
@@ -101,10 +85,6 @@ export function persistSpaceStateSnapshot(args: {
     collections: [...args.collections],
     collectionItems: [...args.collectionItems],
     presence: [...args.presence],
-    rotationSets: [...args.rotationSets],
-    rotationViews: [...args.rotationViews],
-    stylePresets: [...args.stylePresets],
-    styleReferenceCollections: [...args.styleReferenceCollections],
     syncMode: args.syncMode ?? existing?.syncMode ?? 'overview',
     updatedAt: Date.now(),
   });

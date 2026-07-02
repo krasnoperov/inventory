@@ -221,22 +221,16 @@ describe('AssetController', () => {
         }),
         listAllCollectionItems: mock.fn(async () => deleted ? [] : [collectionItem]),
         listRelations: mock.fn(async () => deleted ? [] : [relation]),
-        listStylePresetPreviewsByCollection: mock.fn(async () => [{
-          id: 'preset-1',
-          name: 'Painterly',
-          collection_id: 'collection-1',
-          collection_name: 'Style refs',
-          reference_count: 0,
-          style_reference_variant_ids: [],
-          style_reference_image_keys: [],
-        }]),
       });
       const controller = new AssetController(ctx);
 
       await controller.handleDelete({} as WebSocket, createOwnerMeta(), 'asset-1');
 
       assert.ok(broadcasts.some((b) => b.type === 'collection_item:deleted' && b.itemId === 'collection-item-1'));
-      assert.ok(broadcasts.some((b) => b.type === 'style_preset:updated' && b.preset.reference_count === 0));
+      assert.deepEqual(broadcasts.map((b) => b.type), [
+        'asset:deleted',
+        'collection_item:deleted',
+      ]);
     });
 
     test('does not track deleted storage usage for soft asset deletions', async () => {

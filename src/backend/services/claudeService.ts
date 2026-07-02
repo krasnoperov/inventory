@@ -178,13 +178,6 @@ export interface BotContext {
   plan?: SimplePlan;
   // Personalization: learned patterns and preferences
   personalizationContext?: string;
-  // Active space style (if any)
-  style?: {
-    id: string;
-    description: string;
-    imageCount: number;
-    enabled: boolean;
-  };
 }
 
 // =============================================================================
@@ -307,10 +300,6 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
                 type: 'string',
                 description: 'Detailed prompt describing what to generate',
               },
-              disableStyle: {
-                type: 'boolean',
-                description: 'Set to true to skip the space style for this generation. Only use when the user explicitly wants to override the style.',
-              },
             },
             required: ['name', 'type', 'prompt'],
           },
@@ -399,10 +388,6 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
           type: 'string',
           description: 'Detailed prompt describing what to generate. Include: subject, style, lighting, mood, composition.',
         },
-        disableStyle: {
-          type: 'boolean',
-          description: 'Set to true to skip the space style for this generation. Only use when the user explicitly wants to override the style.',
-        },
       },
       required: ['name', 'type', 'prompt'],
     },
@@ -454,10 +439,6 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
           items: { type: 'string' },
           description: 'Asset IDs to use as references (1-14). For multiple refs, order matters: image 1, image 2, etc.',
         },
-        disableStyle: {
-          type: 'boolean',
-          description: 'Set to true to skip the space style for this generation. Only use when the user explicitly wants to override the style.',
-        },
       },
       required: ['name', 'type', 'prompt', 'referenceAssetIds'],
     },
@@ -475,10 +456,6 @@ const ACTION_TOOLS: Anthropic.Tool[] = [
         prompt: {
           type: 'string',
           description: 'Prompt describing ONE specific change. Examples: "Change armor to deep crimson", "Add flowing black cape", "Remove helmet, face now visible". Use positive descriptions.',
-        },
-        disableStyle: {
-          type: 'boolean',
-          description: 'Set to true to skip the space style for this generation. Only use when the user explicitly wants to override the style.',
         },
       },
       required: ['assetId', 'prompt'],
@@ -698,14 +675,6 @@ ${plan.content}
 Use update_plan to modify this plan as you work. Mark items as done with [x].
 When ready to generate, use the appropriate tools (generate, derive, refine, batch_generate).
 ${plan.status === 'draft' ? 'The user can approve this plan before you proceed with generation.' : ''}
-
-`;
-    }
-
-    // Show active style context
-    if (context.style && context.style.enabled) {
-      prompt += `SPACE STYLE: "${context.style.description}" (${context.style.imageCount} reference images)
-Style is automatically applied to all generations. Users can disable it per-generation with disableStyle.
 
 `;
     }
@@ -1193,8 +1162,7 @@ Return ONLY the enhanced prompt text, nothing else.`;
     currentPrompt: string,
     variantContext: Array<{ variantId: string; assetName: string; description: string }>,
     conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
-    images?: Array<{ base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; assetName: string }>,
-    style?: { description: string; imageCount: number; enabled: boolean }
+    images?: Array<{ base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; assetName: string }>
   ): Promise<{ message: string; suggestedPrompt?: string; usage: ClaudeUsage }> {
     // Build context block with slot descriptions (for text reference in system prompt)
     const contextBlock = variantContext.length > 0
@@ -1204,12 +1172,8 @@ ${variantContext.map((v, i) =>
         ).join('\n')}`
       : '';
 
-    const styleBlock = style && style.enabled
-      ? `\nACTIVE SPACE STYLE: "${style.description}" (${style.imageCount} reference images). Style is applied automatically to generations. Mention the style when relevant to help the user understand how it affects their prompts.`
-      : '';
-
     const systemPrompt = `You are a creative assistant helping refine image generation prompts for Google Gemini.
-${contextBlock}${styleBlock}
+${contextBlock}
 
 CURRENT PROMPT: "${currentPrompt || '(empty)'}"
 

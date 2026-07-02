@@ -889,7 +889,6 @@ test('generate sends generate request and downloads completed image', async () =
     assetType: 'scene',
     prompt: 'A market background',
     aspectRatio: undefined,
-    disableStyle: false,
     mediaKind: 'image',
   });
   assert.deepEqual(downloads, [{
@@ -925,81 +924,8 @@ test('generate sends explicit image model, size, and aspect', async () => {
     model: 'flash',
     imageSize: '1K',
     aspectRatio: '16:9',
-    disableStyle: false,
     mediaKind: 'image',
   });
-});
-
-test('generate resolves style preset by name and sends preset id', async () => {
-  const client = new FakeClient();
-  const { deps } = depsFor(client);
-  const fetchImpl = async (input: RequestInfo | URL): Promise<Response> => {
-    const url = new URL(String(input));
-    assert.equal(url.pathname, '/api/spaces/space-1/style-presets');
-    return Response.json({
-      success: true,
-      presets: [{
-        id: 'preset-1',
-        name: 'Painterly',
-        description: null,
-        style_prompt: 'Painterly adventure game',
-        collection_id: 'collection-1',
-        enabled: true,
-        is_default: false,
-        created_by: 'user-1',
-        created_at: 1,
-        updated_at: 1,
-        collection_name: 'Painterly refs',
-        reference_count: 2,
-        style_reference_variant_ids: ['style-v1', 'style-v2'],
-        style_reference_image_keys: ['images/style-v1.png', 'images/style-v2.png'],
-      }],
-    });
-  };
-
-  const { output } = await captureConsoleLog(() => executeForgeCommand('generate', {
-    positionals: ['A', 'market', 'background'],
-    options: {
-      space: 'space-1',
-      name: 'Market',
-      type: 'scene',
-      'style-preset': 'Painterly',
-      o: 'market.png',
-    },
-  }, { ...deps, fetch: fetchImpl as typeof fetch }));
-
-  assert.deepEqual(client.generateParams, {
-    name: 'Market',
-    assetType: 'scene',
-    prompt: 'A market background',
-    aspectRatio: undefined,
-    disableStyle: false,
-    stylePresetId: 'preset-1',
-    mediaKind: 'image',
-  });
-  assert.ok(output.some((line) => line.includes('Style preset: Painterly (preset-1)')));
-  assert.ok(output.some((line) => line.includes('References: 2')));
-});
-
-test('generate rejects style preset with no-style before sending request', async () => {
-  const client = new FakeClient();
-  const { deps } = depsFor(client);
-
-  await assert.rejects(
-    () => executeForgeCommand('generate', {
-      positionals: ['A', 'market', 'background'],
-      options: {
-        space: 'space-1',
-        name: 'Market',
-        type: 'scene',
-        'style-preset': 'preset-1',
-        'no-style': 'true',
-        o: 'market.png',
-      },
-    }, deps),
-    /--style-preset cannot be used with --no-style/
-  );
-  assert.equal(client.generateParams, undefined);
 });
 
 test('image commands reject flash above 1K before sending request', async () => {
@@ -1357,7 +1283,6 @@ test('refine resolves variant asset from sync state and sends refine request', a
     prompt: 'make it evening',
     sourceVariantIds: ['variant-source'],
     aspectRatio: undefined,
-    disableStyle: false,
     mediaKind: 'image',
   });
 });
@@ -1411,7 +1336,6 @@ test('derive sends uploaded and existing refs as referenceVariantIds', async () 
     prompt: 'combine these',
     referenceVariantIds: ['variant-uploaded', 'variant-existing'],
     aspectRatio: undefined,
-    disableStyle: false,
     mediaKind: 'image',
   });
   assert.equal(downloads.length, 1);
@@ -1447,7 +1371,6 @@ test('batch sends batch request, downloads outputs, and writes manifest', async 
     mode: 'set',
     referenceVariantIds: ['variant-existing'],
     aspectRatio: undefined,
-    disableStyle: false,
     mediaKind: 'image',
   });
   assert.deepEqual(downloads, [
@@ -1604,7 +1527,6 @@ test('audio generate sends audio request and downloads variant media', async () 
     assetType: 'audio',
     prompt: 'A short victory sting',
     aspectRatio: undefined,
-    disableStyle: false,
     mediaKind: 'audio',
   });
   assert.deepEqual(downloads, []);
@@ -1636,7 +1558,6 @@ test('audio speech generate sends selected voice ID', async () => {
     assetType: 'speech',
     prompt: 'Selected voice narration',
     aspectRatio: undefined,
-    disableStyle: false,
     mediaKind: 'audio',
     voiceId: 'voice-narrator',
   });
@@ -1739,7 +1660,6 @@ test('explicit audio modes send canonical asset types', async () => {
       assetType,
       prompt: `prompt for ${mode}`,
       aspectRatio: undefined,
-      disableStyle: false,
       mediaKind: 'audio',
       ...(mode === 'speech' ? { voiceId: 'voice-narrator' } : {}),
       ...(mode === 'dialogue' ? { dialogueVoiceIds: ['voice-ada', 'voice-ben'] } : {}),
@@ -1768,7 +1688,6 @@ test('speech audio generate forwards explicit ElevenLabs model', async () => {
     prompt: 'Selected voice narration',
     model: 'eleven_v3',
     aspectRatio: undefined,
-    disableStyle: false,
     mediaKind: 'audio',
     voiceId: 'voice-narrator',
   });
@@ -1794,7 +1713,6 @@ test('audio music provider option is forwarded for Lyria requests', async () => 
     assetType: 'music',
     prompt: 'A short heroic loop',
     aspectRatio: undefined,
-    disableStyle: false,
     mediaKind: 'audio',
     musicProvider: 'lyria',
   });
@@ -1864,7 +1782,6 @@ test('dialogue audio generate reads multiline prompt from input file', async () 
       assetType: 'dialogue',
       prompt: 'Narrator: Welcome to the forge.\nHero: Ready when you are.',
       aspectRatio: undefined,
-      disableStyle: false,
       mediaKind: 'audio',
       dialogueVoiceIds: ['voice-narrator', 'voice-hero'],
     });
@@ -1900,7 +1817,6 @@ test('dialogue audio generate sends ordered dialogue voice IDs', async () => {
       assetType: 'dialogue',
       prompt: 'Ada: Keep left.\nBen: I will cover right.',
       aspectRatio: undefined,
-      disableStyle: false,
       mediaKind: 'audio',
       voiceId: 'voice-fallback',
       dialogueVoiceIds: ['voice-ada', '', 'voice-ben'],
@@ -2036,7 +1952,6 @@ test('audio batch downloads audio files and writes generic media manifest', asyn
     mode: 'set',
     referenceVariantIds: undefined,
     aspectRatio: undefined,
-    disableStyle: false,
     mediaKind: 'audio',
   });
   assert.deepEqual(mediaDownloads, [
@@ -2091,7 +2006,6 @@ test('dialogue audio batch sends dialogue voice IDs', async () => {
     mode: 'explore',
     referenceVariantIds: undefined,
     aspectRatio: undefined,
-    disableStyle: false,
     mediaKind: 'audio',
     dialogueVoiceIds: ['voice-ada', 'voice-ben'],
   });
@@ -2123,7 +2037,6 @@ test('dialogue audio batch forwards explicit ElevenLabs model', async () => {
     referenceVariantIds: undefined,
     model: 'eleven_v3',
     aspectRatio: undefined,
-    disableStyle: false,
     mediaKind: 'audio',
     dialogueVoiceIds: ['voice-ada', 'voice-ben'],
   });
@@ -2171,7 +2084,6 @@ test('video generate sends video request and downloads variant media', async () 
     assetType: 'animation',
     prompt: 'A looping idle animation',
     aspectRatio: undefined,
-    disableStyle: false,
     mediaKind: 'video',
   });
   assert.deepEqual(downloads, []);
@@ -2211,7 +2123,6 @@ test('video refine sends source video variant through website job', async () => 
     prompt: 'make it faster',
     sourceVariantIds: ['variant-video-source'],
     aspectRatio: undefined,
-    disableStyle: false,
     mediaKind: 'video',
   });
   assert.deepEqual(mediaDownloads, [{
@@ -2257,7 +2168,6 @@ test('video derive accepts image and video refs and sends video request', async 
     prompt: 'animate this pose',
     referenceVariantIds: ['variant-image', 'variant-video'],
     aspectRatio: undefined,
-    disableStyle: false,
     mediaKind: 'video',
   });
 });
@@ -2294,7 +2204,6 @@ test('video generate sends first and last frames as ordered referenceVariantIds'
     prompt: 'slow dolly from doorway to desk',
     referenceVariantIds: ['variant-start-frame', 'variant-last-frame'],
     aspectRatio: undefined,
-    disableStyle: true,
     mediaKind: 'video',
   });
   assert.deepEqual((manifests[0] as { refs: string[] }).refs, ['variant-start-frame', 'variant-last-frame']);
@@ -2336,7 +2245,6 @@ test('video derive accepts first and last frame flags instead of refs', async ()
     prompt: 'move between the keyframes',
     referenceVariantIds: ['variant-start-frame', 'variant-last-frame'],
     aspectRatio: undefined,
-    disableStyle: true,
     mediaKind: 'video',
   });
 });
@@ -2387,21 +2295,6 @@ test('video frame flags reject ambiguous combinations before opening a website j
     /--first-frame and --last-frame are only supported for video generate and video derive/
   );
 
-  await assert.rejects(
-    () => executeVideoCommand('generate', {
-      positionals: ['move', 'between', 'frames'],
-      options: {
-        space: 'space-1',
-        'first-frame': 'variant-start-frame',
-        'style-preset': 'Painterly',
-        name: 'Styled Frames',
-        type: 'animation',
-        o: 'styled.mp4',
-      },
-    }, deps),
-    /--first-frame and --last-frame cannot be combined with --style-preset/
-  );
-
   assert.equal(client.connected, false);
   assert.equal(client.generateParams, undefined);
   assert.equal(client.refineParams, undefined);
@@ -2427,7 +2320,6 @@ test('video --audio flag is forwarded to website jobs', async () => {
     assetType: 'animation',
     prompt: 'A market shot with ambience',
     aspectRatio: undefined,
-    disableStyle: false,
     mediaKind: 'video',
     generateAudio: true,
   });
@@ -2477,7 +2369,6 @@ test('video generate sends resolution, duration, and tier controls', async () =>
     assetType: 'animation',
     prompt: 'A short preview clip',
     aspectRatio: '9:16',
-    disableStyle: false,
     mediaKind: 'video',
     videoResolution: '1080p',
     videoDurationSeconds: 6,

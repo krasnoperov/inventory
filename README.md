@@ -17,7 +17,6 @@ progress, download outputs, inspect results, upload media, and curate variants.
   lineage.
 - Organize Space assets visually while keeping variants tucked into asset
   details.
-- Reuse simple style presets without managing a separate style reference surface.
 - Refine an existing variant or derive new assets from references.
 - Upload local media into a collaborative space so generated and hand-made
   assets live together.
@@ -120,7 +119,6 @@ staging or `--local` for a local development server.
 | `makefx variants` | Retry, star, rate, or delete variants |
 | `makefx usage` | Show platform storage and workflow consumption for a space |
 | `makefx spend` | Show admin provider cost summaries |
-| `makefx rotation` | Experimental rotation views from a completed image variant; hidden unless rotation flags are enabled |
 | `makefx listen` | Stream real-time space events |
 | `makefx runs` | Inspect debug-only local generation manifests |
 

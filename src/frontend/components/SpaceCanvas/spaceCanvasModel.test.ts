@@ -122,28 +122,20 @@ describe('space canvas model', () => {
     );
   });
 
-  test('pins active variants only for asset style reference collection items', () => {
+  test('does not pin active variants for generic asset collection items', () => {
     const anna = asset();
-    const styleCollection: SpaceCollection = {
-      id: 'style-refs',
-      name: 'Style References',
-      kind: 'style_refs',
+    const castCollection: SpaceCollection = {
+      id: 'cast',
+      name: 'Cast',
+      kind: 'cast',
       color: null,
       description: null,
       sort_index: 0,
       created_at: 1,
       updated_at: 1,
     };
-    const castCollection: SpaceCollection = {
-      ...styleCollection,
-      id: 'cast',
-      name: 'Cast',
-      kind: 'cast',
-    };
 
-    assert.equal(getPinnedVariantIdForAssetCollection(styleCollection, anna), 'variant-1');
     assert.equal(getPinnedVariantIdForAssetCollection(castCollection, anna), null);
-    assert.equal(getPinnedVariantIdForAssetCollection(styleCollection, asset({ active_variant_id: null })), null);
   });
 
   test('shows collection kind labels only when they add useful signal', () => {

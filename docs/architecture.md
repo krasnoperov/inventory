@@ -124,7 +124,6 @@ browser image previews.
 ### Relationships
 
 - **Space Organization**: The Space canvas organizes assets visually. Details scopes the same idea to one asset and its variants.
-- **Style Presets**: Style references are normal Space assets or variants. Presets add a lightweight style choice to generation.
 - **Variant Lineage**: `lineage` table tracks generation and import provenance. Immutable for audit, not manually editable organization state.
   - `derived`: Created from references as inspiration (derive operation)
   - `refined`: Refinement of existing asset (refine operation)

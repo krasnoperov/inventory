@@ -79,14 +79,13 @@ stop image, video, or audio generation before a provider call is made.
 Image generation requires references that resolve to completed image variants.
 Zero image references calls Gemini text-to-image, one-reference `refine` calls
 Gemini edit, and derive or multi-reference refine calls Gemini compose.
-Reference labels such as `Image 1:` or `Style ref 1:` are included in prompt
-text; they are not typed provider channels.
+Reference labels such as `Image 1:` are included in prompt text; they are not
+typed provider channels.
 
 Video references use Veo-specific channels. Zero images is text-to-video. One
-unstyled image is sent as the top-level image input. Two unstyled images use
-first/last-frame interpolation. Any style image, or three final image inputs,
-uses Veo `referenceImages[]`; style images are typed as provider `STYLE`, and
-the remaining references are typed as `ASSET`.
+image is sent as the top-level image input. Two images use first/last-frame
+interpolation. Three image inputs use Veo `referenceImages[]`, typed as provider
+`ASSET`.
 
 Audio generation does not accept image references today. Voice IDs and ordered
 dialogue voice selections are the reference-like controls for speech and

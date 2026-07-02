@@ -10,7 +10,6 @@ import {
   type ForgeChatProgressResult,
   type GenerationEstimateRequestParams,
   type GenerationEstimateResult,
-  type StylePresetRaw,
 } from '../../hooks/useSpaceWebSocket';
 import type { MediaKind, MusicGenerationProvider } from '../../../shared/websocket-types';
 import {
@@ -87,12 +86,6 @@ export interface ForgeSubmitParams {
   aspectRatio?: ImageAspectRatio;
   /** Image output size */
   imageSize?: ImageSize;
-  /** Disable style anchoring for this generation */
-  disableStyle?: boolean;
-  /** Named style preset for this request */
-  stylePresetId?: string;
-  /** Exact style variants selected for this request */
-  styleVariantIds?: string[];
   /** ElevenLabs speech voice ID (speech mode) */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (dialogue mode) */
@@ -142,7 +135,6 @@ export interface ForgeTrayProps {
   clearChatSession?: () => void;
   /** Space context for media previews and picker requests */
   spaceId?: string;
-  stylePresets?: StylePresetRaw[];
   /** Batch send function */
   sendBatchRequest?: (params: import('../../hooks/useSpaceWebSocket').BatchRequestParams) => string;
   /** Forge error (generate/refine/batch failure) */
@@ -211,11 +203,6 @@ const VIDEO_TIER_SELECT_OPTIONS: Array<SelectOption<VideoGenerationTier>> = VIDE
   label: VIDEO_TIER_LABELS[tier],
 }));
 
-type StyleSelection =
-  | { mode: 'default' }
-  | { mode: 'preset'; presetId: string }
-  | { mode: 'none' };
-
 const ESTIMATE_METER_LABELS: Record<string, string> = {
   gemini_images: 'Gemini image',
   gemini_videos: 'Veo video unit',
@@ -272,14 +259,6 @@ function isVeoImageInput(slot: { variant: Variant }): boolean {
   return slot.variant.media_kind === 'image' || Boolean(slot.variant.image_key);
 }
 
-function isEnabledPreset(preset: StylePresetRaw): boolean {
-  return preset.enabled === true || preset.enabled === 1;
-}
-
-function isDefaultPreset(preset: StylePresetRaw): boolean {
-  return preset.is_default === true || preset.is_default === 1;
-}
-
 export function ForgeTray({
   allAssets,
   allVariants,
@@ -300,7 +279,6 @@ export function ForgeTray({
   requestChatHistory,
   clearChatSession,
   spaceId,
-  stylePresets = [],
   forgeError,
   forgeErrorCode,
   generationEstimate,
@@ -317,7 +295,6 @@ export function ForgeTray({
   // Tray rests as a compact prompt + control bar; the per-mode options reveal
   // once the user engages the tray (focus, a draft prompt, references, or chat).
   const [trayFocused, setTrayFocused] = useState(false);
-  const [styleSelection, setStyleSelection] = useState<StyleSelection>({ mode: 'default' });
   const [batchCount, setBatchCount] = useState(1);
   const [batchMode, setBatchMode] = useState<'explore' | 'set'>('explore');
   const [activeEstimate, setActiveEstimate] = useState<GenerationEstimateResult | null>(null);
@@ -454,7 +431,6 @@ export function ForgeTray({
 
   const mediaModeConfig = getForgeMediaModeConfig(mediaMode);
   const selectedMediaKind = getMediaKindForForgeMode(mediaMode);
-  const isAudioMode = isAudioForgeMode(mediaMode);
   const currentMediaGroup = getMediaGroup(mediaMode);
   // Voice selection only applies to spoken audio (speech/dialogue), not music/sfx.
   const showVoicePicker = mediaMode === 'speech' || mediaMode === 'dialogue';
@@ -473,29 +449,13 @@ export function ForgeTray({
   const hasPrompt = prompt.trim().length > 0;
   const operation = getForgeOperationForState(slots.length, hasPrompt, effectiveDestinationType);
 
-  // Dynamic reference budget mirrors provider limits and reserves active style images.
-  const enabledStylePresets = useMemo(
-    () => stylePresets.filter(isEnabledPreset),
-    [stylePresets],
-  );
-  const defaultStylePreset = useMemo(
-    () => enabledStylePresets.find(isDefaultPreset) ?? null,
-    [enabledStylePresets],
-  );
-  const selectedStylePreset = styleSelection.mode === 'preset'
-    ? enabledStylePresets.find((preset) => preset.id === styleSelection.presetId) ?? null
-    : styleSelection.mode === 'default'
-      ? defaultStylePreset
-      : null;
-  const styleOverride = styleSelection.mode === 'none';
-  const selectedStyleCount = selectedStylePreset?.reference_count ?? 0;
-  const styleImageCount = mediaModeConfig.supportsStyle && !styleOverride ? selectedStyleCount : 0;
+  // Dynamic reference budget mirrors provider limits directly.
   const referenceSlotLimit = currentMediaGroup === 'image'
     ? getImageModelMaxReferenceImages(imageModel)
     : currentMediaGroup === 'video'
       ? MAX_VIDEO_REFERENCE_SLOTS
       : 14;
-  const providerReferenceSlots = Math.max(0, referenceSlotLimit - styleImageCount);
+  const providerReferenceSlots = referenceSlotLimit;
   const forkSetupSlots = effectiveDestinationType === 'new_asset' && !hasPrompt ? 1 : 0;
   const effectiveMaxSlots = Math.max(providerReferenceSlots, forkSetupSlots);
   const hasReferenceBudget = currentMediaGroup === 'image' || currentMediaGroup === 'video';
@@ -503,27 +463,21 @@ export function ForgeTray({
     operation !== 'fork' &&
     hasPrompt &&
     hasReferenceBudget &&
-    slots.length + styleImageCount > referenceSlotLimit;
+    slots.length > referenceSlotLimit;
   const referenceNoun = referenceSlotLimit === 1 ? 'reference' : 'references';
-  const styleSuffix = styleImageCount > 0 ? ' including style' : '';
   const imageBudgetAction = slots.length > 0
     ? `Remove references${imageModel === 'flash' ? ' or switch Pro' : ''}.`
-    : `Reduce style images${imageModel === 'flash' ? ' or switch Pro' : ''}.`;
+    : `Switch ${imageModel === 'flash' ? 'Pro' : 'model'}.`;
   const referenceBudgetWarning = isOverReferenceBudget && currentMediaGroup === 'image'
-    ? `${imageModel === 'flash' ? 'Flash' : 'Pro'} supports ${referenceSlotLimit} ${referenceNoun}${styleSuffix}. ${imageBudgetAction}`
+    ? `${imageModel === 'flash' ? 'Flash' : 'Pro'} supports ${referenceSlotLimit} ${referenceNoun}. ${imageBudgetAction}`
     : isOverReferenceBudget && currentMediaGroup === 'video'
-      ? `Video supports ${referenceSlotLimit} references${styleSuffix}. Remove references or reduce style images.`
+      ? `Video supports ${referenceSlotLimit} references. Remove references.`
       : null;
   const effectiveBatchCount = mediaModeConfig.supportsBatch ? batchCount : 1;
-  const videoStyleApplies = mediaMode === 'video' && !styleOverride && styleImageCount > 0;
   const veoImageSlotIds = useMemo(
     () => slots.filter(isVeoImageInput).map((slot) => slot.id),
     [slots]
   );
-  const selectedStyleControlValue = styleSelection.mode === 'preset'
-    ? `preset:${styleSelection.presetId}`
-    : styleSelection.mode;
-
   // Auto-generated asset name: "<Group> <next index>" (e.g. "Image 3").
   const assetCountForKind = useMemo(
     () => allAssets.filter((a) => a.media_kind === selectedMediaKind).length,
@@ -566,15 +520,6 @@ export function ForgeTray({
     setMaxSlots(effectiveMaxSlots);
   }, [effectiveMaxSlots, setMaxSlots]);
 
-  useEffect(() => {
-    if (
-      styleSelection.mode === 'preset' &&
-      !enabledStylePresets.some((preset) => preset.id === styleSelection.presetId)
-    ) {
-      setStyleSelection({ mode: 'default' });
-    }
-  }, [enabledStylePresets, styleSelection]);
-
   const handleSelectGroup = useCallback((group: MediaGroup) => {
     if (group === 'image') {
       setMediaMode('image');
@@ -588,16 +533,6 @@ export function ForgeTray({
   const handleSelectAudioMode = useCallback((mode: ForgeMediaMode) => {
     setMediaMode(mode);
     setLastAudioMode(mode);
-  }, []);
-
-  const handleStyleSelectionChange = useCallback((value: string) => {
-    if (value === 'default') {
-      setStyleSelection({ mode: 'default' });
-    } else if (value === 'none') {
-      setStyleSelection({ mode: 'none' });
-    } else if (value.startsWith('preset:')) {
-      setStyleSelection({ mode: 'preset', presetId: value.slice('preset:'.length) });
-    }
   }, []);
 
   const handleNameChange = useCallback((value: string) => {
@@ -780,12 +715,6 @@ export function ForgeTray({
         model: selectedMediaKind === 'image' ? imageModel : undefined,
         aspectRatio: selectedMediaKind === 'image' ? aspectRatio : undefined,
         imageSize: selectedMediaKind === 'image' ? imageSize : undefined,
-        disableStyle:
-          isAudioMode ||
-          styleSelection.mode === 'none' ||
-          undefined,
-        stylePresetId: !isAudioMode && styleSelection.mode === 'preset' ? styleSelection.presetId : undefined,
-        styleVariantIds: undefined,
         voiceId: mediaMode === 'speech' ? voiceId : undefined,
         videoResolution: mediaMode === 'video' ? videoResolution : undefined,
         videoDurationSeconds: mediaMode === 'video' ? videoDurationSeconds : undefined,
@@ -805,7 +734,6 @@ export function ForgeTray({
       setNewAssetName('');
       setNameEdited(false);
       setDestinationType('existing_asset');
-      setStyleSelection({ mode: 'default' });
       setBatchCount(1);
       setVoiceId(undefined);
       setDialogueVoiceIds([]);
@@ -819,7 +747,7 @@ export function ForgeTray({
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, isOverReferenceBudget, activeEstimate, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, styleSelection, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoResolution, videoDurationSeconds, videoTier]);
+  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, hasIncompatibleMediaSlots, isOverReferenceBudget, activeEstimate, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoResolution, videoDurationSeconds, videoTier]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -952,8 +880,6 @@ export function ForgeTray({
   // Show destination select on AssetDetailPage (has currentAsset) so user can choose existing vs new.
   const showDestinationToggle = !!currentAsset;
   const showNameInput = effectiveDestinationType === 'new_asset';
-  const hasStyleChoices = enabledStylePresets.length > 0 || styleSelection.mode !== 'default';
-  const showStyleControls = mediaModeConfig.supportsStyle && hasStyleChoices;
   const showBatchControls = effectiveDestinationType === 'new_asset' && mediaModeConfig.supportsBatch;
   // Empty-state reference add lives in the control bar; once slots exist the
   // thumbnail strip carries its own "+".
@@ -975,8 +901,7 @@ export function ForgeTray({
     currentMediaGroup === 'image' ||
     currentMediaGroup === 'audio' ||
     currentMediaGroup === 'video' ||
-    showBatchControls ||
-    showStyleControls;
+    showBatchControls;
 
   const imageSizeOptions = useMemo<Array<SelectOption<ImageSize>>>(
     () => IMAGE_SIZES.map((size) => ({
@@ -1041,19 +966,6 @@ export function ForgeTray({
     setDestinationType(value);
     setTrayFocused(false);
   }, [canUseExistingDestination]);
-
-  const styleSelectOptions = useMemo<Array<SelectOption<string>>>(() => {
-    const options: Array<SelectOption<string>> = [
-      { value: 'default', label: 'Default' },
-      ...enabledStylePresets.map((preset) => ({
-        value: `preset:${preset.id}`,
-        label: preset.name,
-      })),
-      { value: 'none', label: 'No style' },
-    ];
-
-    return options;
-  }, [enabledStylePresets]);
 
   const isTrayExpanded =
     trayFocused ||
@@ -1275,19 +1187,6 @@ export function ForgeTray({
                 </>
               )}
 
-              {showStyleControls && (
-                <>
-                  <UiSelect
-                    className={styles.selectStyle}
-                    value={selectedStyleControlValue}
-                    options={styleSelectOptions}
-                    onValueChange={handleStyleSelectionChange}
-                    disabled={isSubmitting}
-                    label="Style selector"
-                    title="Style selector"
-                  />
-                </>
-              )}
             </div>
           )}
             </div>
@@ -1300,7 +1199,7 @@ export function ForgeTray({
                 const veoImageIndex = veoImageSlotIds.indexOf(slot.id);
                 let slotBadge: string | null = null;
                 if (currentMediaGroup === 'video' && veoImageIndex >= 0) {
-                  if (videoStyleApplies || veoImageSlotIds.length > 2) {
+                  if (veoImageSlotIds.length > 2) {
                     slotBadge = 'Ref';
                   } else if (veoImageSlotIds.length === 1) {
                     slotBadge = 'Image';

@@ -98,25 +98,6 @@ makefx derive \
   -o keyframes/lucia-market-001.png
 ```
 
-Generation commands can select a simple style preset by ID or exact name when
-the Space exposes one, or opt out of style explicitly:
-
-```bash
-makefx generate "A watercolor market background" \
-  --style-preset Painterly \
-  --name "Russafa Market Background" \
-  --type scene \
-  -o backgrounds/russafa-market.png
-
-makefx generate "A neutral prop sheet" --no-style --name "Props" --type prop -o props.png
-```
-
-When `--style-preset` is used, the CLI prints the resolved preset ID and
-reference count before creating the job. Style management is intentionally not a
-separate CLI workflow; keep style choices attached to the generation command.
-`--no-style` disables preset injection for that request without changing the
-Space default.
-
 Batch generate multiple images and write a debug run manifest:
 
 ```bash
@@ -199,21 +180,6 @@ generation command. On completion it downloads the media and writes the usual
 debug run manifest from the variant recipe and asset record. Pass
 `--timeout <seconds>` to override the default wait window.
 
-Generate a consistency pipeline for game-ready reference sheets:
-
-```bash
-makefx rotation --variant IMAGE_VARIANT_ID --config 8-directional
-makefx rotation --variant IMAGE_VARIANT_ID --config turnaround --mode single-shot --subject "armored guard"
-```
-
-Rotation commands stream WebSocket progress and wait for completion by default.
-Use `--detach` when an agent only needs to enqueue the pipeline and continue
-with other work.
-
-Rotation generation is experimental and hidden unless explicitly enabled with
-`MAKEFX_ROTATION_ENABLED=true`. Keep the flag off until rotation quality is good
-enough to present as a normal asset workflow.
-
 When the website is configured with `INVENTORY_AUDIO_PROVIDER=elevenlabs`,
 `audio music ...` prompts are generated through ElevenLabs music,
 `audio sfx ...` prompts are generated through ElevenLabs sound effects, and
@@ -292,8 +258,6 @@ endpoint rather than by dereferencing raw R2 keys.
 | `--model <pro\|flash>` | top-level image commands | Optional image model selection; defaults to Pro |
 | `--size <1K\|2K\|4K>` | top-level image commands | Optional image output size; Flash supports only `1K` |
 | `--aspect <ratio>` | top-level image commands, video commands | Optional generation aspect ratio; video supports `16:9` or `9:16` |
-| `--no-style` | all generation and consistency pipeline commands | Disable style preset injection for this request |
-| `--detach` | `rotation` | Return after the pipeline starts instead of waiting for completion |
 | `--env <env>` | all | `production`, `stage`, or `local`; overrides project binding |
 | `--local` | all | Shortcut for `--env local` |
 

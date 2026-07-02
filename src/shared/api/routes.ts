@@ -23,8 +23,6 @@ import {
   ListCollectionItemsResponseSchema,
   ListCollectionsResponseSchema,
   ListSpaceAssetsResponseSchema,
-  ListStylePresetsResponseSchema,
-  ListStyleReferenceCollectionsResponseSchema,
   ListProviderKeysResponseSchema,
   ListSpacesResponseSchema,
   PlatformUsageSummaryResponseSchema,
@@ -40,16 +38,12 @@ import {
   SpaceInvitationParamsSchema,
   SpaceInvitationResponseSchema,
   SpaceSharingResponseSchema,
-  StylePresetParamsSchema,
-  StylePresetResponseSchema,
   SuccessResponseSchema,
   UsageSummaryQuerySchema,
   UpdateCollectionItemRequestSchema,
   UpdateCollectionRequestSchema,
-  UpdateStylePresetRequestSchema,
   UpsertCollectionItemRequestSchema,
   UpsertCollectionRequestSchema,
-  UpsertStylePresetRequestSchema,
   UpdateUserProfileRequestSchema,
   UpdateUserSettingsRequestSchema,
   UpsertProviderKeyRequestSchema,
@@ -757,114 +751,6 @@ export const deleteCollectionItemRoute = createRoute({
     200: {
       ...json(SuccessResponseSchema),
       description: 'Deleted collection item',
-    },
-    403: errorResponse,
-    404: errorResponse,
-    500: errorResponse,
-    503: errorResponse,
-  },
-});
-
-export const listStyleReferenceCollectionsRoute = createRoute({
-  method: 'get',
-  path: '/api/spaces/{id}/style-reference-collections',
-  request: {
-    params: SpaceIdParamsSchema,
-  },
-  responses: {
-    200: {
-      ...json(ListStyleReferenceCollectionsResponseSchema),
-      description: 'Style reference collections in a space',
-    },
-    403: errorResponse,
-    500: errorResponse,
-    503: errorResponse,
-  },
-});
-
-export const listStylePresetsRoute = createRoute({
-  method: 'get',
-  path: '/api/spaces/{id}/style-presets',
-  request: {
-    params: SpaceIdParamsSchema,
-  },
-  responses: {
-    200: {
-      ...json(ListStylePresetsResponseSchema),
-      description: 'Style presets in a space',
-    },
-    403: errorResponse,
-    500: errorResponse,
-    503: errorResponse,
-  },
-});
-
-export const createStylePresetRoute = createRoute({
-  method: 'post',
-  path: '/api/spaces/{id}/style-presets',
-  request: {
-    params: SpaceIdParamsSchema,
-    body: {
-      content: {
-        'application/json': {
-          schema: UpsertStylePresetRequestSchema,
-        },
-      },
-      required: true,
-    },
-  },
-  responses: {
-    200: {
-      ...json(StylePresetResponseSchema),
-      description: 'Created style preset',
-    },
-    400: errorResponse,
-    403: errorResponse,
-    404: errorResponse,
-    409: errorResponse,
-    500: errorResponse,
-    503: errorResponse,
-  },
-});
-
-export const updateStylePresetRoute = createRoute({
-  method: 'patch',
-  path: '/api/spaces/{id}/style-presets/{presetId}',
-  request: {
-    params: StylePresetParamsSchema,
-    body: {
-      content: {
-        'application/json': {
-          schema: UpdateStylePresetRequestSchema,
-        },
-      },
-      required: true,
-    },
-  },
-  responses: {
-    200: {
-      ...json(StylePresetResponseSchema),
-      description: 'Updated style preset',
-    },
-    400: errorResponse,
-    403: errorResponse,
-    404: errorResponse,
-    409: errorResponse,
-    500: errorResponse,
-    503: errorResponse,
-  },
-});
-
-export const deleteStylePresetRoute = createRoute({
-  method: 'delete',
-  path: '/api/spaces/{id}/style-presets/{presetId}',
-  request: {
-    params: StylePresetParamsSchema,
-  },
-  responses: {
-    200: {
-      ...json(SuccessResponseSchema),
-      description: 'Deleted style preset',
     },
     403: errorResponse,
     404: errorResponse,

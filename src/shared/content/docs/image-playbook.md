@@ -7,7 +7,7 @@ The model will not remember your robot for you. Give it a reference, name what t
 For a character, prop, or UI object that must appear more than once, make a reference asset before making a finished scene.
 
 - Generate a clean seed variant.
-- Use rotation or turnaround flows when you need multiple angles.
+- Derive one extra angle at a time when you need a multi-angle reference sheet.
 - Keep the completed reference in the same space as later variants.
 - Reuse that reference in `derive` and `refine` calls instead of recreating it from memory.
 
@@ -16,9 +16,9 @@ makefx generate "A felt-craft robot explorer, small brown backpack, friendly" \
   --name "Robot Explorer" --type character -o characters/robot.png
 ```
 
-## Keep style anchored
+## Keep style anchored in prompts and refs
 
-A space-level style is the project's house style: short, coherent, and backed by a few reference images. If a single asset needs a genuinely different look, disable or override style for that request rather than fighting the shared style with contradictory words.
+Keep the project's look short, coherent, and backed by a few approved reference assets. If a single asset needs a genuinely different look, make that explicit in the prompt and references rather than relying on hidden defaults.
 
 ## Use a prompt skeleton
 
@@ -68,8 +68,8 @@ Change pose, outfit, background, or lighting one at a time. This keeps drift vis
 
 | Goal | Do this |
 |-|-|
-| Reusable character | Build a reference or turnaround first |
-| Consistent project look | Set a space style |
+| Reusable character | Build a reference or small view sheet first |
+| Consistent project look | Reuse a few approved visual anchors |
 | Character plus background | `derive --refs A,B` and name each role |
 | Small revision | `refine` and state what stays unchanged |
 | Many references | Use the Pro model and stay within reference limits |

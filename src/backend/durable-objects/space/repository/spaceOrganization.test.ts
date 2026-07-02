@@ -2,7 +2,6 @@ import { describe, test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import { SchemaManager } from '../schema/SchemaManager';
-import { resolveStyleReferences } from '../generation/refLimits';
 import { SpaceRepository, type ImageStorage, type SqlStorage, type SqlStorageResult } from './SpaceRepository';
 
 class BetterSqlStorage implements SqlStorage {
@@ -302,112 +301,29 @@ describe('Space organization repository', () => {
     return row?.ref_count ?? null;
   }
 
-  async function seedLegacyStyle(data: {
-    id?: string;
-    name?: string;
-    description: string;
-    imageKeys: string[];
-    enabled?: boolean;
-    createdBy?: string;
-  }): Promise<void> {
-    const now = Date.now();
-    await sql.exec(
-      `INSERT INTO space_styles (id, name, description, image_keys, enabled, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      data.id ?? 'legacy-style',
-      data.name ?? 'Default Style',
-      data.description,
-      JSON.stringify(data.imageKeys),
-      data.enabled === false ? 0 : 1,
-      data.createdBy ?? 'user-1',
-      now,
-      now
-    );
-    for (const key of data.imageKeys) {
-      await sql.exec(
-        `INSERT INTO image_refs (image_key, ref_count) VALUES (?, 1)
-         ON CONFLICT(image_key) DO UPDATE SET ref_count = ref_count + 1`,
-        key
-      );
-    }
-  }
-
-  async function updateLegacyStyle(
-    id: string,
-    changes: { description?: string; imageKeys?: string[]; enabled?: boolean }
-  ): Promise<void> {
-    const existing = await repo.getActiveStyle();
-    assert.equal(existing?.id, id);
-    const updates: string[] = [];
-    const values: unknown[] = [];
-    if (changes.description !== undefined) {
-      updates.push('description = ?');
-      values.push(changes.description);
-    }
-    if (changes.imageKeys !== undefined) {
-      const oldKeys = JSON.parse(existing.image_keys) as string[];
-      const newKeys = changes.imageKeys;
-      updates.push('image_keys = ?');
-      values.push(JSON.stringify(newKeys));
-      for (const key of newKeys.filter((key) => !oldKeys.includes(key))) {
-        await sql.exec(
-          `INSERT INTO image_refs (image_key, ref_count) VALUES (?, 1)
-           ON CONFLICT(image_key) DO UPDATE SET ref_count = ref_count + 1`,
-          key
-        );
-      }
-      for (const key of oldKeys.filter((key) => !newKeys.includes(key))) {
-        await sql.exec('UPDATE image_refs SET ref_count = ref_count - 1 WHERE image_key = ?', key);
-      }
-    }
-    if (changes.enabled !== undefined) {
-      updates.push('enabled = ?');
-      values.push(changes.enabled ? 1 : 0);
-    }
-    if (updates.length === 0) return;
-    updates.push('updated_at = ?');
-    values.push(Date.now(), id);
-    await sql.exec(`UPDATE space_styles SET ${updates.join(', ')} WHERE id = ?`, ...values);
-  }
-
-  function createImageStorage(sizes: Record<string, number | null>): ImageStorage {
-    return {
-      async head(key: string) {
-        if (!(key in sizes) || sizes[key] === null) return null;
-        return { size: sizes[key] };
-      },
-      async delete() {
-        // Not used by the migration path.
-      },
-    };
-  }
-
-  test('creates organization and style preset tables with lookup indexes', () => {
+  test('creates organization tables with lookup indexes', () => {
     const tableNames = db
-      .prepare(`SELECT name FROM sqlite_schema WHERE type = 'table' AND name IN (?, ?, ?, ?) ORDER BY name`)
-      .all('collection_items', 'space_collections', 'space_relations', 'style_presets')
+      .prepare(`SELECT name FROM sqlite_schema WHERE type = 'table' AND name IN (?, ?, ?) ORDER BY name`)
+      .all('collection_items', 'space_collections', 'space_relations')
       .map((row) => (row as { name: string }).name);
 
     assert.deepEqual(tableNames, [
       'collection_items',
       'space_collections',
       'space_relations',
-      'style_presets',
     ]);
 
     const indexNames = db
-      .prepare(`SELECT name FROM sqlite_schema WHERE type = 'index' AND name IN (?, ?, ?) ORDER BY name`)
+      .prepare(`SELECT name FROM sqlite_schema WHERE type = 'index' AND name IN (?, ?) ORDER BY name`)
       .all(
         'idx_collection_items_collection',
-        'idx_space_relations_subject_variant',
-        'idx_style_presets_default'
+        'idx_space_relations_subject_variant'
       )
       .map((row) => (row as { name: string }).name);
 
     assert.deepEqual(indexNames, [
       'idx_collection_items_collection',
       'idx_space_relations_subject_variant',
-      'idx_style_presets_default',
     ]);
 
     const relationColumns = db
@@ -416,6 +332,33 @@ describe('Space organization repository', () => {
       .map((row) => (row as { name: string }).name);
     assert.ok(relationColumns.includes('label'));
     assert.ok(relationColumns.includes('metadata'));
+  });
+
+  test('normalizes removed collection kinds during schema initialization', async () => {
+    await sql.exec('PRAGMA ignore_check_constraints = ON');
+    await sql.exec(
+      `INSERT INTO space_collections
+        (id, name, kind, color, description, sort_index, created_by, created_at, updated_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      'collection-style-refs',
+      'Style refs',
+      'style_refs',
+      null,
+      null,
+      0,
+      'user-1',
+      1,
+      1,
+      null
+    );
+    await sql.exec('PRAGMA ignore_check_constraints = OFF');
+
+    await new SchemaManager(sql).initialize();
+
+    const row = db
+      .prepare('SELECT kind FROM space_collections WHERE id = ?')
+      .get('collection-style-refs') as { kind: string };
+    assert.equal(row.kind, 'custom');
   });
 
   test('supports collection CRUD, item CRUD, and explicit sort ordering', async () => {
@@ -490,551 +433,6 @@ describe('Space organization repository', () => {
     assert.deepEqual(await repo.listCollections(), []);
   });
 
-  test('supports style preset CRUD and optional default selection', async () => {
-    await repo.createCollection({
-      id: 'collection-1',
-      name: 'Painterly References',
-      createdBy: 'user-1',
-    });
-    await repo.createCollection({
-      id: 'collection-2',
-      name: 'Pixel References',
-      createdBy: 'user-1',
-    });
-    await createAssetWithVariant('style-asset', 'style-variant');
-    await repo.createCollectionItem({
-      id: 'style-item',
-      collectionId: 'collection-1',
-      subjectType: 'asset',
-      assetId: 'style-asset',
-      pinnedVariantId: 'style-variant',
-      role: 'style_ref',
-      createdBy: 'user-1',
-    });
-
-    const first = await repo.createStylePreset({
-      id: 'preset-1',
-      name: 'Painterly',
-      description: 'Loose concept style',
-      stylePrompt: 'Loose painterly brushwork',
-      collectionId: 'collection-1',
-      isDefault: true,
-      createdBy: 'user-1',
-    });
-    assert.equal(first.is_default, 1);
-    assert.equal(first.description, 'Loose concept style');
-    assert.equal((await repo.getDefaultStylePreset())?.id, 'preset-1');
-
-    await repo.createStylePreset({
-      id: 'preset-2',
-      name: 'Pixel',
-      stylePrompt: 'Crisp limited-palette pixel art',
-      collectionId: 'collection-2',
-      isDefault: true,
-      createdBy: 'user-1',
-    });
-    assert.equal((await repo.getDefaultStylePreset())?.id, 'preset-2');
-    assert.equal((await repo.getStylePresetById('preset-1'))?.is_default, 0);
-
-    await assert.rejects(
-      repo.createStylePreset({
-        id: 'preset-invalid',
-        name: 'Invalid',
-        collectionId: 'deleted-collection',
-        isDefault: true,
-        createdBy: 'user-1',
-      }),
-      /FOREIGN KEY/
-    );
-    assert.equal((await repo.getDefaultStylePreset())?.id, 'preset-2');
-
-    await assert.rejects(
-      repo.updateStylePreset('preset-1', {
-        collectionId: 'deleted-collection',
-        isDefault: true,
-      }),
-      /FOREIGN KEY/
-    );
-    assert.equal((await repo.getDefaultStylePreset())?.id, 'preset-2');
-    assert.equal((await repo.getStylePresetById('preset-1'))?.is_default, 0);
-
-    const updated = await repo.updateStylePreset('preset-1', {
-      name: 'Painted House',
-      description: null,
-      stylePrompt: 'Painterly fantasy UI concept art',
-      collectionId: null,
-      enabled: false,
-      isDefault: true,
-    });
-    assert.equal(updated?.name, 'Painted House');
-    assert.equal(updated?.description, null);
-    assert.equal(updated?.style_prompt, 'Painterly fantasy UI concept art');
-    assert.equal(updated?.collection_id, null);
-    assert.equal(updated?.enabled, 0);
-    assert.equal(updated?.is_default, 1);
-    assert.equal((await repo.getStylePresetById('preset-2'))?.is_default, 0);
-
-    assert.equal(await repo.setDefaultStylePreset(null), null);
-    assert.equal(await repo.getDefaultStylePreset(), null);
-
-    assert.equal(await repo.deleteStylePreset('preset-1'), true);
-    assert.equal((await repo.getAssetById('style-asset'))?.id, 'style-asset');
-    assert.equal((await repo.getVariantById('style-variant'))?.id, 'style-variant');
-    assert.deepEqual(
-      (await repo.listCollectionItems('collection-1')).map((item) => item.id),
-      ['style-item']
-    );
-    assert.deepEqual(
-      (await repo.listCollections()).map((collection) => collection.id).sort(),
-      ['collection-1', 'collection-2']
-    );
-  });
-
-  test('lists resolved style preset and style reference collection previews', async () => {
-    await createAssetWithVariant('asset-1', 'variant-1');
-    await createAssetWithVariant('asset-2', 'variant-2');
-    await repo.createCollection({ id: 'style-collection', name: 'Style refs', createdBy: 'user-1' });
-    await repo.createCollection({ id: 'general-collection', name: 'General refs', createdBy: 'user-1' });
-    await repo.createCollectionItem({
-      id: 'style-item',
-      collectionId: 'style-collection',
-      subjectType: 'variant',
-      variantId: 'variant-1',
-      role: 'style_ref',
-      createdBy: 'user-1',
-    });
-    await repo.createCollectionItem({
-      id: 'general-item',
-      collectionId: 'general-collection',
-      subjectType: 'variant',
-      variantId: 'variant-2',
-      role: 'character',
-      createdBy: 'user-1',
-    });
-    await repo.createStylePreset({
-      id: 'preset-1',
-      name: 'House style',
-      description: 'A resolved preset',
-      stylePrompt: 'Muted storybook colors',
-      collectionId: 'style-collection',
-      isDefault: true,
-      createdBy: 'user-1',
-    });
-
-    const presets = await repo.listStylePresetPreviews();
-    assert.equal(presets.length, 1);
-    assert.equal(presets[0].description, 'A resolved preset');
-    assert.equal(presets[0].collection_name, 'Style refs');
-    assert.equal(presets[0].reference_count, 1);
-    assert.deepEqual(presets[0].style_reference_variant_ids, ['variant-1']);
-    assert.deepEqual(presets[0].style_reference_image_keys, ['images/variant-1.png']);
-
-    const collections = await repo.listStyleReferenceCollections();
-    assert.deepEqual(collections.map((collection) => collection.id), ['style-collection']);
-    assert.equal(collections[0].reference_count, 1);
-    assert.equal(collections[0].preset_count, 1);
-  });
-
-  test('resolves style preset collection items to exact variants and image keys', async () => {
-    await createAssetWithVariant('asset-1', 'variant-1');
-    await createAssetWithVariant('asset-2', 'variant-2');
-    await createAssetWithVariant('asset-3', 'variant-3');
-    await repo.createAsset({
-      id: 'asset-video',
-      name: 'asset-video',
-      type: 'animation',
-      mediaKind: 'video',
-      tags: [],
-      createdBy: 'user-1',
-    });
-    await repo.createPlaceholderVariant({
-      id: 'variant-video',
-      assetId: 'asset-video',
-      mediaKind: 'video',
-      recipe: '{}',
-      createdBy: 'user-1',
-    });
-    await repo.completeVariant('variant-video', null, null, {
-      mediaKey: 'media/variant-video.mp4',
-      mimeType: 'video/mp4',
-    });
-    await repo.createCollection({ id: 'style-collection', name: 'Style refs', createdBy: 'user-1' });
-    await repo.createCollectionItem({
-      id: 'item-direct',
-      collectionId: 'style-collection',
-      subjectType: 'variant',
-      variantId: 'variant-2',
-      role: 'style_ref',
-      sortIndex: 1,
-      createdBy: 'user-1',
-    });
-    await repo.createCollectionItem({
-      id: 'item-pinned',
-      collectionId: 'style-collection',
-      subjectType: 'asset',
-      assetId: 'asset-1',
-      pinnedVariantId: 'variant-1',
-      role: 'style_ref',
-      sortIndex: 2,
-      createdBy: 'user-1',
-    });
-    await repo.createCollectionItem({
-      id: 'item-unpinned',
-      collectionId: 'style-collection',
-      subjectType: 'asset',
-      assetId: 'asset-3',
-      role: 'style_ref',
-      sortIndex: 3,
-      createdBy: 'user-1',
-    });
-    await repo.createCollectionItem({
-      id: 'item-video',
-      collectionId: 'style-collection',
-      subjectType: 'variant',
-      variantId: 'variant-video',
-      role: 'style_ref',
-      sortIndex: 4,
-      createdBy: 'user-1',
-    });
-    await repo.createStylePreset({
-      id: 'preset-1',
-      name: 'House style',
-      stylePrompt: 'Muted storybook colors',
-      collectionId: 'style-collection',
-      createdBy: 'user-1',
-    });
-    await repo.createCollectionItem({
-      id: 'item-character-later',
-      collectionId: 'style-collection',
-      subjectType: 'variant',
-      variantId: 'variant-3',
-      role: 'character',
-      sortIndex: 0,
-      createdBy: 'user-1',
-    });
-
-    const resolved = await repo.resolveStylePresetReferences('preset-1');
-    assert.equal(resolved?.stylePresetId, 'preset-1');
-    assert.equal(resolved?.styleCollectionId, 'style-collection');
-    assert.equal(resolved?.stylePrompt, 'Muted storybook colors');
-    assert.deepEqual(resolved?.styleReferenceVariantIds, ['variant-2', 'variant-1', 'variant-video']);
-    assert.deepEqual(resolved?.styleReferenceImageKeys, [
-      'images/variant-2.png',
-      'images/variant-1.png',
-    ]);
-  });
-
-  test('keeps legacy singleton style reads separate from style presets', async () => {
-    await repo.createCollection({ id: 'collection-1', name: 'Style refs', createdBy: 'user-1' });
-    await seedLegacyStyle({
-      id: 'legacy-style',
-      name: 'Legacy Style',
-      description: 'Legacy space style row',
-      imageKeys: ['styles/space-1/legacy.png'],
-      createdBy: 'user-1',
-    });
-    await repo.createStylePreset({
-      id: 'preset-1',
-      name: 'Asset-backed Style',
-      stylePrompt: 'Normal asset-backed style prompt',
-      collectionId: 'collection-1',
-      isDefault: true,
-      createdBy: 'user-1',
-    });
-
-    const legacy = await repo.getActiveStyle();
-    assert.equal(legacy?.id, 'legacy-style');
-    assert.equal(legacy?.description, 'Legacy space style row');
-    assert.equal((await repo.getDefaultStylePreset())?.id, 'preset-1');
-  });
-
-  test('backfills legacy style description into a default asset-backed preset', async () => {
-    await seedLegacyStyle({
-      id: 'legacy-style',
-      name: 'Legacy Style',
-      description: 'Painterly fantasy UI concept art',
-      imageKeys: [],
-      createdBy: 'user-1',
-    });
-
-    const result = await repo.backfillLegacySpaceStyle();
-
-    assert.equal(result.migrated, true);
-    assert.equal(result.assetIds.length, 0);
-    const collections = await repo.listCollections();
-    assert.equal(collections.length, 1);
-    assert.equal(collections[0].name, 'Style References');
-    const preset = await repo.getDefaultStylePreset();
-    assert.ok(preset);
-    assert.equal(preset.style_prompt, 'Painterly fantasy UI concept art');
-    assert.equal(preset.collection_id, collections[0].id);
-  });
-
-  test('backfill leaves spaces without legacy style state untouched', async () => {
-    const result = await repo.backfillLegacySpaceStyle();
-
-    assert.equal(result.migrated, false);
-    assert.deepEqual(await repo.getAllAssets(), []);
-    assert.deepEqual(await repo.getAllVariants(), []);
-    assert.deepEqual(await repo.listCollections(), []);
-    assert.deepEqual(await repo.listStylePresets(), []);
-  });
-
-  test('backfills multiple legacy style image keys as style reference assets and variants', async () => {
-    await seedLegacyStyle({
-      id: 'legacy-style',
-      name: 'Legacy Style',
-      description: 'Pixel art with warm rim light',
-      imageKeys: [
-        'styles/space-1/one.png',
-        'styles/space-1/two.webp',
-      ],
-      createdBy: 'user-1',
-    });
-    repo = new SpaceRepository(
-      new BetterSqlStorage(db),
-      createImageStorage({
-        'styles/space-1/one.png': 1024,
-        'styles/space-1/one_thumb.webp': 256,
-        'styles/space-1/two.webp': 2048,
-        'styles/space-1/two_thumb.webp': 512,
-      })
-    );
-
-    const result = await repo.backfillLegacySpaceStyle();
-
-    assert.equal(result.assetIds.length, 2);
-    assert.equal(result.variantIds.length, 2);
-    const assets = await repo.getAllAssets();
-    assert.deepEqual(assets.map((asset) => asset.type), ['style-sheet', 'style-sheet']);
-    assert.deepEqual(assets.map((asset) => JSON.parse(asset.tags) as string[]), [
-      ['style-reference', 'legacy-space-style'],
-      ['style-reference', 'legacy-space-style'],
-    ]);
-    const variants = await repo.getAllVariants();
-    assert.deepEqual(
-      variants.map((variant) => [variant.image_key, variant.thumb_key, variant.media_size_bytes]).sort(),
-      [
-        ['styles/space-1/one.png', 'styles/space-1/one_thumb.webp', 1024],
-        ['styles/space-1/two.webp', 'styles/space-1/two_thumb.webp', 2048],
-      ]
-    );
-    assert.deepEqual((await repo.listCollectionItems(result.collectionId!)).map((item) => item.pinned_variant_id), result.variantIds);
-    assert.equal(getRefCount('styles/space-1/one.png'), 2);
-    assert.equal(getRefCount('styles/space-1/two.webp'), 2);
-
-    const resolved = await resolveStyleReferences(repo);
-    assert.equal(resolved.stylePresetId, result.presetId);
-    assert.equal(resolved.styleId, undefined);
-    assert.deepEqual(resolved.styleReferenceVariantIds, result.variantIds);
-    assert.deepEqual(resolved.styleKeys, [
-      'styles/space-1/one.png',
-      'styles/space-1/two.webp',
-    ]);
-  });
-
-  test('backfill does not reuse user collections named Style References', async () => {
-    await createAssetWithVariant('unrelated-asset', 'unrelated-variant');
-    await repo.createCollection({
-      id: 'user-style-references',
-      name: 'Style References',
-      createdBy: 'user-1',
-    });
-    await repo.createCollectionItem({
-      id: 'unrelated-item',
-      collectionId: 'user-style-references',
-      subjectType: 'asset',
-      assetId: 'unrelated-asset',
-      pinnedVariantId: 'unrelated-variant',
-      createdBy: 'user-1',
-    });
-    await seedLegacyStyle({
-      id: 'legacy-style',
-      description: 'Watercolor props',
-      imageKeys: ['styles/space-1/legacy.png'],
-      createdBy: 'user-1',
-    });
-
-    const result = await repo.backfillLegacySpaceStyle();
-    const resolved = await resolveStyleReferences(repo);
-
-    assert.notEqual(result.collectionId, 'user-style-references');
-    assert.deepEqual(
-      (await repo.listCollectionItems('user-style-references')).map((item) => item.pinned_variant_id),
-      ['unrelated-variant']
-    );
-    assert.deepEqual((await repo.listCollectionItems(result.collectionId!)).map((item) => item.pinned_variant_id), result.variantIds);
-    assert.deepEqual(resolved.styleReferenceVariantIds, result.variantIds);
-    assert.deepEqual(resolved.styleKeys, ['styles/space-1/legacy.png']);
-  });
-
-  test('backfill refreshes migrated preset after legacy style edits', async () => {
-    await seedLegacyStyle({
-      id: 'legacy-style',
-      description: 'Old watercolor props',
-      imageKeys: ['styles/space-1/old.png'],
-      createdBy: 'user-1',
-    });
-    const first = await repo.backfillLegacySpaceStyle();
-
-    await updateLegacyStyle('legacy-style', {
-      description: 'Updated ink props',
-      imageKeys: ['styles/space-1/new.png'],
-    });
-    const second = await repo.backfillLegacySpaceStyle();
-    const preset = await repo.getStylePresetById(second.presetId!);
-    const resolved = await resolveStyleReferences(repo);
-
-    assert.equal(second.collectionId, first.collectionId);
-    assert.equal(preset?.style_prompt, 'Updated ink props');
-    assert.deepEqual((await repo.listCollectionItems(first.collectionId!)).map((item) => item.pinned_variant_id), second.variantIds);
-    assert.deepEqual(resolved.styleReferenceVariantIds, second.variantIds);
-    assert.deepEqual(resolved.styleKeys, ['styles/space-1/new.png']);
-    assert.equal(getRefCount('styles/space-1/old.png'), 1);
-    assert.equal(getRefCount('styles/space-1/new.png'), 2);
-  });
-
-  test('backfill refreshes migrated collection item order after legacy style image reorder', async () => {
-    await seedLegacyStyle({
-      id: 'legacy-style',
-      description: 'Ordered watercolor props',
-      imageKeys: [
-        'styles/space-1/first.png',
-        'styles/space-1/second.png',
-      ],
-      createdBy: 'user-1',
-    });
-    const first = await repo.backfillLegacySpaceStyle();
-
-    await updateLegacyStyle('legacy-style', {
-      imageKeys: [
-        'styles/space-1/second.png',
-        'styles/space-1/first.png',
-      ],
-    });
-    const second = await repo.backfillLegacySpaceStyle();
-    const collectionItems = await repo.listCollectionItems(second.collectionId!);
-    const resolved = await resolveStyleReferences(repo);
-
-    assert.equal(second.collectionId, first.collectionId);
-    assert.deepEqual(collectionItems.map((item) => [item.pinned_variant_id, item.sort_index]), [
-      [second.variantIds[0], 0],
-      [second.variantIds[1], 1],
-    ]);
-    assert.deepEqual(resolved.styleReferenceVariantIds, second.variantIds);
-    assert.deepEqual(resolved.styleKeys, [
-      'styles/space-1/second.png',
-      'styles/space-1/first.png',
-    ]);
-    assert.equal(getRefCount('styles/space-1/first.png'), 2);
-    assert.equal(getRefCount('styles/space-1/second.png'), 2);
-  });
-
-  test('backfill disables migrated defaults when legacy style row is disabled', async () => {
-    await seedLegacyStyle({
-      id: 'legacy-style',
-      description: 'Watercolor props',
-      imageKeys: ['styles/space-1/one.png'],
-      createdBy: 'user-1',
-    });
-    const migrated = await repo.backfillLegacySpaceStyle();
-
-    await updateLegacyStyle('legacy-style', { enabled: false });
-    await repo.backfillLegacySpaceStyle();
-
-    const resolved = await resolveStyleReferences(repo);
-    assert.equal((await repo.getStylePresetById(migrated.presetId!))?.enabled, 0);
-    assert.deepEqual(resolved.styleKeys, []);
-  });
-
-  test('backfill is idempotent across repeated runs', async () => {
-    await seedLegacyStyle({
-      id: 'legacy-style',
-      description: 'Watercolor props',
-      imageKeys: ['styles/space-1/one.png'],
-      createdBy: 'user-1',
-    });
-
-    const first = await repo.backfillLegacySpaceStyle();
-    const second = await repo.backfillLegacySpaceStyle();
-
-    assert.deepEqual(second, first);
-    assert.equal((await repo.getAllAssets()).length, 1);
-    assert.equal((await repo.getAllVariants()).length, 1);
-    assert.equal((await repo.listCollections()).length, 1);
-    assert.equal((await repo.listStylePresets()).length, 1);
-    assert.equal((await repo.listCollectionItems(first.collectionId!)).length, 1);
-    assert.equal(getRefCount('styles/space-1/one.png'), 2);
-  });
-
-  test('backfill tolerates missing R2 image metadata', async () => {
-    await seedLegacyStyle({
-      id: 'legacy-style',
-      description: 'Ink wash silhouettes',
-      imageKeys: ['styles/space-1/missing.png'],
-      createdBy: 'user-1',
-    });
-    repo = new SpaceRepository(
-      new BetterSqlStorage(db),
-      createImageStorage({
-        'styles/space-1/missing.png': null,
-        'styles/space-1/missing_thumb.webp': null,
-      })
-    );
-
-    const result = await repo.backfillLegacySpaceStyle();
-    const variant = await repo.getVariantById(result.variantIds[0]);
-
-    assert.equal(variant?.image_key, 'styles/space-1/missing.png');
-    assert.equal(variant?.thumb_key, null);
-    assert.equal(variant?.media_size_bytes, null);
-    assert.equal(getRefCount('styles/space-1/missing.png'), 2);
-    assert.equal(getRefCount('styles/space-1/missing_thumb.webp'), null);
-  });
-
-  test('backfill leaves historical legacy style recipe snapshots displayable', async () => {
-    await seedLegacyStyle({
-      id: 'legacy-style',
-      description: 'Pastel concept art',
-      imageKeys: ['styles/space-1/style.png'],
-      createdBy: 'user-1',
-    });
-    await repo.createAsset({
-      id: 'generated-asset',
-      name: 'Generated Asset',
-      type: 'character',
-      tags: [],
-      createdBy: 'user-1',
-    });
-    const historicalRecipe = JSON.stringify({
-      operation: 'generate',
-      prompt: '[Style: Pastel concept art]\n\nA small cottage',
-      assetType: 'scene',
-      styleId: 'legacy-style',
-      styleImageKeys: ['styles/space-1/style.png'],
-      sourceImageKeys: ['styles/space-1/style.png'],
-    });
-    await repo.createPlaceholderVariant({
-      id: 'historical-variant',
-      assetId: 'generated-asset',
-      recipe: historicalRecipe,
-      createdBy: 'user-1',
-    });
-
-    await repo.backfillLegacySpaceStyle();
-    const variant = await repo.getVariantById('historical-variant');
-    const recipe = JSON.parse(variant?.recipe ?? '{}') as {
-      styleId?: string;
-      styleImageKeys?: string[];
-      stylePresetId?: string;
-    };
-
-    assert.equal(variant?.recipe, historicalRecipe);
-    assert.equal(recipe.styleId, 'legacy-style');
-    assert.deepEqual(recipe.styleImageKeys, ['styles/space-1/style.png']);
-    assert.equal(recipe.stylePresetId, undefined);
-  });
-
   test('overview state includes in-progress sibling variants outside the display variant set', async () => {
     await createAssetWithVariant('audio', 'audio-completed', { type: 'sfx', mediaKind: 'audio' });
     await repo.updateAsset('audio', { active_variant_id: 'audio-completed' });
@@ -1078,13 +476,6 @@ describe('Space organization repository', () => {
       variantId: 'variant-2',
       createdBy: 'user-1',
     });
-    await repo.createStylePreset({
-      id: 'preset-1',
-      name: 'References',
-      collectionId: 'collection-1',
-      createdBy: 'user-1',
-    });
-
     assert.equal(await repo.deleteVariant('variant-2'), true);
     assert.deepEqual(
       (await repo.listCollectionItems('collection-1')).map((item) => item.id),
@@ -1093,9 +484,7 @@ describe('Space organization repository', () => {
     assert.deepEqual(await repo.deleteAsset('asset-1'), []);
     assert.deepEqual(await repo.listCollectionItems('collection-1'), []);
 
-    assert.equal((await repo.getStylePresetById('preset-1'))?.collection_id, 'collection-1');
     assert.equal(await repo.deleteCollection('collection-1'), true);
-    assert.equal((await repo.getStylePresetById('preset-1'))?.collection_id, 'collection-1');
     assert.equal(await repo.getCollectionById('collection-1'), null);
   });
 });

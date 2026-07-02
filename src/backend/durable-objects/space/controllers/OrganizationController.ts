@@ -9,7 +9,6 @@ import { BaseController, type ControllerContext, NotFoundError, ValidationError 
 
 const COLLECTION_KINDS = new Set<CollectionKind>([
   'cast',
-  'style_refs',
   'backgrounds',
   'scenes',
   'thumbnails',
@@ -79,15 +78,12 @@ export class OrganizationController extends BaseController {
   async httpUpdateCollection(collectionId: string, data: CollectionUpdateInput): Promise<SpaceCollection> {
     const collection = await this.updateCollection(collectionId, data);
     this.broadcast({ type: 'collection:updated', collection });
-    await this.broadcastStylePresetPreviewsForCollections([collection.id]);
     return collection;
   }
 
   async httpDeleteCollection(collectionId: string): Promise<void> {
-    const affectedPresets = await this.repo.listStylePresetPreviewsByCollection(collectionId);
     await this.deleteCollection(collectionId);
     this.broadcast({ type: 'collection:deleted', collectionId });
-    await this.broadcastStylePresetPreviewsByIds(affectedPresets.map((preset) => preset.id));
   }
 
   async httpListCollectionItems(collectionId: string): Promise<CollectionItem[]> {
@@ -98,28 +94,24 @@ export class OrganizationController extends BaseController {
   async httpCreateCollectionItem(collectionId: string, data: CollectionItemInput): Promise<CollectionItem> {
     const item = await this.createCollectionItem(collectionId, data);
     this.broadcast({ type: 'collection_item:created', item });
-    await this.broadcastStylePresetPreviewsForCollections([item.collection_id]);
     return item;
   }
 
   async httpUpdateCollectionItem(collectionId: string, itemId: string, data: CollectionItemUpdateInput): Promise<CollectionItem> {
     const item = await this.updateCollectionItem(collectionId, itemId, data);
     this.broadcast({ type: 'collection_item:updated', item });
-    await this.broadcastStylePresetPreviewsForCollections([item.collection_id]);
     return item;
   }
 
   async httpReorderCollectionItems(collectionId: string, itemIds: unknown): Promise<CollectionItem[]> {
     const items = await this.reorderCollectionItems(collectionId, itemIds);
     this.broadcast({ type: 'collection_items:reordered', collectionId, items });
-    await this.broadcastStylePresetPreviewsForCollections([collectionId]);
     return items;
   }
 
   async httpDeleteCollectionItem(collectionId: string, itemId: string): Promise<void> {
     await this.deleteCollectionItem(collectionId, itemId);
     this.broadcast({ type: 'collection_item:deleted', collectionId, itemId });
-    await this.broadcastStylePresetPreviewsForCollections([collectionId]);
   }
 
   async httpBackfillParentHierarchy(input: unknown = {}) {
@@ -172,43 +164,36 @@ export class OrganizationController extends BaseController {
     this.requireEditor(meta);
     const collection = await this.updateCollection(collectionId, data);
     this.broadcast({ type: 'collection:updated', collection });
-    await this.broadcastStylePresetPreviewsForCollections([collection.id]);
   }
 
   async handleDeleteCollection(_ws: WebSocket, meta: WebSocketMeta, collectionId: string): Promise<void> {
     this.requireEditor(meta);
-    const affectedPresets = await this.repo.listStylePresetPreviewsByCollection(collectionId);
     await this.deleteCollection(collectionId);
     this.broadcast({ type: 'collection:deleted', collectionId });
-    await this.broadcastStylePresetPreviewsByIds(affectedPresets.map((preset) => preset.id));
   }
 
   async handleCreateCollectionItem(_ws: WebSocket, meta: WebSocketMeta, collectionId: string, data: CollectionItemInput): Promise<void> {
     this.requireEditor(meta);
     const item = await this.createCollectionItem(collectionId, { ...data, createdBy: meta.userId });
     this.broadcast({ type: 'collection_item:created', item });
-    await this.broadcastStylePresetPreviewsForCollections([item.collection_id]);
   }
 
   async handleUpdateCollectionItem(_ws: WebSocket, meta: WebSocketMeta, collectionId: string, itemId: string, data: CollectionItemUpdateInput): Promise<void> {
     this.requireEditor(meta);
     const item = await this.updateCollectionItem(collectionId, itemId, data);
     this.broadcast({ type: 'collection_item:updated', item });
-    await this.broadcastStylePresetPreviewsForCollections([item.collection_id]);
   }
 
   async handleReorderCollectionItems(_ws: WebSocket, meta: WebSocketMeta, collectionId: string, itemIds: unknown): Promise<void> {
     this.requireEditor(meta);
     const items = await this.reorderCollectionItems(collectionId, itemIds);
     this.broadcast({ type: 'collection_items:reordered', collectionId, items });
-    await this.broadcastStylePresetPreviewsForCollections([collectionId]);
   }
 
   async handleDeleteCollectionItem(_ws: WebSocket, meta: WebSocketMeta, collectionId: string, itemId: string): Promise<void> {
     this.requireEditor(meta);
     await this.deleteCollectionItem(collectionId, itemId);
     this.broadcast({ type: 'collection_item:deleted', collectionId, itemId });
-    await this.broadcastStylePresetPreviewsForCollections([collectionId]);
   }
 
   private async createCollection(data: CollectionInput): Promise<SpaceCollection> {
@@ -368,14 +353,6 @@ export class OrganizationController extends BaseController {
     return variant;
   }
 
-  private async broadcastStylePresetPreviewsByIds(presetIds: string[]): Promise<void> {
-    for (const presetId of presetIds) {
-      const preset = await this.repo.getStylePresetPreview(presetId);
-      if (preset) {
-        this.broadcast({ type: 'style_preset:updated', preset });
-      }
-    }
-  }
 }
 
 function normalizeRequiredString(value: unknown, field: string): string {

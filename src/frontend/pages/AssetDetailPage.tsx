@@ -35,10 +35,8 @@ import { VariantDetailsPanel } from '../components/VariantCanvas/VariantDetailsP
 import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { findAcceptedUploadFile } from '../mediaUpload';
-import { RotationPanel } from '../components/RotationPanel/RotationPanel';
 import { formatMediaKind } from '../mediaKind';
-import { assetDetailsQueryOptions, sessionQueryOptions, spacePageQueryOptions } from '../queries';
-import { isWebRotationEnabled } from '../feature-flags';
+import { assetDetailsQueryOptions, spacePageQueryOptions } from '../queries';
 import { Button, ButtonLink, TextInput, UiSelect, type SelectOption } from '../ui';
 import styles from './AssetDetailPage.module.css';
 
@@ -304,8 +302,6 @@ export default function AssetDetailPage() {
     ...spacePageQueryOptions(spaceId || ''),
     enabled: Boolean(user && spaceId),
   });
-  const sessionQuery = useQuery(sessionQueryOptions());
-
   const space = spaceDataQuery.data?.space ?? null;
   const canEdit = space?.role === 'owner' || space?.role === 'editor';
   const queryAsset = assetDetailsQuery.data?.asset ?? null;
@@ -321,14 +317,10 @@ export default function AssetDetailPage() {
   const [forgeErrorCode, setForgeErrorCode] = useState<string | null>(null);
   const [generationEstimate, setGenerationEstimate] = useState<GenerationEstimateResult | null>(null);
   const [isDetailsDragOver, setIsDetailsDragOver] = useState(false);
-  const rotationEnabled = isWebRotationEnabled(sessionQuery.data);
 
   // Variant selection state (persisted in store)
   const selectedVariantId = useSelectedVariantId(assetId || '');
   const setSelectedVariantId = useAssetDetailStore((state) => state.setSelectedVariantId);
-
-  // Rotation panel state
-  const [showRotationPanel, setShowRotationPanel] = useState(false);
 
   // Inline editing state
   const [editingName, setEditingName] = useState(false);
@@ -366,7 +358,6 @@ export default function AssetDetailPage() {
   const {
     assets: wsAssets,
     variants: wsVariants,
-    stylePresets,
     lineage: wsLineage,
     jobs,
     setActiveVariant,
@@ -386,11 +377,6 @@ export default function AssetDetailPage() {
     updateSession,
     sendBatchRequest,
     sendGenerationEstimateRequest,
-    rotationSets,
-    rotationViews,
-    sendRotationRequest,
-    sendRotationCancel,
-    sendVariantRate,
   } = useSpaceWebSocket({
     spaceId: spaceId || '',
     syncMode: 'full',
@@ -820,17 +806,6 @@ export default function AssetDetailPage() {
               </CanvasToolbarGroup>
             )}
             <CanvasToolbarDivider />
-            {rotationEnabled && selectedVariant?.status === 'completed' && selectedVariant?.image_key && (
-              <CanvasToolbarButton
-                onClick={() => setShowRotationPanel(true)}
-                title="Generate rotation views from selected variant"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                  <path d="M21 3v6h-6" />
-                </svg>
-              </CanvasToolbarButton>
-            )}
             <CanvasToolbarButton
               onClick={handleDeleteAsset}
               disabled={actionInProgress}
@@ -965,7 +940,6 @@ export default function AssetDetailPage() {
             requestChatHistory={requestChatHistory}
             clearChatSession={clearChatSession}
             spaceId={spaceId}
-            stylePresets={stylePresets}
             forgeError={forgeError}
             forgeErrorCode={forgeErrorCode}
             generationEstimate={generationEstimate}
@@ -975,28 +949,6 @@ export default function AssetDetailPage() {
       />
       </WorkspaceLayout>
 
-      {/* Rotation Panel modal */}
-      {showRotationPanel && selectedVariant && asset && (
-        <RotationPanel
-          sourceVariant={selectedVariant}
-          sourceAsset={asset}
-          rotationSets={rotationSets}
-          rotationViews={rotationViews}
-          variants={wsVariants}
-          hasDefaultStyle={stylePresets.some((preset) => (
-            (preset.enabled === true || preset.enabled === 1) &&
-            (preset.is_default === true || preset.is_default === 1)
-          ))}
-          onSubmit={(params) => {
-            sendRotationRequest(params);
-          }}
-          onCancel={(rotationSetId) => {
-            sendRotationCancel(rotationSetId);
-          }}
-          onClose={() => setShowRotationPanel(false)}
-          onRateVariant={sendVariantRate}
-        />
-      )}
     </div>
   );
 }

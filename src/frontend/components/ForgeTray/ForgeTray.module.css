@@ -546,11 +546,6 @@
   width: 6.75rem;
 }
 
-.selectStyle {
-  --ui-select-min-width: 5.75rem;
-  --ui-select-max-width: 6rem;
-}
-
 .selectDestination {
   --ui-select-height: 1.875rem;
   --ui-select-min-width: 5rem;

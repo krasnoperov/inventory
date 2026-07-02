@@ -136,7 +136,6 @@ export default function SpacePage() {
     lineage,
     collections,
     collectionItems,
-    stylePresets,
     jobs,
     requestSync,
     requestOverviewSync,
@@ -692,7 +691,6 @@ export default function SpacePage() {
           sendChatMessage={handleSendChatMessage}
           requestChatHistory={requestChatHistory}
           clearChatSession={clearChatSession}
-          stylePresets={stylePresets}
           forgeError={forgeError}
           forgeErrorCode={forgeErrorCode}
           generationEstimate={generationEstimate}

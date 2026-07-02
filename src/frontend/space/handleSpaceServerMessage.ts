@@ -17,10 +17,6 @@ export interface SpaceMessageContext {
   setCollectionItems: SpaceSessionState['setCollectionItems'];
   setJobs: SpaceSessionState['setJobs'];
   setPresence: SpaceSessionState['setPresence'];
-  setRotationSets: SpaceSessionState['setRotationSets'];
-  setRotationViews: SpaceSessionState['setRotationViews'];
-  setStylePresets?: SpaceSessionState['setStylePresets'];
-  setStyleReferenceCollections?: SpaceSessionState['setStyleReferenceCollections'];
   setError: SpaceSessionState['setError'];
 }
 
@@ -42,10 +38,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
     setCollectionItems,
     setJobs,
     setPresence,
-    setRotationSets,
-    setRotationViews,
-    setStylePresets,
-    setStyleReferenceCollections,
     setError,
   } = context;
   const {
@@ -72,11 +64,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
     onBatchProgressRef,
     onBatchCompletedRef,
     onGenerationEstimateRef,
-    onRotationStartedRef,
-    onRotationStepCompletedRef,
-    onRotationCompletedRef,
-    onRotationFailedRef,
-    onRotationCancelledRef,
     onGenerateErrorRef,
     onRefineErrorRef,
     onBatchErrorRef,
@@ -95,10 +82,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setCollections(message.collections || []);
                 setCollectionItems(message.collectionItems || []);
                 setPresence(message.presence || []);
-                setRotationSets(message.rotationSets || []);
-                setRotationViews(message.rotationViews || []);
-                setStylePresets?.(message.stylePresets || []);
-                setStyleReferenceCollections?.(message.styleReferenceCollections || []);
                 setError(null);
                 break;
 
@@ -118,10 +101,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                   setCollectionItems(message.collectionItems);
                 }
                 setPresence(message.presence || []);
-                setRotationSets(message.rotationSets || []);
-                setRotationViews(message.rotationViews || []);
-                setStylePresets?.(message.stylePresets || []);
-                setStyleReferenceCollections?.(message.styleReferenceCollections || []);
                 setError(null);
                 break;
 
@@ -599,26 +578,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 onPlanArchivedRef.current?.(message.planId);
                 break;
 
-              case 'style_preset:created':
-                setStylePresets?.((prev) => (
-                  prev.some((preset) => preset.id === message.preset.id)
-                    ? prev.map((preset) => preset.id === message.preset.id ? message.preset : preset)
-                    : [...prev, message.preset]
-                ));
-                break;
-
-              case 'style_preset:updated':
-                setStylePresets?.((prev) => (
-                  prev.some((preset) => preset.id === message.preset.id)
-                    ? prev.map((preset) => preset.id === message.preset.id ? message.preset : preset)
-                    : [...prev, message.preset]
-                ));
-                break;
-
-              case 'style_preset:deleted':
-                setStylePresets?.((prev) => prev.filter((preset) => preset.id !== message.presetId));
-                break;
-
               // Batch messages
               case 'batch:started':
                 onBatchStartedRef.current?.({
@@ -685,94 +644,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                   error: message.error,
                   code: message.code,
                 });
-                break;
-
-              // Rotation pipeline messages
-              case 'rotation:started':
-                setRotationSets((prev) => {
-                  const existing = prev.find(rs => rs.id === message.rotationSetId);
-                  if (existing) {
-                    return prev.map(rs => rs.id === message.rotationSetId
-                      ? { ...rs, status: 'generating' as const, total_steps: message.totalSteps }
-                      : rs
-                    );
-                  }
-                  // Add new set from broadcast data
-                  return [...prev, {
-                    id: message.rotationSetId,
-                    asset_id: message.assetId,
-                    source_variant_id: '',
-                    config: '',
-                    status: 'generating' as const,
-                    current_step: 0,
-                    total_steps: message.totalSteps,
-                    error_message: null,
-                    created_by: '',
-                    created_at: Date.now(),
-                    updated_at: Date.now(),
-                  }];
-                });
-                onRotationStartedRef.current?.({
-                  rotationSetId: message.rotationSetId,
-                  assetId: message.assetId,
-                  directions: message.directions,
-                  totalSteps: message.totalSteps,
-                });
-                break;
-
-              case 'rotation:step_completed':
-                setRotationSets((prev) =>
-                  prev.map(rs => rs.id === message.rotationSetId
-                    ? { ...rs, current_step: message.step + 1 }
-                    : rs
-                  )
-                );
-                onRotationStepCompletedRef.current?.({
-                  rotationSetId: message.rotationSetId,
-                  direction: message.direction,
-                  step: message.step,
-                  total: message.total,
-                  variantId: message.variantId,
-                });
-                break;
-
-              case 'rotation:completed':
-                setRotationSets((prev) =>
-                  prev.map(rs => rs.id === message.rotationSetId
-                    ? { ...rs, status: 'completed' as const }
-                    : rs
-                  )
-                );
-                setRotationViews((prev) => {
-                  const existingIds = new Set(prev.map(rv => rv.id));
-                  const newViews = message.views.filter(v => !existingIds.has(v.id));
-                  return newViews.length > 0 ? [...prev, ...newViews] : prev;
-                });
-                onRotationCompletedRef.current?.({ rotationSetId: message.rotationSetId, views: message.views });
-                break;
-
-              case 'rotation:failed':
-                setRotationSets((prev) =>
-                  prev.map(rs => rs.id === message.rotationSetId
-                    ? { ...rs, status: 'failed' as const, error_message: message.error }
-                    : rs
-                  )
-                );
-                onRotationFailedRef.current?.({
-                  rotationSetId: message.rotationSetId,
-                  error: message.error,
-                  failedStep: message.failedStep,
-                });
-                break;
-
-              case 'rotation:cancelled':
-                setRotationSets((prev) =>
-                  prev.map(rs => rs.id === message.rotationSetId
-                    ? { ...rs, status: 'cancelled' as const }
-                    : rs
-                  )
-                );
-                onRotationCancelledRef.current?.(message.rotationSetId);
                 break;
 
               default:

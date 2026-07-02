@@ -21,9 +21,9 @@ AI-powered generation, refinement, import, audio, and video.
 
 ### Asset
 
-A named catalog entry representing a conceptual thing (character, item, scene, style reference).
+A named catalog entry representing a conceptual thing (character, item, scene, reference).
 
-- **Type** describes what it represents: `character`, `item`, `scene`, `sprite-sheet`, `style-sheet`, `reference`, `animation` (unconstrained string — additional types can be added freely)
+- **Type** describes what it represents: `character`, `item`, `scene`, `sprite-sheet`, `reference`, `animation` (unconstrained string — additional types can be added freely)
 - **Media kind** describes the stored output medium: `image`, `audio`, or `video`
 - **Space position/grouping** organizes assets without changing generation lineage
 - **Active variant** — one variant represents the asset in catalog view
@@ -47,14 +47,11 @@ areas such as characters, props, backgrounds, concepts, or final candidates.
 - Organization does not create or modify generation lineage.
 - Exact variant comparison happens in Details, scoped to one asset.
 
-### Style References And Presets
+### References
 
-Style references are normal image assets in the Space.
-
-- Generation can use a named preset such as `Painterly` or `Low-poly UI`.
-- The recipe records the exact preset and reference variants used.
-- Style reference media remains visible as ordinary assets and variants; the
-  product model has no separate style-only media store or style management page.
+References are normal assets or variants in the Space. Generation can use them
+through the Forge Tray or CLI `--refs`, and lineage records which variants were
+used to continue the work.
 
 ### Media Kind Contract
 

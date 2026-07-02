@@ -44,7 +44,6 @@ export interface GenerateVideoOptions {
   durationSeconds?: VideoDurationSeconds;
   generateAudio?: boolean;
   sourceImages?: ImageInput[];
-  styleImageCount?: number;
   referenceMode?: VeoReferenceMode;
 }
 
@@ -88,13 +87,8 @@ function normalizeResolution(value?: VideoResolution): VideoResolution {
   return normalizeVideoGenerationResolution(value) ?? DEFAULT_VIDEO_GENERATION_RESOLUTION;
 }
 
-function getReferenceType(index: number, styleImageCount: number): VideoGenerationReferenceType {
-  return index < styleImageCount ? VideoGenerationReferenceType.STYLE : VideoGenerationReferenceType.ASSET;
-}
-
-export function determineVeoReferenceMode(sourceImageCount: number, styleImageCount = 0): VeoReferenceMode {
+export function determineVeoReferenceMode(sourceImageCount: number): VeoReferenceMode {
   if (sourceImageCount <= 0) return 'text-to-video';
-  if (styleImageCount > 0) return 'reference-images';
   if (sourceImageCount === 1) return 'image-to-video';
   if (sourceImageCount === 2) return 'first-last-frame';
   return 'reference-images';
@@ -102,10 +96,9 @@ export function determineVeoReferenceMode(sourceImageCount: number, styleImageCo
 
 function normalizeVeoReferenceMode(
   requestedMode: VeoReferenceMode | undefined,
-  sourceImageCount: number,
-  styleImageCount: number
+  sourceImageCount: number
 ): VeoReferenceMode {
-  const inferredMode = determineVeoReferenceMode(sourceImageCount, styleImageCount);
+  const inferredMode = determineVeoReferenceMode(sourceImageCount);
   if (!requestedMode || requestedMode === inferredMode) {
     return inferredMode;
   }
@@ -146,8 +139,7 @@ export class GoogleVeoService {
     const aspectRatio = normalizeAspectRatio(options.aspectRatio);
     const resolution = normalizeResolution(options.resolution);
     const durationSeconds = normalizeDuration(options.durationSeconds);
-    const styleImageCount = Math.max(0, Math.min(options.styleImageCount ?? 0, sourceImages.length));
-    const referenceMode = normalizeVeoReferenceMode(options.referenceMode, sourceImages.length, styleImageCount);
+    const referenceMode = normalizeVeoReferenceMode(options.referenceMode, sourceImages.length);
     const generateAudio = options.generateAudio ?? VIDEO_GENERATION_AUDIO_ALWAYS_ON;
     if (generateAudio === false && !doesVideoGenerationModelSupportAudioToggle(model)) {
       throw new Error(`${model} does not support disabling generated audio`);
@@ -172,9 +164,9 @@ export class GoogleVeoService {
       request.image = toGoogleImage(sourceImages[0]);
       config.lastFrame = toGoogleImage(sourceImages[1]);
     } else if (sourceImages.length > 0) {
-      config.referenceImages = sourceImages.map((image, index) => ({
+      config.referenceImages = sourceImages.map((image) => ({
         image: toGoogleImage(image),
-        referenceType: getReferenceType(index, styleImageCount),
+        referenceType: VideoGenerationReferenceType.ASSET,
       }));
     }
 

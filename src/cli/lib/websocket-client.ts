@@ -28,7 +28,6 @@ import type {
 
 export const GENERATION_REQUEST_TIMEOUT_MS = 300_000;
 export const VIDEO_GENERATION_REQUEST_TIMEOUT_MS = 720_000;
-export const PIPELINE_REQUEST_TIMEOUT_MS = 1_800_000;
 
 export function getGenerationRequestTimeoutMs(mediaKind?: MediaKind): number {
   return mediaKind === 'video' ? VIDEO_GENERATION_REQUEST_TIMEOUT_MS : GENERATION_REQUEST_TIMEOUT_MS;
@@ -127,9 +126,6 @@ interface GenerateRequestMessage {
   model?: string;
   aspectRatio?: string;
   imageSize?: string;
-  disableStyle?: boolean;
-  stylePresetId?: string;
-  styleVariantIds?: string[];
   mediaKind?: MediaKind;
   voiceId?: string;
   dialogueVoiceIds?: string[];
@@ -151,9 +147,6 @@ interface RefineRequestMessage {
   model?: string;
   aspectRatio?: string;
   imageSize?: string;
-  disableStyle?: boolean;
-  stylePresetId?: string;
-  styleVariantIds?: string[];
   mediaKind?: MediaKind;
   voiceId?: string;
   dialogueVoiceIds?: string[];
@@ -176,9 +169,6 @@ interface BatchRequestMessage {
   model?: string;
   aspectRatio?: string;
   imageSize?: string;
-  disableStyle?: boolean;
-  stylePresetId?: string;
-  styleVariantIds?: string[];
   mediaKind?: MediaKind;
   voiceId?: string;
   dialogueVoiceIds?: string[];
@@ -422,73 +412,6 @@ type AssetDeletedMessage = { type: 'asset:deleted'; assetId: string };
 type AssetForkedMessage = { type: 'asset:forked'; asset: AssetRecord };
 type VariantDeletedMessage = { type: 'variant:deleted'; variantId: string };
 
-export type RotationConfig = '4-directional' | '8-directional' | 'turnaround';
-export type RotationGenerationMode = 'sequential' | 'single-shot';
-
-export interface RotationView {
-  id: string;
-  rotation_set_id: string;
-  variant_id: string;
-  direction: string;
-  step_index: number;
-  created_at: number;
-}
-
-export interface RotationStarted {
-  type: 'rotation:started';
-  requestId: string;
-  rotationSetId: string;
-  assetId: string;
-  totalSteps: number;
-  directions: string[];
-}
-
-export interface RotationStepCompleted {
-  type: 'rotation:step_completed';
-  rotationSetId: string;
-  direction: string;
-  variantId: string;
-  step: number;
-  total: number;
-}
-
-export interface RotationCompleted {
-  type: 'rotation:completed';
-  rotationSetId: string;
-  views: RotationView[];
-}
-
-export interface RotationFailed {
-  type: 'rotation:failed';
-  rotationSetId: string;
-  error: string;
-  failedStep: number;
-}
-
-export interface RotationCancelled {
-  type: 'rotation:cancelled';
-  rotationSetId: string;
-}
-
-export interface RotationPipelineResult {
-  requestId: string;
-  rotationSetId: string;
-  assetId: string;
-  totalSteps: number;
-  directions: string[];
-  status: 'started' | 'completed' | 'failed' | 'cancelled';
-  views?: RotationView[];
-  error?: string;
-  failedStep?: number;
-}
-
-type RotationPipelineMessage =
-  | RotationStarted
-  | RotationStepCompleted
-  | RotationCompleted
-  | RotationFailed
-  | RotationCancelled;
-
 // Server message type union (discriminated union for type narrowing)
 type ServerMessage =
   | ChatResponse
@@ -518,8 +441,7 @@ type ServerMessage =
   | AssetUpdatedMessage
   | AssetDeletedMessage
   | AssetForkedMessage
-  | VariantDeletedMessage
-  | RotationPipelineMessage;
+  | VariantDeletedMessage;
 
 /**
  * Client surface for asset-management mutations. Implemented by WebSocketClient;
@@ -542,27 +464,6 @@ export interface VariantMutationClient {
   retryVariant(variantId: string): Promise<Variant>;
   starVariant(variantId: string, starred: boolean): Promise<Variant>;
   rateVariant(variantId: string, rating: 'approved' | 'rejected'): Promise<Variant>;
-}
-
-export interface PipelineClient {
-  connect(): Promise<void>;
-  disconnect(): void;
-  setConnectionLogging?(enabled: boolean): void;
-  sendRotationRequest(params: {
-    sourceVariantId: string;
-    config: RotationConfig;
-    subjectDescription?: string;
-    aspectRatio?: string;
-    disableStyle?: boolean;
-    stylePresetId?: string;
-    styleVariantIds?: string[];
-    generationMode?: RotationGenerationMode;
-    waitForCompletion?: boolean;
-    timeoutMs?: number;
-    onStarted?: (data: RotationStarted) => void;
-    onStepCompleted?: (data: RotationStepCompleted) => void;
-  }): Promise<RotationPipelineResult>;
-  cancelRotation(rotationSetId: string): Promise<RotationCancelled>;
 }
 
 export class WebSocketClient {
@@ -633,19 +534,6 @@ export class WebSocketClient {
     reject: (error: Error) => void;
     timeout: ReturnType<typeof setTimeout>;
   }> = [];
-
-  private rotationHandlers: Map<string, {
-    requestId: string;
-    waitForCompletion: boolean;
-    onStarted?: (data: RotationStarted) => void;
-    onStepCompleted?: (data: RotationStepCompleted) => void;
-    resolve: (result: RotationPipelineResult) => void;
-    reject: (error: Error) => void;
-    timeout: ReturnType<typeof setTimeout>;
-    started?: RotationStarted;
-  }> = new Map();
-
-  private rotationSetToRequestId: Map<string, string> = new Map();
 
   // Event handlers
   private onError?: (error: Error) => void;
@@ -1028,23 +916,14 @@ export class WebSocketClient {
         // If a mutation consumed it, don't also log to stderr (avoids double noise).
         const error = new Error(`${errorMsg.code}: ${errorMsg.message}`);
         const mutationConsumed = this.failMutationWaiters(error);
-        const pipelineConsumed = this.failPipelineHandlers(error);
         const estimateConsumed = this.failEstimateHandlers(error);
-        const consumed = mutationConsumed || pipelineConsumed || estimateConsumed;
+        const consumed = mutationConsumed || estimateConsumed;
         if (!consumed) {
           console.error(`[WebSocketClient] Server error: ${errorMsg.code} - ${errorMsg.message}`);
           this.onError?.(new Error(errorMsg.message));
         }
         break;
       }
-
-      case 'rotation:started':
-      case 'rotation:step_completed':
-      case 'rotation:completed':
-      case 'rotation:failed':
-      case 'rotation:cancelled':
-        this.handleRotationPipelineMessage(message as RotationPipelineMessage);
-        break;
 
       // SimplePlan message handlers
       case 'simple_plan:updated': {
@@ -1124,21 +1003,6 @@ export class WebSocketClient {
     return true;
   }
 
-  /** Reject all in-flight pipeline requests. Returns true if any were pending. */
-  private failPipelineHandlers(error: Error): boolean {
-    const hadHandlers = this.rotationHandlers.size > 0;
-    if (!hadHandlers) return false;
-
-    for (const [requestId, handler] of this.rotationHandlers) {
-      clearTimeout(handler.timeout);
-      this.rotationHandlers.delete(requestId);
-      handler.reject(error);
-    }
-    this.rotationSetToRequestId.clear();
-
-    return true;
-  }
-
   private failEstimateHandlers(error: Error): boolean {
     if (this.estimateHandlers.size === 0) return false;
     for (const [requestId, handler] of this.estimateHandlers) {
@@ -1147,84 +1011,6 @@ export class WebSocketClient {
       handler.reject(error);
     }
     return true;
-  }
-
-  private handleRotationPipelineMessage(message: RotationPipelineMessage): void {
-    if (message.type === 'rotation:started') {
-      const handler = this.rotationHandlers.get(message.requestId);
-      if (!handler) return;
-      handler.started = message;
-      this.rotationSetToRequestId.set(message.rotationSetId, message.requestId);
-      handler.onStarted?.(message);
-
-      if (!handler.waitForCompletion) {
-        this.rotationHandlers.delete(message.requestId);
-        this.rotationSetToRequestId.delete(message.rotationSetId);
-        clearTimeout(handler.timeout);
-        handler.resolve({
-          requestId: message.requestId,
-          rotationSetId: message.rotationSetId,
-          assetId: message.assetId,
-          totalSteps: message.totalSteps,
-          directions: message.directions,
-          status: 'started',
-        });
-      }
-      return;
-    }
-
-    const requestId = this.rotationSetToRequestId.get(message.rotationSetId);
-    if (!requestId) return;
-    const handler = this.rotationHandlers.get(requestId);
-    if (!handler) return;
-
-    if (message.type === 'rotation:step_completed') {
-      handler.onStepCompleted?.(message);
-      return;
-    }
-
-    const started = handler.started;
-    if (!started) return;
-
-    this.rotationHandlers.delete(requestId);
-    this.rotationSetToRequestId.delete(message.rotationSetId);
-    clearTimeout(handler.timeout);
-
-    if (message.type === 'rotation:completed') {
-      handler.resolve({
-        requestId,
-        rotationSetId: message.rotationSetId,
-        assetId: started.assetId,
-        totalSteps: started.totalSteps,
-        directions: started.directions,
-        status: 'completed',
-        views: message.views,
-      });
-      return;
-    }
-
-    if (message.type === 'rotation:failed') {
-      handler.resolve({
-        requestId,
-        rotationSetId: message.rotationSetId,
-        assetId: started.assetId,
-        totalSteps: started.totalSteps,
-        directions: started.directions,
-        status: 'failed',
-        error: message.error,
-        failedStep: message.failedStep,
-      });
-      return;
-    }
-
-    handler.resolve({
-      requestId,
-      rotationSetId: message.rotationSetId,
-      assetId: started.assetId,
-      totalSteps: started.totalSteps,
-      directions: started.directions,
-      status: 'cancelled',
-    });
   }
 
   /**
@@ -1341,77 +1127,6 @@ export class WebSocketClient {
         msg.type === 'variant:updated' && msg.variant.id === variantId && msg.variant.quality_rating === rating
     );
     return result.variant;
-  }
-
-  // ==========================================================================
-  // Rotation pipelines
-  // ==========================================================================
-
-  async sendRotationRequest(params: {
-    sourceVariantId: string;
-    config: RotationConfig;
-    subjectDescription?: string;
-    aspectRatio?: string;
-    disableStyle?: boolean;
-    stylePresetId?: string;
-    styleVariantIds?: string[];
-    generationMode?: RotationGenerationMode;
-    waitForCompletion?: boolean;
-    timeoutMs?: number;
-    onStarted?: (data: RotationStarted) => void;
-    onStepCompleted?: (data: RotationStepCompleted) => void;
-  }): Promise<RotationPipelineResult> {
-    const requestId = crypto.randomUUID();
-    const waitForCompletion = params.waitForCompletion ?? true;
-
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        const handler = this.rotationHandlers.get(requestId);
-        if (!handler) return;
-        this.rotationHandlers.delete(requestId);
-        if (handler.started) {
-          this.rotationSetToRequestId.delete(handler.started.rotationSetId);
-        }
-        reject(new Error('Rotation pipeline request timed out'));
-      }, params.timeoutMs ?? PIPELINE_REQUEST_TIMEOUT_MS);
-
-      this.rotationHandlers.set(requestId, {
-        requestId,
-        waitForCompletion,
-        onStarted: params.onStarted,
-        onStepCompleted: params.onStepCompleted,
-        resolve,
-        reject,
-        timeout,
-      });
-
-      try {
-        this.send({
-          type: 'rotation:request',
-          requestId,
-          sourceVariantId: params.sourceVariantId,
-          config: params.config,
-          subjectDescription: params.subjectDescription,
-          aspectRatio: params.aspectRatio,
-          disableStyle: params.disableStyle,
-          stylePresetId: params.stylePresetId,
-          styleVariantIds: params.styleVariantIds,
-          generationMode: params.generationMode,
-        });
-      } catch (err) {
-        this.rotationHandlers.delete(requestId);
-        clearTimeout(timeout);
-        reject(err instanceof Error ? err : new Error(String(err)));
-      }
-    });
-  }
-
-  async cancelRotation(rotationSetId: string): Promise<RotationCancelled> {
-    return this.awaitServerMessage(
-      { type: 'rotation:cancel', rotationSetId },
-      (msg): msg is RotationCancelled =>
-        msg.type === 'rotation:cancelled' && msg.rotationSetId === rotationSetId
-    );
   }
 
   /**
@@ -1533,9 +1248,6 @@ export class WebSocketClient {
     model?: string;
     aspectRatio?: string;
     imageSize?: string;
-    disableStyle?: boolean;
-    stylePresetId?: string;
-    styleVariantIds?: string[];
     mediaKind?: MediaKind;
     voiceId?: string;
     dialogueVoiceIds?: string[];
@@ -1587,9 +1299,6 @@ export class WebSocketClient {
         model: params.model,
         aspectRatio: params.aspectRatio,
         imageSize: params.imageSize,
-        disableStyle: params.disableStyle,
-        stylePresetId: params.stylePresetId,
-        styleVariantIds: params.styleVariantIds,
         mediaKind: params.mediaKind,
         voiceId: params.voiceId,
         dialogueVoiceIds: params.dialogueVoiceIds,
@@ -1660,9 +1369,6 @@ export class WebSocketClient {
     model?: string;
     aspectRatio?: string;
     imageSize?: string;
-    disableStyle?: boolean;
-    stylePresetId?: string;
-    styleVariantIds?: string[];
     mediaKind?: MediaKind;
     voiceId?: string;
     dialogueVoiceIds?: string[];
@@ -1713,9 +1419,6 @@ export class WebSocketClient {
         model: params.model,
         aspectRatio: params.aspectRatio,
         imageSize: params.imageSize,
-        disableStyle: params.disableStyle,
-        stylePresetId: params.stylePresetId,
-        styleVariantIds: params.styleVariantIds,
         mediaKind: params.mediaKind,
         voiceId: params.voiceId,
         dialogueVoiceIds: params.dialogueVoiceIds,
@@ -1748,9 +1451,6 @@ export class WebSocketClient {
     model?: string;
     aspectRatio?: string;
     imageSize?: string;
-    disableStyle?: boolean;
-    stylePresetId?: string;
-    styleVariantIds?: string[];
     mediaKind?: MediaKind;
     voiceId?: string;
     dialogueVoiceIds?: string[];
@@ -1793,9 +1493,6 @@ export class WebSocketClient {
         model: params.model,
         aspectRatio: params.aspectRatio,
         imageSize: params.imageSize,
-        disableStyle: params.disableStyle,
-        stylePresetId: params.stylePresetId,
-        styleVariantIds: params.styleVariantIds,
         mediaKind: params.mediaKind,
         voiceId: params.voiceId,
         dialogueVoiceIds: params.dialogueVoiceIds,

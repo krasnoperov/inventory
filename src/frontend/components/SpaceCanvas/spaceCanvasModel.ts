@@ -22,7 +22,6 @@ export const COLLECTION_KINDS = [
   'scenes',
   'thumbnails',
   'maps',
-  'style_refs',
   'deliverables',
   'custom',
 ] as const;
@@ -33,7 +32,6 @@ export const COLLECTION_KIND_LABELS: Record<typeof COLLECTION_KINDS[number], str
   scenes: 'Scenes',
   thumbnails: 'Thumbnails',
   maps: 'Maps',
-  style_refs: 'Style References',
   deliverables: 'Deliverables',
   custom: 'Custom',
 };
@@ -44,7 +42,6 @@ export const COLLECTION_KIND_COLORS: Record<typeof COLLECTION_KINDS[number], str
   scenes: '#c47d25',
   thumbnails: '#b15bd6',
   maps: '#1696a3',
-  style_refs: '#d14c6d',
   deliverables: '#737a2a',
   custom: '#6f7480',
 };
@@ -94,11 +91,11 @@ export function getDisplayVariant(item: CollectionItem | null, asset: Asset, var
 }
 
 export function getPinnedVariantIdForAssetCollection(
-  collection: SpaceCollection | null | undefined,
+  _collection: SpaceCollection | null | undefined,
   asset: Asset | null | undefined,
 ): string | null {
-  if (collection?.kind !== 'style_refs') return null;
-  return asset?.active_variant_id ?? null;
+  void asset;
+  return null;
 }
 
 export function getUnfiledAssets(assets: Asset[], items: CollectionItem[], variants: Variant[] = []): Asset[] {

@@ -12,9 +12,6 @@ import type {
   GenerateRequestParams,
   JobContext,
   RefineRequestParams,
-  RotationRequestParams,
-  StylePresetCreateParams,
-  StylePresetUpdateParams,
   UseSpaceWebSocketReturn,
 } from './protocol';
 import type { SpaceSessionState } from './spaceStore';
@@ -60,13 +57,8 @@ type SpaceCommands = Pick<UseSpaceWebSocketReturn,
   | 'startNewSession'
   | 'sendPersistentChatMessage'
   | 'clearChatSession'
-  | 'createStylePreset'
-  | 'updateStylePreset'
-  | 'deleteStylePreset'
   | 'sendBatchRequest'
   | 'sendGenerationEstimateRequest'
-  | 'sendRotationRequest'
-  | 'sendRotationCancel'
   | 'sendVariantRate'
 >;
 
@@ -191,9 +183,6 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
       model: params.model,
       aspectRatio: params.aspectRatio,
       imageSize: params.imageSize,
-      disableStyle: params.disableStyle,
-      stylePresetId: params.stylePresetId,
-      styleVariantIds: params.styleVariantIds,
       voiceId: params.voiceId,
       dialogueVoiceIds: params.dialogueVoiceIds,
       musicProvider: params.musicProvider,
@@ -225,9 +214,6 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
       model: params.model,
       aspectRatio: params.aspectRatio,
       imageSize: params.imageSize,
-      disableStyle: params.disableStyle,
-      stylePresetId: params.stylePresetId,
-      styleVariantIds: params.styleVariantIds,
       voiceId: params.voiceId,
       dialogueVoiceIds: params.dialogueVoiceIds,
       musicProvider: params.musicProvider,
@@ -323,27 +309,6 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
     sendMessage({ type: 'chat:clear' });
   }, [sendMessage]);
 
-  const createStylePreset = useCallback((params: StylePresetCreateParams) => {
-    sendMessage({
-      type: 'style_preset:create',
-      id: params.id,
-      name: params.name,
-      description: params.description,
-      stylePrompt: params.stylePrompt,
-      collectionId: params.collectionId,
-      enabled: params.enabled,
-      isDefault: params.isDefault,
-    });
-  }, [sendMessage]);
-
-  const updateStylePreset = useCallback((presetId: string, changes: StylePresetUpdateParams) => {
-    sendMessage({ type: 'style_preset:update', presetId, changes });
-  }, [sendMessage]);
-
-  const deleteStylePreset = useCallback((presetId: string) => {
-    sendMessage({ type: 'style_preset:delete', presetId });
-  }, [sendMessage]);
-
   // Batch request
   const sendBatchRequest = useCallback((params: BatchRequestParams): string => {
     const requestId = crypto.randomUUID();
@@ -361,9 +326,6 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
       model: params.model,
       aspectRatio: params.aspectRatio,
       imageSize: params.imageSize,
-      disableStyle: params.disableStyle,
-      stylePresetId: params.stylePresetId,
-      styleVariantIds: params.styleVariantIds,
       voiceId: params.voiceId,
       dialogueVoiceIds: params.dialogueVoiceIds,
       musicProvider: params.musicProvider,
@@ -391,27 +353,6 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
       videoTier: params.videoTier,
     });
     return requestId;
-  }, [sendMessage]);
-
-  // Rotation pipeline methods
-  const sendRotationRequest = useCallback((params: RotationRequestParams & { generationMode?: 'sequential' | 'single-shot' }) => {
-    const requestId = crypto.randomUUID();
-    sendMessage({
-      type: 'rotation:request',
-      requestId,
-      sourceVariantId: params.sourceVariantId,
-      config: params.config,
-      subjectDescription: params.subjectDescription,
-      aspectRatio: params.aspectRatio,
-      disableStyle: params.disableStyle,
-      stylePresetId: params.stylePresetId,
-      styleVariantIds: params.styleVariantIds,
-      generationMode: params.generationMode,
-    });
-  }, [sendMessage]);
-
-  const sendRotationCancel = useCallback((rotationSetId: string) => {
-    sendMessage({ type: 'rotation:cancel', rotationSetId });
   }, [sendMessage]);
 
   const sendVariantRate = useCallback((variantId: string, rating: 'approved' | 'rejected') => {
@@ -470,13 +411,8 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
     startNewSession,
     sendPersistentChatMessage,
     clearChatSession,
-    createStylePreset,
-    updateStylePreset,
-    deleteStylePreset,
     sendBatchRequest,
     sendGenerationEstimateRequest,
-    sendRotationRequest,
-    sendRotationCancel,
     sendVariantRate,
     trackJob,
     clearJob,

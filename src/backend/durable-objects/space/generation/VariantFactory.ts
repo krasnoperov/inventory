@@ -13,7 +13,6 @@ import type { GenerationWorkflowInput, OperationType, BatchMode } from '../../..
 import type { SpaceRepository } from '../repository/SpaceRepository';
 import { ValidationError, type BroadcastFn } from '../controllers/types';
 import type { Env } from '../../../../core/types';
-import { PromptBuilder } from './PromptBuilder';
 import { loggers } from '../../../../shared/logger';
 import { DEFAULT_MEDIA_KIND, type MediaKind, type MusicGenerationProvider } from '../../../../shared/websocket-types';
 import {
@@ -45,11 +44,6 @@ import {
   type VideoGenerationResolution,
   type VideoGenerationTier,
 } from '../../../../shared/videoGenerationOptions';
-import {
-  resolveStyleReferences,
-  withStyleReferenceLimit,
-  withoutStyleReferenceImages,
-} from './refLimits';
 
 const log = loggers.generationController;
 const MAX_VEO_REFERENCE_IMAGES = 3;
@@ -67,26 +61,10 @@ export interface GenerationRecipe {
   aspectRatio?: string;
   imageSize?: string;
   sourceImageKeys?: string[];
-  /** Style reference keys prepended to sourceImageKeys, preserving retry semantics */
-  styleImageKeys?: string[];
   /** Parent variant IDs for retry support (in case lineage records are missing) */
   parentVariantIds?: string[];
   /** Operation type matching user-facing tool name */
   operation: OperationType;
-  /** Style ID if a space style was applied */
-  styleId?: string;
-  /** Asset-backed style preset selected for this generation */
-  stylePresetId?: string;
-  /** Collection backing the selected style preset */
-  styleCollectionId?: string;
-  /** Exact style reference variants resolved at generation time */
-  styleReferenceVariantIds?: string[];
-  /** Style reference image keys resolved from exact variants */
-  styleReferenceImageKeys?: string[];
-  /** Human-authored style prompt from the selected preset */
-  stylePrompt?: string;
-  /** True if style was explicitly disabled for this generation */
-  styleOverride?: boolean;
   /** Model provider ('gemini' or 'custom') */
   modelProvider?: 'gemini' | 'custom';
   /** Veo request mode selected from resolved image references */
@@ -136,12 +114,6 @@ export interface CreateAssetVariantInput {
   referenceVariantIds?: string[];
   /** Plan step ID if created by a plan */
   planStepId?: string;
-  /** Disable style anchoring for this generation */
-  disableStyle?: boolean;
-  /** Explicit asset-backed style preset to use instead of the default */
-  stylePresetId?: string;
-  /** Ad hoc completed image variants to use as style references */
-  styleVariantIds?: string[];
   /** ElevenLabs speech voice ID (audio modes only) */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
@@ -182,12 +154,6 @@ export interface RefineVariantInput {
   referenceAssetIds?: string[];
   /** Plan step ID if created by a plan */
   planStepId?: string;
-  /** Disable style anchoring for this generation */
-  disableStyle?: boolean;
-  /** Explicit asset-backed style preset to use instead of the default */
-  stylePresetId?: string;
-  /** Ad hoc completed image variants to use as style references */
-  styleVariantIds?: string[];
   /** ElevenLabs speech voice ID (audio modes only) */
   voiceId?: string;
   /** ElevenLabs dialogue voice IDs, ordered by speaker (audio modes only) */
@@ -212,10 +178,6 @@ export interface VariantCreationResult {
   assetId: string;
   parentVariantIds: string[];
   sourceImageKeys: string[];
-  /** Style image keys injected (if style anchoring was active) */
-  styleImageKeys?: string[];
-  /** Exact style reference variants injected (if asset-backed style anchoring was active) */
-  styleReferenceVariantIds?: string[];
 }
 
 /** Resolved references (image keys and variant IDs) */
@@ -302,15 +264,12 @@ export class VariantFactory {
       musicProvider: input.assetType === 'music' ? input.musicProvider : undefined,
     };
 
-    // Inject style anchoring
-    const styleResult = await this.injectStyle(recipe, resolved.sourceImageKeys, {
-      disableStyle: input.disableStyle,
-      stylePresetId: input.stylePresetId,
-      styleVariantIds: input.styleVariantIds,
-    });
-    recipe = styleResult.recipe;
-    const effectiveSourceImageKeys = styleResult.sourceImageKeys;
-    recipe = this.withVeoReferenceMode(recipe, effectiveSourceImageKeys, styleResult.styleImageKeys);
+    const effectiveSourceImageKeys = this.capSourceImageKeysForMedia(recipe, resolved.sourceImageKeys);
+    recipe = {
+      ...recipe,
+      sourceImageKeys: effectiveSourceImageKeys.length > 0 ? effectiveSourceImageKeys : undefined,
+    };
+    recipe = this.withVeoReferenceMode(recipe, effectiveSourceImageKeys);
     this.validateImageModelReferenceLimit(recipe, effectiveSourceImageKeys);
 
     // Create the asset only after request-level validation succeeds.
@@ -352,8 +311,6 @@ export class VariantFactory {
       assetId,
       parentVariantIds: resolved.parentVariantIds,
       sourceImageKeys: effectiveSourceImageKeys,
-      styleImageKeys: styleResult.styleImageKeys,
-      styleReferenceVariantIds: styleResult.styleReferenceVariantIds,
     };
   }
 
@@ -426,15 +383,12 @@ export class VariantFactory {
       musicProvider: asset.type === 'music' ? input.musicProvider : undefined,
     };
 
-    // Inject style anchoring
-    const styleResult = await this.injectStyle(recipe, resolved.sourceImageKeys, {
-      disableStyle: input.disableStyle,
-      stylePresetId: input.stylePresetId,
-      styleVariantIds: input.styleVariantIds,
-    });
-    recipe = styleResult.recipe;
-    const effectiveSourceImageKeys = styleResult.sourceImageKeys;
-    recipe = this.withVeoReferenceMode(recipe, effectiveSourceImageKeys, styleResult.styleImageKeys);
+    const effectiveSourceImageKeys = this.capSourceImageKeysForMedia(recipe, resolved.sourceImageKeys);
+    recipe = {
+      ...recipe,
+      sourceImageKeys: effectiveSourceImageKeys.length > 0 ? effectiveSourceImageKeys : undefined,
+    };
+    recipe = this.withVeoReferenceMode(recipe, effectiveSourceImageKeys);
     this.validateImageModelReferenceLimit(recipe, effectiveSourceImageKeys);
 
     // Create placeholder variant
@@ -460,8 +414,6 @@ export class VariantFactory {
       assetId: input.assetId,
       parentVariantIds: resolved.parentVariantIds,
       sourceImageKeys: effectiveSourceImageKeys,
-      styleImageKeys: styleResult.styleImageKeys,
-      styleReferenceVariantIds: styleResult.styleReferenceVariantIds,
     };
   }
 
@@ -478,8 +430,7 @@ export class VariantFactory {
     variantId: string,
     result: VariantCreationResult,
     meta: WebSocketMeta,
-    operation: OperationType,
-    styleImageKeys?: string[]
+    operation: OperationType
   ): Promise<string | null> {
     if (!this.env.GENERATION_WORKFLOW) {
       log.warn('Generation workflow not configured', { spaceId: this.spaceId });
@@ -488,9 +439,6 @@ export class VariantFactory {
 
     // Parse recipe to get prompt
     const recipe = JSON.parse(result.variant.recipe) as GenerationRecipe;
-
-    // Use styleImageKeys from argument or from result
-    const effectiveStyleImageKeys = styleImageKeys || result.styleImageKeys;
 
     const workflowInput: GenerationWorkflowInput = {
       requestId,
@@ -508,12 +456,6 @@ export class VariantFactory {
       sourceImageKeys: result.sourceImageKeys.length > 0 ? result.sourceImageKeys : undefined,
       parentVariantIds: result.parentVariantIds.length > 0 ? result.parentVariantIds : undefined,
       operation,
-      styleImageKeys: effectiveStyleImageKeys?.length ? effectiveStyleImageKeys : undefined,
-      stylePresetId: recipe.stylePresetId,
-      styleCollectionId: recipe.styleCollectionId,
-      styleReferenceVariantIds: recipe.styleReferenceVariantIds,
-      styleReferenceImageKeys: recipe.styleReferenceImageKeys,
-      stylePrompt: recipe.stylePrompt,
       veoReferenceMode: recipe.veoReferenceMode,
       videoResolution: recipe.videoResolution,
       videoDurationSeconds: recipe.videoDurationSeconds,
@@ -647,7 +589,7 @@ export class VariantFactory {
 
   /**
    * Create multiple variants/assets for batch generation.
-   * Resolves refs once, builds recipe once, injects style once, then creates N placeholders.
+   * Resolves refs once, builds recipe once, then creates N placeholders.
    */
   async createBatchVariants(
     input: CreateAssetVariantInput & { count: number; mode: BatchMode },
@@ -699,15 +641,12 @@ export class VariantFactory {
       musicProvider: input.assetType === 'music' ? input.musicProvider : undefined,
     };
 
-    // Inject style ONCE
-    const styleResult = await this.injectStyle(recipe, resolved.sourceImageKeys, {
-      disableStyle: input.disableStyle,
-      stylePresetId: input.stylePresetId,
-      styleVariantIds: input.styleVariantIds,
-    });
-    recipe = styleResult.recipe;
-    const effectiveSourceImageKeys = styleResult.sourceImageKeys;
-    recipe = this.withVeoReferenceMode(recipe, effectiveSourceImageKeys, styleResult.styleImageKeys);
+    const effectiveSourceImageKeys = this.capSourceImageKeysForMedia(recipe, resolved.sourceImageKeys);
+    recipe = {
+      ...recipe,
+      sourceImageKeys: effectiveSourceImageKeys.length > 0 ? effectiveSourceImageKeys : undefined,
+    };
+    recipe = this.withVeoReferenceMode(recipe, effectiveSourceImageKeys);
     this.validateImageModelReferenceLimit(recipe, effectiveSourceImageKeys);
 
     const recipeJson = JSON.stringify(recipe);
@@ -756,8 +695,6 @@ export class VariantFactory {
           assetId,
           parentVariantIds: resolved.parentVariantIds,
           sourceImageKeys: effectiveSourceImageKeys,
-          styleImageKeys: styleResult.styleImageKeys,
-          styleReferenceVariantIds: styleResult.styleReferenceVariantIds,
         });
       }
     } else {
@@ -803,8 +740,6 @@ export class VariantFactory {
           assetId,
           parentVariantIds: resolved.parentVariantIds,
           sourceImageKeys: effectiveSourceImageKeys,
-          styleImageKeys: styleResult.styleImageKeys,
-          styleReferenceVariantIds: styleResult.styleReferenceVariantIds,
         });
       }
     }
@@ -818,13 +753,12 @@ export class VariantFactory {
   async triggerBatchWorkflows(
     requestId: string,
     results: VariantCreationResult[],
-    meta: WebSocketMeta,
-    styleImageKeys?: string[]
+    meta: WebSocketMeta
   ): Promise<void> {
     const operation = results.length > 0 && results[0].parentVariantIds.length > 0 ? 'derive' as OperationType : 'generate' as OperationType;
 
     await Promise.all(results.map(r =>
-      this.triggerWorkflow(requestId, r.variantId, r, meta, operation, styleImageKeys)
+      this.triggerWorkflow(requestId, r.variantId, r, meta, operation)
     ));
   }
 
@@ -832,117 +766,16 @@ export class VariantFactory {
   // Private Helpers
   // ==========================================================================
 
-  /**
-   * Inject style anchoring into a recipe.
-   * Prepends style description to prompt and style image keys to source images.
-   */
-  private async injectStyle(
-    recipe: GenerationRecipe,
-    sourceImageKeys: string[],
-    options: {
-      disableStyle?: boolean;
-      stylePresetId?: string;
-      styleVariantIds?: string[];
-    } = {}
-  ): Promise<{
-    recipe: GenerationRecipe;
-    sourceImageKeys: string[];
-    styleImageKeys?: string[];
-    styleReferenceVariantIds: string[];
-  }> {
-    const mediaKind = recipe.mediaKind ?? DEFAULT_MEDIA_KIND;
-    if (mediaKind !== 'image' && mediaKind !== 'video') {
-      return { recipe, sourceImageKeys, styleReferenceVariantIds: [] };
+  private capSourceImageKeysForMedia(recipe: GenerationRecipe, sourceImageKeys: string[]): string[] {
+    if (recipe.mediaKind !== 'video') {
+      return sourceImageKeys;
     }
-
-    let effectiveRecipe = recipe;
-    let effectiveSourceImageKeys = sourceImageKeys;
-    if (mediaKind === 'video') {
-      const capped = this.capVeoSourceImageKeys(recipe, sourceImageKeys);
-      effectiveRecipe = capped.recipe;
-      effectiveSourceImageKeys = capped.sourceImageKeys;
-    }
-
-    // If explicitly disabled, mark and return unchanged except media limits
-    if (options.disableStyle) {
-      return {
-        recipe: { ...effectiveRecipe, styleOverride: true },
-        sourceImageKeys: effectiveSourceImageKeys,
-        styleReferenceVariantIds: [],
-      };
-    }
-
-    let style = await resolveStyleReferences(this.repo, {
-      stylePresetId: options.stylePresetId,
-      styleVariantIds: options.styleVariantIds,
-    });
-    if (!style.styleDescription && style.styleKeys.length === 0 && !style.stylePresetId) {
-      return { recipe: effectiveRecipe, sourceImageKeys: effectiveSourceImageKeys, styleReferenceVariantIds: [] };
-    }
-
-    if (mediaKind === 'video') {
-      const sourceBudget = effectiveSourceImageKeys.length;
-      const styleBudget = MAX_VEO_REFERENCE_IMAGES - sourceBudget;
-
-      if (style.styleKeys.length + effectiveSourceImageKeys.length > MAX_VEO_REFERENCE_IMAGES) {
-        log.warn('Style + source images exceed Veo limit, capping reference images', {
-          styleImages: style.styleKeys.length,
-          sourceImages: effectiveSourceImageKeys.length,
-          maxImages: MAX_VEO_REFERENCE_IMAGES,
-        });
-      }
-
-      style = withStyleReferenceLimit(style, styleBudget);
-    } else if (style.styleKeys.length + sourceImageKeys.length > this.getImageModelReferenceLimit(recipe)) {
-      log.warn('Style + source images exceed limit, skipping style images', {
-        styleImages: style.styleKeys.length,
-        sourceImages: sourceImageKeys.length,
-      });
-      // Still prepend description but skip style images
-      style = withoutStyleReferenceImages(style);
-    }
-
-    // Prepend style description to prompt
-    let styledPrompt = effectiveRecipe.prompt;
-    if (style.styleDescription) {
-      const builder = new PromptBuilder();
-      builder.withStyle(style.styleDescription);
-      styledPrompt = builder.build() + '\n\n' + effectiveRecipe.prompt;
-    }
-
-    // Prepend style image keys to source images (style refs come first)
-    const combinedSourceImageKeys = [...style.styleKeys, ...effectiveSourceImageKeys];
-
-    // Update recipe
-    const updatedRecipe: GenerationRecipe = {
-      ...effectiveRecipe,
-      prompt: styledPrompt,
-      sourceImageKeys: combinedSourceImageKeys.length > 0 ? combinedSourceImageKeys : undefined,
-      styleImageKeys: style.styleKeys.length > 0 ? style.styleKeys : undefined,
-      styleId: style.stylePresetId ? undefined : style.styleId,
-      stylePresetId: style.stylePresetId,
-      styleCollectionId: style.styleCollectionId ?? undefined,
-      styleReferenceVariantIds: style.stylePresetId || options.styleVariantIds?.length
-        ? style.styleReferenceVariantIds
-        : undefined,
-      styleReferenceImageKeys: style.stylePresetId || options.styleVariantIds?.length
-        ? style.styleReferenceImageKeys
-        : undefined,
-      stylePrompt: style.stylePrompt,
-    };
-
-    return {
-      recipe: updatedRecipe,
-      sourceImageKeys: combinedSourceImageKeys,
-      styleImageKeys: style.styleKeys.length > 0 ? style.styleKeys : undefined,
-      styleReferenceVariantIds: style.styleReferenceVariantIds,
-    };
+    return this.capVeoSourceImageKeys(recipe, sourceImageKeys).sourceImageKeys;
   }
 
   private withVeoReferenceMode(
     recipe: GenerationRecipe,
-    sourceImageKeys: string[],
-    styleImageKeys?: string[]
+    sourceImageKeys: string[]
   ): GenerationRecipe {
     if (recipe.mediaKind !== 'video') {
       return recipe;
@@ -950,7 +783,7 @@ export class VariantFactory {
 
     return {
       ...recipe,
-      veoReferenceMode: determineVeoReferenceMode(sourceImageKeys.length, styleImageKeys?.length ?? 0),
+      veoReferenceMode: determineVeoReferenceMode(sourceImageKeys.length),
     };
   }
 

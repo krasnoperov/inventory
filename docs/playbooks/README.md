@@ -1,12 +1,12 @@
 # Media Production Playbooks
 
 Practical, reference-backed guidance for getting good results out of Make
-Effects — building characters, style references, and scenes, then combining them
-while keeping everything visually and tonally consistent.
+Effects — building characters, references, and scenes, then combining them while
+keeping everything visually and tonally consistent.
 
 These playbooks are the *why* and *how-to-prompt* companion to the technical
-docs. Where a feature is described mechanically elsewhere (style presets,
-rotation sets, the CLI), these pages explain how to use it well.
+docs. Where a feature is described mechanically elsewhere (the CLI, refs, assets,
+variants, and lineage), these pages explain how to use it well.
 
 ## Who These Are For
 
@@ -19,7 +19,7 @@ need prior experience with diffusion models or prompt engineering.
 
 | Playbook | Covers |
 |-|-|
-| [Images](./images.md) | Personages, style references, scenes, multi-reference composition, editing, consistency |
+| [Images](./images.md) | Personages, references, scenes, multi-reference composition, editing, consistency |
 | [Video](./video.md) | Keyframes-first workflow, references ("ingredients"), cinematography prompts, iteration |
 | [Audio](./audio.md) | Speech, dialogue, music, and SFX modes; the Gemini-native audio path |
 
@@ -31,14 +31,13 @@ images, video, and audio the same discipline produces consistent results:
 1. **Lock identity once in a reference asset.** A character sheet for images,
    keyframes for video, a fixed voice or brief for audio. Reuse it everywhere.
 2. **Name every reference explicitly.** Tell the model what each input is *for*
-   — "Image A is the character, Image B is the style."
+   — "Image A is the character, Image B is the background."
 3. **Change one variable per turn.** Edit the pose, or the outfit, or the
    background — not all three — and check the result before the next step.
 
-Make Effects already bakes these into product features: a space-level
-[style](../style-and-batch.md) is injected into every request, and the
-[rotation pipeline](../rotation-pipeline.md) feeds completed images forward as
-references automatically. The playbooks show you how to lean on them.
+Make Effects keeps these as simple product concepts: assets, variants, refs,
+ratings, and lineage. The playbooks show how to get consistent results without
+needing separate hidden subsystems.
 
 ## Sources
 

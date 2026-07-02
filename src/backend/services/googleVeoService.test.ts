@@ -166,17 +166,17 @@ describe('GoogleVeoService', () => {
     assert.equal(request.config.referenceImages, undefined);
   });
 
-  test('uses reference images when style references are present', async () => {
+  test('uses asset reference images when three source images are present', async () => {
     const { client, generateVideos } = createClient({});
     const service = new GoogleVeoService('test-key', client);
 
     const result = await service.generate({
       prompt: 'animate the character walking through the scene',
       sourceImages: [
-        { data: 'c3R5bGU=', mimeType: 'image/png', label: 'Style ref 1:' },
+        { data: 'cmVmMQ==', mimeType: 'image/png', label: 'Image 1:' },
         { data: 'Y2hhcmFjdGVy', mimeType: 'image/webp', label: 'Image 1:' },
+        { data: 'YmFja2dyb3VuZA==', mimeType: 'image/png', label: 'Image 2:' },
       ],
-      styleImageCount: 1,
       aspectRatio: '9:16',
     });
 
@@ -194,8 +194,9 @@ describe('GoogleVeoService', () => {
     assert.equal(request.config.lastFrame, undefined);
     assert.equal(request.config.aspectRatio, '9:16');
     assert.deepEqual(request.config.referenceImages, [
-      { image: { imageBytes: 'c3R5bGU=', mimeType: 'image/png' }, referenceType: 'STYLE' },
+      { image: { imageBytes: 'cmVmMQ==', mimeType: 'image/png' }, referenceType: 'ASSET' },
       { image: { imageBytes: 'Y2hhcmFjdGVy', mimeType: 'image/webp' }, referenceType: 'ASSET' },
+      { image: { imageBytes: 'YmFja2dyb3VuZA==', mimeType: 'image/png' }, referenceType: 'ASSET' },
     ]);
   });
 

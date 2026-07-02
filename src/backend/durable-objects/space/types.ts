@@ -30,20 +30,6 @@ export type { MediaKind, PlanStatus, PlanStepStatus } from '../../../shared/webs
 // ============================================================================
 
 /**
- * SpaceStyle - Visual identity for style anchoring
- */
-export interface SpaceStyle {
-  id: string;
-  name: string;
-  description: string;
-  image_keys: string; // JSON array of R2 image keys
-  enabled: number; // SQLite boolean (0/1)
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-}
-
-/**
  * Variant generation status
  */
 export type VariantStatus = 'pending' | 'processing' | 'uploading' | 'completed' | 'failed';
@@ -54,7 +40,7 @@ export type VariantStatus = 'pending' | 'processing' | 'uploading' | 'completed'
 export interface Asset {
   id: string;
   name: string;
-  type: string; // User-editable: character, item, scene, sprite-sheet, animation, style-sheet, reference, etc.
+  type: string; // User-editable: character, item, scene, sprite-sheet, animation, reference, etc.
   media_kind: MediaKind;
   tags: string; // JSON array
   parent_asset_id: string | null; // Legacy compatibility field; not writable organization state
@@ -147,50 +133,10 @@ export interface ChatMessageClient {
   descriptions?: Array<{ variantId: string; assetName: string; description: string; cached: boolean }>;
 }
 
-// ============================================================================
-// Rotation Types
-// ============================================================================
-
-export type RotationConfig = '4-directional' | '8-directional' | 'turnaround';
-
-export const ROTATION_DIRECTIONS: Record<RotationConfig, string[]> = {
-  '4-directional': ['S', 'E', 'N', 'W'],
-  '8-directional': ['S', 'SE', 'E', 'NE', 'N', 'NW', 'W', 'SW'],
-  'turnaround': ['front', '3/4-front', 'side', '3/4-back', 'back'],
-};
-
-export type RotationSetStatus = 'pending' | 'generating' | 'completed' | 'failed' | 'cancelled';
-
-export interface RotationSet {
-  id: string;
-  asset_id: string;
-  source_variant_id: string;
-  config: string; // JSON: { type: RotationConfig, subjectDescription?: string }
-  status: RotationSetStatus;
-  current_step: number;
-  total_steps: number;
-  error_message: string | null;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-  deleted_at: number | null;
-}
-
-export interface RotationView {
-  id: string;
-  rotation_set_id: string;
-  variant_id: string;
-  direction: string;
-  step_index: number;
-  created_at: number;
-  deleted_at: number | null;
-}
-
 export type SpaceSubjectType = 'asset' | 'variant';
 
 export type CollectionKind =
   | 'cast'
-  | 'style_refs'
   | 'backgrounds'
   | 'scenes'
   | 'thumbnails'
@@ -224,32 +170,6 @@ export interface CollectionItem {
   created_at: number;
   updated_at: number;
   deleted_at: number | null;
-}
-
-export interface StylePreset {
-  id: string;
-  name: string;
-  description: string | null;
-  style_prompt: string;
-  collection_id: string | null;
-  enabled: number;
-  is_default: number;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-  deleted_at: number | null;
-}
-
-export interface StyleReferenceCollectionPreview extends SpaceCollection {
-  reference_count: number;
-  preset_count: number;
-}
-
-export interface StylePresetPreview extends StylePreset {
-  collection_name: string | null;
-  reference_count: number;
-  style_reference_variant_ids: string[];
-  style_reference_image_keys: string[];
 }
 
 export interface SpaceCollectionOverview {
@@ -482,15 +402,8 @@ export type ClientMessage =
   | AutoDescribeRequestMessage
   // ForgeChat messages (multi-turn prompt refinement)
   | ForgeChatRequestMessage
-  // Asset-backed style preset messages
-  | { type: 'style_preset:create'; id?: string; name: string; description?: string | null; stylePrompt?: string; collectionId?: string | null; enabled?: boolean; isDefault?: boolean }
-  | { type: 'style_preset:update'; presetId: string; changes: { name?: string; description?: string | null; stylePrompt?: string; collectionId?: string | null; enabled?: boolean; isDefault?: boolean } }
-  | { type: 'style_preset:delete'; presetId: string }
   // Batch generation messages
   | BatchRequestMessage
-  // Rotation pipeline messages
-  | { type: 'rotation:request'; requestId: string; sourceVariantId: string; config: RotationConfig; subjectDescription?: string; aspectRatio?: string; disableStyle?: boolean; generationMode?: 'sequential' | 'single-shot' }
-  | { type: 'rotation:cancel'; rotationSetId: string }
   // Variant quality rating
   | { type: 'variant:rate'; variantId: string; rating: 'approved' | 'rejected' };
 
@@ -503,8 +416,8 @@ export type ClientMessage =
  */
 export type ServerMessage =
   // Sync (full state)
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[] }
-  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollectionOverview[]; collectionItems?: CollectionItem[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[] }
+  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence: UserPresence[]; collections?: SpaceCollectionOverview[]; collectionItems?: CollectionItem[] }
   // TODO: sync:chat_state is currently unused - chat history is loaded via REST API instead.
   // Consider implementing for WebSocket reconnection state recovery.
   // | { type: 'sync:chat_state'; messages: ChatMessage[]; plan: Plan | null; planSteps: PlanStep[]; approvals: PendingApproval[]; autoExecuted: AutoExecuted[] }
@@ -577,21 +490,11 @@ export type ServerMessage =
   | { type: 'chat:error'; requestId: string; error: string; code: string }
   | { type: 'generate:error'; requestId: string; error: string; code: string }
   | { type: 'refine:error'; requestId: string; error: string; code: string }
-  // Asset-backed style preset messages
-  | { type: 'style_preset:created'; preset: StylePresetPreview }
-  | { type: 'style_preset:updated'; preset: StylePresetPreview }
-  | { type: 'style_preset:deleted'; presetId: string }
   // Batch generation messages
   | { type: 'batch:started'; requestId: string; batchId: string; jobIds: string[]; assetIds: string[]; count: number; mode: BatchMode }
   | { type: 'batch:progress'; batchId: string; completedCount: number; failedCount: number; totalCount: number; variant: Variant }
   | { type: 'batch:completed'; batchId: string; completedCount: number; failedCount: number; totalCount: number }
-  | { type: 'batch:error'; requestId: string; error: string; code: string }
-  // Rotation pipeline responses
-  | { type: 'rotation:started'; requestId: string; rotationSetId: string; assetId: string; totalSteps: number; directions: string[] }
-  | { type: 'rotation:step_completed'; rotationSetId: string; direction: string; variantId: string; step: number; total: number }
-  | { type: 'rotation:completed'; rotationSetId: string; views: RotationView[] }
-  | { type: 'rotation:failed'; rotationSetId: string; error: string; failedStep: number }
-  | { type: 'rotation:cancelled'; rotationSetId: string };
+  | { type: 'batch:error'; requestId: string; error: string; code: string };
 
 // ============================================================================
 // Helper Types

@@ -166,27 +166,13 @@ export abstract class BaseController {
     before: OrganizationSnapshot,
     after: OrganizationSnapshot
   ): Promise<void> {
-    const affectedCollectionIds = new Set<string>();
     const collectionItemsAfter = new Map(after.collectionItems.map((item) => [item.id, item]));
     for (const item of before.collectionItems) {
       const current = collectionItemsAfter.get(item.id);
       if (!current) {
         this.broadcast({ type: 'collection_item:deleted', collectionId: item.collection_id, itemId: item.id });
-        affectedCollectionIds.add(item.collection_id);
       } else if (JSON.stringify(current) !== JSON.stringify(item)) {
         this.broadcast({ type: 'collection_item:updated', item: current });
-        affectedCollectionIds.add(current.collection_id);
-      }
-    }
-
-    await this.broadcastStylePresetPreviewsForCollections(affectedCollectionIds);
-  }
-
-  protected async broadcastStylePresetPreviewsForCollections(collectionIds: Iterable<string>): Promise<void> {
-    for (const collectionId of collectionIds) {
-      const presets = await this.repo.listStylePresetPreviewsByCollection(collectionId);
-      for (const preset of presets) {
-        this.broadcast({ type: 'style_preset:updated', preset });
       }
     }
   }

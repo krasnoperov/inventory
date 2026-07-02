@@ -4,13 +4,13 @@ Technical documentation for Make Effects.
 
 ## Playbooks
 
-Reference-backed guidance for getting good results — characters, styles, scenes,
-and consistency across images, video, and audio.
+Reference-backed guidance for getting good results — characters, scenes, and
+consistency across images, video, and audio.
 
 | Playbook | Description |
 |----------|-------------|
 | [playbooks/README.md](./playbooks/README.md) | Index and shared principles |
-| [playbooks/images.md](./playbooks/images.md) | Personages, style references, scenes, composition, editing, consistency |
+| [playbooks/images.md](./playbooks/images.md) | Personages, references, scenes, composition, editing, consistency |
 | [playbooks/video.md](./playbooks/video.md) | Keyframes-first workflow, references, cinematography prompts, iteration |
 | [playbooks/audio.md](./playbooks/audio.md) | Speech, dialogue, music, SFX; the Gemini-native audio path |
 
@@ -21,7 +21,6 @@ and consistency across images, video, and audio.
 | [architecture.md](./architecture.md) | System overview, data storage, key flows |
 | [domain.md](./domain.md) | Core concepts: assets, variants, lineage, forge tray |
 | [media-cdn.md](./media-cdn.md) | R2 custom-domain CDN setup for immutable image previews |
-| [style-and-batch.md](./style-and-batch.md) | Style selection and batch generation |
 | [model-and-parameter-selection.md](./model-and-parameter-selection.md) | Which model and parameters to pick for images, video, and audio |
 | [design.md](./design.md) | Visual design system and patterns |
 | [billing.md](./billing.md) | Polar metering, Paid Generation, and provider-cost accounting |
@@ -31,7 +30,6 @@ and consistency across images, video, and audio.
 | [cli-generation.md](./cli-generation.md) | CLI-driven Forge generation, asset inspection, and downloads |
 | [persistent-chat.md](./persistent-chat.md) | AI chat system and message flows |
 | [websocket.md](./websocket.md) | WebSocket message contract |
-| [rotation-pipeline.md](./rotation-pipeline.md) | Rotation views pipeline |
 | [space-sharing-rollout.md](./space-sharing-rollout.md) | Stage and production smoke checklist for Space sharing |
 
 ## Quick Links

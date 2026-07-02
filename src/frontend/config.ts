@@ -17,7 +17,7 @@ export async function loadSession(): Promise<Session> {
     console.error('Error loading session (backend might not be running):', error);
     // Return dummy data for development when backend is not running
     return {
-      config: { googleClientId: 'dummy-client-id-for-dev', mediaCdnBaseUrl: null, features: { rotation: false } },
+      config: { googleClientId: 'dummy-client-id-for-dev', mediaCdnBaseUrl: null },
       user: null,
     };
   }

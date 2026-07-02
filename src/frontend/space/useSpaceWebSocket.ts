@@ -7,10 +7,6 @@ import {
   EMPTY_JOBS,
   EMPTY_LINEAGE,
   EMPTY_PRESENCE,
-  EMPTY_ROTATION_SETS,
-  EMPTY_ROTATION_VIEWS,
-  EMPTY_STYLE_PRESETS,
-  EMPTY_STYLE_REFERENCE_COLLECTIONS,
   EMPTY_VARIANTS,
   useSpaceSessionStore,
 } from './spaceStore';
@@ -68,11 +64,6 @@ export function useSpaceWebSocket({
   onBatchProgress,
   onBatchCompleted,
   onGenerationEstimate,
-  onRotationStarted,
-  onRotationStepCompleted,
-  onRotationCompleted,
-  onRotationFailed,
-  onRotationCancelled,
   onGenerateError,
   onRefineError,
   onBatchError,
@@ -89,10 +80,6 @@ export function useSpaceWebSocket({
   const rawCollectionItems = useSpaceSessionStore((state) => state.collectionItems);
   const rawJobs = useSpaceSessionStore((state) => state.jobs);
   const rawPresence = useSpaceSessionStore((state) => state.presence);
-  const rawRotationSets = useSpaceSessionStore((state) => state.rotationSets);
-  const rawRotationViews = useSpaceSessionStore((state) => state.rotationViews);
-  const rawStylePresets = useSpaceSessionStore((state) => state.stylePresets);
-  const rawStyleReferenceCollections = useSpaceSessionStore((state) => state.styleReferenceCollections);
   const setJobs = useSpaceSessionStore((state) => state.setJobs);
 
   const ownsState = stateSpaceId === spaceId;
@@ -106,10 +93,6 @@ export function useSpaceWebSocket({
   const collectionItems = ownsState ? rawCollectionItems : EMPTY_COLLECTION_ITEMS;
   const jobs = ownsState ? rawJobs : EMPTY_JOBS;
   const presence = ownsState ? rawPresence : EMPTY_PRESENCE;
-  const rotationSets = ownsState ? rawRotationSets : EMPTY_ROTATION_SETS;
-  const rotationViews = ownsState ? rawRotationViews : EMPTY_ROTATION_VIEWS;
-  const stylePresets = ownsState ? rawStylePresets : EMPTY_STYLE_PRESETS;
-  const styleReferenceCollections = ownsState ? rawStyleReferenceCollections : EMPTY_STYLE_REFERENCE_COLLECTIONS;
 
   const syncModeRef = getSpaceSessionSyncModeRef();
   const commands = useSpaceCommands({ spaceId, setJobs, syncModeRef });
@@ -146,13 +129,8 @@ export function useSpaceWebSocket({
     startNewSession,
     sendPersistentChatMessage,
     clearChatSession,
-    createStylePreset,
-    updateStylePreset,
-    deleteStylePreset,
     sendBatchRequest,
     sendGenerationEstimateRequest,
-    sendRotationRequest,
-    sendRotationCancel,
     sendVariantRate,
   } = commands;
 
@@ -186,11 +164,6 @@ export function useSpaceWebSocket({
     onBatchProgress,
     onBatchCompleted,
     onGenerationEstimate,
-    onRotationStarted,
-    onRotationStepCompleted,
-    onRotationCompleted,
-    onRotationFailed,
-    onRotationCancelled,
     onGenerateError,
     onRefineError,
     onBatchError,
@@ -217,8 +190,6 @@ export function useSpaceWebSocket({
     collectionItems,
     jobs,
     presence,
-    stylePresets,
-    styleReferenceCollections,
     sendMessage,
     createAsset,
     updateAsset,
@@ -256,17 +227,9 @@ export function useSpaceWebSocket({
     // Persistent chat methods
     sendPersistentChatMessage,
     clearChatSession,
-    createStylePreset,
-    updateStylePreset,
-    deleteStylePreset,
     // Batch methods
     sendBatchRequest,
     sendGenerationEstimateRequest,
-    // Rotation pipeline
-    rotationSets,
-    rotationViews,
-    sendRotationRequest,
-    sendRotationCancel,
     sendVariantRate,
   };
 }

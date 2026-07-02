@@ -63,9 +63,7 @@ async function writeSideEffectTraps(cwd: string): Promise<{ authConfigPath: stri
 
 test('help command displays available commands', async () => {
   const cwd = process.cwd();
-  const result = await runCli(['help'], cwd, {
-    MAKEFX_ROTATION_ENABLED: 'false',
-  });
+  const result = await runCli(['help'], cwd);
 
   assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
   assert.ok(result.stdout.includes('login'), 'Help output should include login command');
@@ -73,37 +71,7 @@ test('help command displays available commands', async () => {
   assert.ok(result.stdout.includes('upload <file>'), 'Help output should include direct upload entrypoint');
   assert.ok(!result.stdout.includes('upload <manifest.json>'), 'Help output should not include upload manifest entrypoint');
   assert.ok(!result.stdout.includes('makefx import'), 'Help output should not advertise removed import command');
-  assert.ok(!result.stdout.includes('rotation --variant'), 'Help output should hide disabled rotation command');
-});
-
-test('help command displays rotation when CLI rotation flag is enabled', async () => {
-  const cwd = process.cwd();
-  const result = await runCli(['help'], cwd, {
-    MAKEFX_ROTATION_ENABLED: 'true',
-  });
-
-  assert.equal(result.code, 0, `CLI exited with code ${result.code}; stderr: ${result.stderr}`);
-  assert.ok(result.stdout.includes('rotation --variant'), 'Help output should include enabled rotation command');
-});
-
-test('rotation command exits before loading config when feature flag is disabled', async () => {
-  const cwd = await createCliCwd();
-  try {
-    const { authConfigPath, configHome, projectConfigPath } = await writeSideEffectTraps(cwd);
-
-    const result = await runCli(['rotation', '--variant', 'variant-source', '--space', 'space-1'], cwd, {
-      XDG_CONFIG_HOME: configHome,
-      HOME: cwd,
-      MAKEFX_ROTATION_ENABLED: 'false',
-    });
-
-    assert.equal(result.code, 1);
-    assert.match(result.stderr, /Rotation features are disabled/);
-    assert.equal(await readFile(projectConfigPath, 'utf8'), '{');
-    assert.equal(await readFile(authConfigPath, 'utf8'), '{');
-  } finally {
-    await rm(cwd, { recursive: true, force: true });
-  }
+  assert.ok(!result.stdout.includes('rotation --variant'), 'Help output should not advertise removed rotation command');
 });
 
 test('version command prints the development fallback when unbundled', async () => {

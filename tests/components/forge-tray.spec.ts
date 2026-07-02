@@ -68,40 +68,10 @@ const imageReferenceAssets = [
   asset('image-ref-1', 'Image Ref One', 'character', 'image'),
   asset('image-ref-2', 'Image Ref Two', 'prop', 'image'),
   asset('image-ref-3', 'Image Ref Three', 'scene', 'image'),
-  asset('image-ref-4', 'Image Ref Four', 'style-sheet', 'image'),
+  asset('image-ref-4', 'Image Ref Four', 'reference', 'image'),
 ];
 
 const imageReferenceVariants = imageReferenceAssets.map((entry) => variant(entry.id, 'image'));
-
-const styleCollection = {
-  id: 'collection-style',
-  name: 'Russafa refs',
-  kind: 'style_refs',
-  color: '#d14c6d',
-  description: null,
-  sort_index: 0,
-  item_count: 1,
-  created_by: 'user-1',
-  created_at: baseTime,
-  updated_at: baseTime,
-};
-
-const russafaPreset = {
-  id: 'preset-russafa',
-  name: 'Russafa watercolor',
-  description: 'Warm market washes',
-  style_prompt: 'loose watercolor adventure game art',
-  collection_id: styleCollection.id,
-  enabled: true,
-  is_default: true,
-  created_by: 'user-1',
-  created_at: baseTime,
-  updated_at: baseTime,
-  collection_name: styleCollection.name,
-  reference_count: 3,
-  style_reference_variant_ids: ['style-v1', 'style-v2', 'style-v3'],
-  style_reference_image_keys: ['images/style-v1.png', 'images/style-v2.png', 'images/style-v3.png'],
-};
 
 async function disableAnimations(page: import('@playwright/test').Page) {
   await page.addStyleTag({
@@ -429,7 +399,7 @@ test('forge tray image model selection enforces reference budget', async ({ page
   await expect(page.getByRole('button', { name: 'Derive' })).toBeEnabled();
 });
 
-test('forge tray keeps one fork setup slot when style consumes Flash reference budget', async ({ page }) => {
+test('forge tray keeps one fork setup slot at Flash reference budget', async ({ page }) => {
   await page.setViewportSize({ width: 980, height: 760 });
 
   await mountComponent(page, 'ForgeTray', {
@@ -437,7 +407,6 @@ test('forge tray keeps one fork setup slot when style consumes Flash reference b
     allVariants: imageReferenceVariants,
     onSubmit: '__record__:forge-submit',
     onBrandBackground: false,
-    stylePresets: [{ ...russafaPreset, reference_count: 2 }],
   });
   await disableAnimations(page);
 
@@ -454,29 +423,8 @@ test('forge tray keeps one fork setup slot when style consumes Flash reference b
   await expect(page.getByTitle('Add reference')).toHaveCount(0);
 
   await page.getByLabel('Prompt').fill('Turn this into a finished scene');
-  await expect(page.getByText('Flash supports 1 reference including style. Remove references or switch Pro.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Derive' })).toBeDisabled();
-});
-
-test('forge tray counts style-only references against the selected model budget', async ({ page }) => {
-  await page.setViewportSize({ width: 980, height: 760 });
-
-  await mountComponent(page, 'ForgeTray', {
-    allAssets: imageReferenceAssets,
-    allVariants: imageReferenceVariants,
-    onSubmit: '__record__:forge-submit',
-    onBrandBackground: false,
-    stylePresets: [{ ...russafaPreset, reference_count: 2 }],
-  });
-  await disableAnimations(page);
-
-  // Engage the tray so the per-mode options reveal before adjusting them.
-  await page.getByLabel('Prompt').click();
-  await selectDropdown(page, 'Image model', 'Flash');
-  await page.getByLabel('Prompt').fill('Create a finished asset in the active style');
-
-  await expect(page.getByText('Flash supports 1 reference including style. Reduce style images or switch Pro.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Generate' })).toBeDisabled();
+  await expect(page.getByText('Flash supports 1 reference. Remove references or switch Pro.')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Derive' })).toBeEnabled();
 });
 
 test('forge tray video mode exposes Veo options and audio default-on status', async ({ page }) => {
@@ -596,7 +544,6 @@ test('forge tray opens chat as a docked sheet', async ({ page }) => {
     sendChatMessage: '__noop__',
     requestChatHistory: '__noop__',
     clearChatSession: '__noop__',
-    stylePresets: [russafaPreset],
   });
   await disableAnimations(page);
 
@@ -843,48 +790,6 @@ test('forge chat sheet keeps flattened chrome on mobile', async ({ page }) => {
   await expect(page.getByText('Chat with Claude')).toBeVisible();
   await expect(page.locator('[class*="chatPanel"]').first()).toHaveCSS('border-bottom-left-radius', '8px');
   await expect(page.locator('[class*="chatPanel"]').first()).toHaveCSS('border-bottom-right-radius', '8px');
-});
-
-test('forge tray submits a named style preset for generation', async ({ page }) => {
-  await mountComponent(page, 'ForgeTray', {
-    allAssets: [],
-    allVariants: [],
-    onSubmit: '__record__:forge-submit',
-    onBrandBackground: false,
-    stylePresets: [russafaPreset],
-  });
-
-  await page.getByLabel('Prompt').fill('A tiled city fountain');
-  await selectDropdown(page, 'Style selector', russafaPreset.name);
-  await expectDropdownValue(page, 'Style selector', russafaPreset.name);
-  await page.getByRole('button', { name: /Generate/ }).click();
-
-  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
-  expect(calls.find((call) => call.eventName === 'forge-submit')?.args[0]).toMatchObject({
-    stylePresetId: russafaPreset.id,
-    disableStyle: undefined,
-  });
-});
-
-test('forge tray submits no-style override for one request', async ({ page }) => {
-  await mountComponent(page, 'ForgeTray', {
-    allAssets: [],
-    allVariants: [],
-    onSubmit: '__record__:forge-submit',
-    onBrandBackground: false,
-    stylePresets: [russafaPreset],
-  });
-
-  await page.getByLabel('Prompt').fill('A clean icon sheet');
-  await selectDropdown(page, 'Style selector', 'No style');
-  await expectDropdownValue(page, 'Style selector', 'No style');
-  await page.getByRole('button', { name: /Generate/ }).click();
-
-  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
-  expect(calls.find((call) => call.eventName === 'forge-submit')?.args[0]).toMatchObject({
-    disableStyle: true,
-    stylePresetId: undefined,
-  });
 });
 
 test('forge tray with references renders the reference strip', async ({ page }) => {
