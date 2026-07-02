@@ -13,11 +13,8 @@ export interface SpaceMessageContext {
   setAssets: SpaceSessionState['setAssets'];
   setVariants: SpaceSessionState['setVariants'];
   setLineage: SpaceSessionState['setLineage'];
-  setRelations: SpaceSessionState['setRelations'];
   setCollections: SpaceSessionState['setCollections'];
   setCollectionItems: SpaceSessionState['setCollectionItems'];
-  setCompositions: SpaceSessionState['setCompositions'];
-  setCompositionItems: SpaceSessionState['setCompositionItems'];
   setJobs: SpaceSessionState['setJobs'];
   setPresence: SpaceSessionState['setPresence'];
   setRotationSets: SpaceSessionState['setRotationSets'];
@@ -43,11 +40,8 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
     setAssets,
     setVariants,
     setLineage,
-    setRelations,
     setCollections,
     setCollectionItems,
-    setCompositions,
-    setCompositionItems,
     setJobs,
     setPresence,
     setRotationSets,
@@ -107,11 +101,8 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setAssets(message.assets);
                 setVariants(message.variants);
                 setLineage(message.lineage || []);
-                setRelations(message.relations || []);
                 setCollections(message.collections || []);
                 setCollectionItems(message.collectionItems || []);
-                setCompositions(message.compositions || []);
-                setCompositionItems(message.compositionItems || []);
                 setPresence(message.presence || []);
                 setRotationSets(message.rotationSets || []);
                 setRotationViews(message.rotationViews || []);
@@ -133,12 +124,10 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 setAssets(message.assets);
                 setVariants(message.variants);
                 setLineage([]);
-                setRelations(message.relations || []);
                 setCollections(message.collections || []);
                 if (message.collectionItems !== undefined) {
                   setCollectionItems(message.collectionItems);
                 }
-                setCompositions(message.compositions || []);
                 setPresence(message.presence || []);
                 setRotationSets(message.rotationSets || []);
                 setRotationViews(message.rotationViews || []);
@@ -236,22 +225,15 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 break;
 
               case 'relation:created':
-                setRelations((prev) => {
-                  if (prev.some((relation) => relation.id === message.relation.id)) return prev;
-                  return [...prev, message.relation];
-                });
-                break;
-
               case 'relation:updated':
-                setRelations((prev) =>
-                  prev.map((relation) =>
-                    relation.id === message.relation.id ? message.relation : relation
-                  )
-                );
-                break;
-
               case 'relation:deleted':
-                setRelations((prev) => prev.filter((relation) => relation.id !== message.relationId));
+              case 'composition:created':
+              case 'composition:updated':
+              case 'composition:deleted':
+              case 'composition_item:created':
+              case 'composition_item:updated':
+              case 'composition_items:reordered':
+              case 'composition_item:deleted':
                 break;
 
               case 'collection:created':
@@ -303,57 +285,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
 
               case 'collection_item:deleted':
                 setCollectionItems((prev) => prev.filter((item) => item.id !== message.itemId));
-                break;
-
-              case 'composition:created':
-                setCompositions((prev) => (
-                  prev.some((composition) => composition.id === message.composition.id)
-                    ? prev
-                    : [...prev, message.composition].sort((a, b) => a.sort_index - b.sort_index || a.created_at - b.created_at)
-                ));
-                break;
-
-              case 'composition:updated':
-                setCompositions((prev) =>
-                  prev
-                    .map((composition) => composition.id === message.composition.id ? message.composition : composition)
-                    .sort((a, b) => a.sort_index - b.sort_index || a.created_at - b.created_at)
-                );
-                break;
-
-              case 'composition:deleted':
-                setCompositions((prev) => prev.filter((composition) => composition.id !== message.compositionId));
-                setCompositionItems((prev) => prev.filter((item) => item.composition_id !== message.compositionId));
-                break;
-
-              case 'composition_item:created':
-                setCompositionItems((prev) => (
-                  prev.some((item) => item.id === message.item.id)
-                    ? prev
-                    : [...prev, message.item].sort((a, b) => a.composition_id.localeCompare(b.composition_id) || a.sort_index - b.sort_index || a.created_at - b.created_at)
-                ));
-                break;
-
-              case 'composition_item:updated':
-                setCompositionItems((prev) =>
-                  prev
-                    .map((item) => item.id === message.item.id ? message.item : item)
-                    .sort((a, b) => a.composition_id.localeCompare(b.composition_id) || a.sort_index - b.sort_index || a.created_at - b.created_at)
-                );
-                break;
-
-              case 'composition_items:reordered':
-                setCompositionItems((prev) => {
-                  const reorderedIds = new Set(message.items.map((item) => item.id));
-                  return [
-                    ...prev.filter((item) => item.composition_id !== message.compositionId || !reorderedIds.has(item.id)),
-                    ...message.items,
-                  ].sort((a, b) => a.composition_id.localeCompare(b.composition_id) || a.sort_index - b.sort_index || a.created_at - b.created_at);
-                });
-                break;
-
-              case 'composition_item:deleted':
-                setCompositionItems((prev) => prev.filter((item) => item.id !== message.itemId));
                 break;
 
               case 'job:progress':

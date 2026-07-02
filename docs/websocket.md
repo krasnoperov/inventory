@@ -218,8 +218,8 @@ present, is served through
 
 | Message | Fields | Description |
 |---------|--------|-------------|
-| `sync:state` | `assets[]`, `variants[]`, `lineage[]`, `collections[]`, `collectionItems[]`, `relations[]`, `compositions[]`, `compositionItems[]`, `presence[]` | Full state snapshot |
-| `sync:overview` | `assets[]`, `variants[]`, `collections[]`, `compositions[]`, `presence[]` | Lightweight overview snapshot with active-or-newest variants and collection/composition metadata only |
+| `sync:state` | `assets[]`, `variants[]`, `lineage[]`, `collections[]`, `collectionItems[]`, `presence[]` | Full state snapshot |
+| `sync:overview` | `assets[]`, `variants[]`, `collections[]`, `collectionItems[]`, `presence[]` | Lightweight overview snapshot with active-or-newest variants and simple Space organization metadata only |
 
 ### Asset Mutations
 

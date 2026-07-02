@@ -2,9 +2,6 @@ import { create } from 'zustand';
 import type {
   Asset,
   CollectionItem,
-  Composition,
-  CompositionItem,
-  CompositionOverview,
   ConnectionStatus,
   JobStatus,
   Lineage,
@@ -15,7 +12,6 @@ import type {
   UserPresence,
   Variant,
   SpaceCollection,
-  SpaceRelation,
   StylePresetRaw,
   StyleReferenceCollectionRaw,
 } from './protocol';
@@ -35,11 +31,8 @@ export interface SpaceSessionState {
   assets: Asset[];
   variants: Variant[];
   lineage: Lineage[];
-  relations: SpaceRelation[];
   collections: SpaceCollection[];
   collectionItems: CollectionItem[];
-  compositions: Array<Composition | CompositionOverview>;
-  compositionItems: CompositionItem[];
   jobs: Map<string, JobStatus>;
   presence: UserPresence[];
   rotationSets: RotationSet[];
@@ -55,11 +48,8 @@ export interface SpaceSessionState {
   setAssets: (updater: StateUpdater<Asset[]>) => void;
   setVariants: (updater: StateUpdater<Variant[]>) => void;
   setLineage: (updater: StateUpdater<Lineage[]>) => void;
-  setRelations: (updater: StateUpdater<SpaceRelation[]>) => void;
   setCollections: (updater: StateUpdater<SpaceCollection[]>) => void;
   setCollectionItems: (updater: StateUpdater<CollectionItem[]>) => void;
-  setCompositions: (updater: StateUpdater<Array<Composition | CompositionOverview>>) => void;
-  setCompositionItems: (updater: StateUpdater<CompositionItem[]>) => void;
   setJobs: (updater: StateUpdater<Map<string, JobStatus>>) => void;
   setPresence: (updater: StateUpdater<UserPresence[]>) => void;
   setRotationSets: (updater: StateUpdater<RotationSet[]>) => void;
@@ -78,11 +68,8 @@ export const useSpaceSessionStore = create<SpaceSessionState>()((set) => ({
   assets: [],
   variants: [],
   lineage: [],
-  relations: [],
   collections: [],
   collectionItems: [],
-  compositions: [],
-  compositionItems: [],
   jobs: new Map(),
   presence: [],
   rotationSets: [],
@@ -99,11 +86,8 @@ export const useSpaceSessionStore = create<SpaceSessionState>()((set) => ({
     assets: snapshot?.assets ?? [],
     variants: snapshot?.variants ?? [],
     lineage: snapshot?.lineage ?? [],
-    relations: snapshot?.relations ?? [],
     collections: snapshot?.collections ?? [],
     collectionItems: snapshot?.collectionItems ?? [],
-    compositions: [],
-    compositionItems: [],
     presence: snapshot?.presence ?? [],
     rotationSets: snapshot?.rotationSets ?? [],
     rotationViews: snapshot?.rotationViews ?? [],
@@ -119,11 +103,8 @@ export const useSpaceSessionStore = create<SpaceSessionState>()((set) => ({
   setAssets: (updater) => set((state) => ({ assets: resolveStateUpdater(state.assets, updater) })),
   setVariants: (updater) => set((state) => ({ variants: resolveStateUpdater(state.variants, updater) })),
   setLineage: (updater) => set((state) => ({ lineage: resolveStateUpdater(state.lineage, updater) })),
-  setRelations: (updater) => set((state) => ({ relations: resolveStateUpdater(state.relations, updater) })),
   setCollections: (updater) => set((state) => ({ collections: resolveStateUpdater(state.collections, updater) })),
   setCollectionItems: (updater) => set((state) => ({ collectionItems: resolveStateUpdater(state.collectionItems, updater) })),
-  setCompositions: (updater) => set((state) => ({ compositions: resolveStateUpdater(state.compositions, updater) })),
-  setCompositionItems: (updater) => set((state) => ({ compositionItems: resolveStateUpdater(state.compositionItems, updater) })),
   setJobs: (updater) => set((state) => ({ jobs: resolveStateUpdater(state.jobs, updater) })),
   setPresence: (updater) => set((state) => ({ presence: resolveStateUpdater(state.presence, updater) })),
   setRotationSets: (updater) => set((state) => ({ rotationSets: resolveStateUpdater(state.rotationSets, updater) })),
@@ -137,11 +118,8 @@ export const useSpaceSessionStore = create<SpaceSessionState>()((set) => ({
 export const EMPTY_ASSETS: Asset[] = [];
 export const EMPTY_VARIANTS: Variant[] = [];
 export const EMPTY_LINEAGE: Lineage[] = [];
-export const EMPTY_RELATIONS: SpaceRelation[] = [];
 export const EMPTY_COLLECTIONS: SpaceCollection[] = [];
 export const EMPTY_COLLECTION_ITEMS: CollectionItem[] = [];
-export const EMPTY_COMPOSITIONS: Array<Composition | CompositionOverview> = [];
-export const EMPTY_COMPOSITION_ITEMS: CompositionItem[] = [];
 export const EMPTY_JOBS = new Map<string, JobStatus>();
 export const EMPTY_PRESENCE: UserPresence[] = [];
 export const EMPTY_ROTATION_SETS: RotationSet[] = [];

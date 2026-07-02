@@ -9,7 +9,7 @@ import type { Asset, Variant, Lineage, MediaKind, WebSocketMeta } from '../types
 import { INCREMENT_REF_SQL, getVariantImageKeys } from '../variant/imageRefs';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
 import { loggers } from '../../../../shared/logger';
-import { DEFAULT_MEDIA_KIND, type CollectionPlacementInput } from '../../../../shared/websocket-types';
+import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
 import {
   parsePlatformUsageUserId,
   trackDeletedStorageUsage,
@@ -165,13 +165,9 @@ export class AssetController extends BaseController {
     sourceVariantId: string | undefined,
     name: string,
     assetType: string,
-    mediaKind?: MediaKind,
-    collectionPlacements?: CollectionPlacementInput[]
+    mediaKind?: MediaKind
   ): Promise<void> {
     this.requireEditor(meta);
-    const placements = await this.normalizeCollectionPlacements(collectionPlacements, 'asset', {
-      allowExplicitPinnedVariant: false,
-    });
 
     // Resolve to variant ID - either directly provided or via asset's active variant
     let resolvedVariantId: string;
@@ -201,12 +197,6 @@ export class AssetController extends BaseController {
     if (!result) {
       throw new NotFoundError('Source variant not found');
     }
-
-    await this.createCollectionPlacementsForOutput(
-      placements,
-      { assetId: result.asset.id, variantId: result.variant.id },
-      meta.userId
-    );
 
     this.broadcast({
       type: 'asset:forked',

@@ -78,12 +78,6 @@ function createContext(repoOverrides: Partial<SpaceRepository>): {
         updated_at: 1,
       }
       : null),
-    getCompositionById: mock.fn(async (id: string) => id === 'composition-1'
-      ? { id: 'composition-1', name: 'Opening' }
-      : null),
-    getCompositionItemById: mock.fn(async (id: string) => id === 'composition-item-1'
-      ? { id, composition_id: 'composition-1', role: 'output', asset_id: 'asset-1', variant_id: 'variant-1' }
-      : null),
     createCollectionItem: mock.fn(async (data: Record<string, unknown>) => ({
       id: data.id,
       collection_id: data.collectionId,
@@ -142,32 +136,6 @@ function createContext(repoOverrides: Partial<SpaceRepository>): {
       created_by: data.createdBy,
       created_at: 1,
       updated_at: 1,
-    })),
-    createCompositionItem: mock.fn(async (data: Record<string, unknown>) => ({
-      id: data.id,
-      composition_id: data.compositionId,
-      role: data.role,
-      label: data.label ?? null,
-      asset_id: data.assetId ?? null,
-      variant_id: data.variantId,
-      metadata: JSON.stringify(data.metadata ?? {}),
-      sort_index: data.sortIndex,
-      created_by: data.createdBy,
-      created_at: 1,
-      updated_at: 1,
-    })),
-    updateCompositionItem: mock.fn(async (id: string, changes: Record<string, unknown>) => ({
-      id,
-      composition_id: 'composition-1',
-      role: changes.role ?? 'output',
-      label: changes.label ?? null,
-      asset_id: changes.assetId ?? 'asset-1',
-      variant_id: changes.variantId ?? 'variant-1',
-      metadata: JSON.stringify(changes.metadata ?? {}),
-      sort_index: changes.sortIndex ?? 0,
-      created_by: 'user-1',
-      created_at: 1,
-      updated_at: 2,
     })),
     ...repoOverrides,
   } as unknown as SpaceRepository;
@@ -487,31 +455,4 @@ describe('OrganizationController', () => {
     assert.equal(broadcasts[2].relation.id, createdRelation.id);
   });
 
-  test('composition items reject invalid roles before writing', async () => {
-    const { ctx } = createContext({});
-    const controller = new OrganizationController(ctx);
-
-    await assert.rejects(
-      () => controller.httpCreateCompositionItem('composition-1', {
-        role: 'lead',
-        variantId: 'variant-1',
-        createdBy: 'user-1',
-      }),
-      ValidationError
-    );
-  });
-
-  test('composition item variant updates also move the stored asset id', async () => {
-    const { ctx } = createContext({
-      getAssetById: mock.fn(async (id: string) => id === 'asset-1' || id === 'asset-2' ? { id } : null),
-    });
-    const controller = new OrganizationController(ctx);
-
-    const item = await controller.httpUpdateCompositionItem('composition-1', 'composition-item-1', {
-      variantId: 'variant-2',
-    });
-
-    assert.equal(item.variant_id, 'variant-2');
-    assert.equal(item.asset_id, 'asset-2');
-  });
 });

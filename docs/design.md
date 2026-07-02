@@ -6,7 +6,7 @@ Visual design language and component patterns for the Make Effects application.
 
 ## Design Philosophy
 
-**Minimal production workspace aesthetic** with solid app surfaces, restrained
+**Minimal creation workspace aesthetic** with solid app surfaces, restrained
 depth, and blue-purple brand accents, supporting light and dark themes.
 
 **Key Characteristics:**

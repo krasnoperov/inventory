@@ -34,7 +34,6 @@ import {
   StylePresetController,
   RotationController,
   TileController,
-  ProductionController,
   OrganizationController,
 } from './space/controllers';
 import { ApprovalController } from './space/controllers/ApprovalController';
@@ -69,7 +68,6 @@ export class SpaceDO extends DurableObject<Env> {
   private chatCtrl!: ChatController;
   private rotationCtrl!: RotationController;
   private tileCtrl!: TileController;
-  private productionCtrl!: ProductionController;
   private organizationCtrl!: OrganizationController;
 
   constructor(ctx: DurableObjectState, env: Env) {
@@ -150,7 +148,6 @@ export class SpaceDO extends DurableObject<Env> {
       this.chatCtrl = new ChatController(ctx);
       this.rotationCtrl = new RotationController(ctx);
       this.tileCtrl = new TileController(ctx);
-      this.productionCtrl = new ProductionController(ctx);
       this.organizationCtrl = new OrganizationController(ctx);
 
       // Wire pipeline controllers to generation controller (avoids circular deps)
@@ -167,7 +164,6 @@ export class SpaceDO extends DurableObject<Env> {
         session: this.sessionCtrl,
         organization: this.organizationCtrl,
         stylePreset: this.stylePresetCtrl,
-        production: this.productionCtrl,
       });
 
       this.initialized = true;
@@ -307,8 +303,7 @@ export class SpaceDO extends DurableObject<Env> {
           msg.sourceVariantId,
           msg.name,
           msg.assetType,
-          msg.mediaKind,
-          msg.collectionPlacements
+          msg.mediaKind
         );
 
       // Manual organization
@@ -332,21 +327,6 @@ export class SpaceDO extends DurableObject<Env> {
         return this.organizationCtrl.handleUpdateRelation(ws, meta, msg.relationId, msg.changes);
       case 'relation:delete':
         return this.organizationCtrl.handleDeleteRelation(ws, meta, msg.relationId);
-      case 'composition:create':
-        return this.organizationCtrl.handleCreateComposition(ws, meta, msg);
-      case 'composition:update':
-        return this.organizationCtrl.handleUpdateComposition(ws, meta, msg.compositionId, msg.changes);
-      case 'composition:delete':
-        return this.organizationCtrl.handleDeleteComposition(ws, meta, msg.compositionId);
-      case 'composition_item:create':
-        return this.organizationCtrl.handleCreateCompositionItem(ws, meta, msg.compositionId, msg);
-      case 'composition_item:update':
-        return this.organizationCtrl.handleUpdateCompositionItem(ws, meta, msg.compositionId, msg.itemId, msg.changes);
-      case 'composition_items:reorder':
-        return this.organizationCtrl.handleReorderCompositionItems(ws, meta, msg.compositionId, msg.itemIds);
-      case 'composition_item:delete':
-        return this.organizationCtrl.handleDeleteCompositionItem(ws, meta, msg.compositionId, msg.itemId);
-
       // Variant
       case 'variant:delete':
         return this.variantCtrl.handleDelete(ws, meta, msg.variantId);

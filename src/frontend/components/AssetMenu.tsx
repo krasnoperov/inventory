@@ -9,7 +9,6 @@ export interface AssetMenuProps {
   position: { x: number; y: number };
   onClose: () => void;
   onRename?: () => void;
-  onCreateRelation?: () => void;
   onDelete?: () => void;
 }
 
@@ -18,7 +17,6 @@ export function AssetMenu({
   position,
   onClose,
   onRename,
-  onCreateRelation,
   onDelete,
 }: AssetMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -106,23 +104,6 @@ export function AssetMenu({
               </svg>
             </span>
             <span className={styles.actionLabel}>Rename</span>
-          </Button>
-        )}
-
-        {onCreateRelation && (
-          <Button
-            className={styles.action}
-            onClick={() => handleAction(onCreateRelation)}
-            variant="ghost"
-            role="menuitem"
-          >
-            <span className={styles.actionIcon}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11 4.93" />
-                <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L13 19.07" />
-              </svg>
-            </span>
-            <span className={styles.actionLabel}>Create relation</span>
           </Button>
         )}
       </div>

@@ -38,8 +38,8 @@ import {
   getUnfiledAssets,
   getVisibleCollectionKindLabel,
   sortCollections,
-} from '../SpaceBoard/spaceBoardModel';
-import boardStyles from '../SpaceBoard/SpaceBoard.module.css';
+} from './spaceCanvasModel';
+import cardStyles from './SpaceCanvasCards.module.css';
 
 import '@xyflow/react/dist/style.css';
 import styles from './SpaceCanvas.module.css';
@@ -57,8 +57,7 @@ interface SpaceCanvasProps {
   isVariantInForgeTray?: (variantId: string) => boolean;
 }
 
-// A frame's content is the justified wall — the same cards as the scrolling
-// board, minus the management menus (those live in the board view).
+// A frame's content is the justified asset wall used inside each canvas zone.
 interface FrameCard {
   key: string;
   asset: Asset;
@@ -117,24 +116,24 @@ function FrameAssetCard({ card, data }: { card: FrameCard; data: FrameData }) {
       variant={card.variant}
       size="fill"
       spaceId={data.spaceId}
-      className={boardStyles.thumbnail}
+      className={cardStyles.thumbnail}
       showVideoControls={isVideoCard}
     />
   );
 
   return (
     <article
-      className={boardStyles.assetCard}
+      className={cardStyles.assetCard}
       data-asset-id={card.asset.id}
       style={{ '--card-aspect': card.aspect } as CSSProperties}
     >
       {isVideoCard ? (
-        <div className={boardStyles.thumbnailButton} title={card.asset.name}>
+        <div className={cardStyles.thumbnailButton} title={card.asset.name}>
           {thumbnail}
         </div>
       ) : (
         <Button
-          className={boardStyles.thumbnailButton}
+          className={cardStyles.thumbnailButton}
           onClick={() => data.onAssetClick(card.asset)}
           title={card.asset.name}
           variant="ghost"
@@ -143,9 +142,9 @@ function FrameAssetCard({ card, data }: { card: FrameCard; data: FrameData }) {
           {thumbnail}
         </Button>
       )}
-      <div className={boardStyles.caption}>
-        <div className={boardStyles.cardCaptionHeader}>
-          <Button className={boardStyles.assetName} onClick={() => data.onAssetClick(card.asset)} variant="ghost" size="sm">
+      <div className={cardStyles.caption}>
+        <div className={cardStyles.cardCaptionHeader}>
+          <Button className={cardStyles.assetName} onClick={() => data.onAssetClick(card.asset)} variant="ghost" size="sm">
             {card.asset.name}
           </Button>
           <OpenAssetActionButton
@@ -162,7 +161,7 @@ function FrameAssetCard({ card, data }: { card: FrameCard; data: FrameData }) {
             />
           )}
         </div>
-        <div className={boardStyles.assetMeta}>
+        <div className={cardStyles.assetMeta}>
           <span>{card.asset.type}</span>
         </div>
       </div>
@@ -189,13 +188,13 @@ function FrameNodeView({ data }: NodeProps<FrameNode>) {
       </header>
       {data.cards.length > 0 ? (
         <div className={`${styles.frameBody} nodrag`}>
-          <div className={boardStyles.cardGrid}>
+          <div className={cardStyles.cardGrid}>
             {data.cards.map((card) => (
               // The tray action lives in caption chrome, never over media pixels.
               <FrameAssetCard key={card.key} card={card} data={data} />
             ))}
             {ROW_FILLERS.map((_, index) => (
-              <span key={`filler-${index}`} className={boardStyles.cardFiller} aria-hidden="true" />
+              <span key={`filler-${index}`} className={cardStyles.cardFiller} aria-hidden="true" />
             ))}
           </div>
         </div>

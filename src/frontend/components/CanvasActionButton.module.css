@@ -1,11 +1,11 @@
 .button {
-  --forge-tray-action-size: 24px;
-  --ui-button-height: var(--forge-tray-action-size);
+  --canvas-action-size: var(--canvas-action-button-size, 24px);
+  --ui-button-height: var(--canvas-action-size);
   --ui-button-pad-x: 0;
   --ctl-hover: var(--button-ghost-bg-hover);
 
-  flex: 0 0 var(--forge-tray-action-size);
-  width: var(--forge-tray-action-size);
+  flex: 0 0 var(--canvas-action-size);
+  width: var(--canvas-action-size);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
@@ -14,14 +14,18 @@
 }
 
 .button svg {
-  width: calc(var(--forge-tray-action-size) * 0.55);
-  height: calc(var(--forge-tray-action-size) * 0.55);
+  width: calc(var(--canvas-action-size) * 0.55);
+  height: calc(var(--canvas-action-size) * 0.55);
 }
 
 .button:hover:not(:disabled),
 .button:focus-visible {
   border-color: var(--color-primary);
   color: var(--color-primary);
+}
+
+.button:disabled {
+  opacity: 0.62;
 }
 
 .added,
@@ -32,18 +36,20 @@
   opacity: 1;
 }
 
-.card {
-  --forge-tray-action-size: var(--thumb-action-size);
+.mediaOverlay {
+  --canvas-action-button-size: var(--thumb-action-size);
+
   background: var(--thumb-action-bg);
 }
 
-.card:hover:not(:disabled),
-.card:focus-visible {
+.mediaOverlay:hover:not(:disabled),
+.mediaOverlay:focus-visible {
   background: var(--color-primary);
   color: var(--button-primary-text);
 }
 
 .panel {
-  --forge-tray-action-size: 30px;
+  --canvas-action-button-size: 30px;
+
   background: transparent;
 }

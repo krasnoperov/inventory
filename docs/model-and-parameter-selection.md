@@ -11,9 +11,9 @@ companion.
 
 > **Service parameters vs. CLI flags.** The values below are the parameters the
 > backend services accept. Top-level image CLI commands expose `--model`,
-> `--size`, and `--aspect`; batch/count and production metadata have their own
-> flags. Video CLI commands expose Veo resolution, provider duration, model
-> tier, and native audio controls.
+> `--size`, and `--aspect`; batch/count have their own flags. Video CLI
+> commands expose Veo resolution, provider duration, model tier, and native
+> audio controls.
 > See [cli-generation.md](./cli-generation.md) for the flag list.
 
 ## Images (Nano Banana)
@@ -121,9 +121,8 @@ The stored recipe keeps the tier plus the resolved model ID
 ### Resolution And Duration
 
 The web tray and CLI expose `720p`, `1080p`, or `4k` resolution and `4`, `6`,
-or `8` second provider duration. CLI `--duration-ms` remains production
-timeline metadata and does not replace the provider duration control. The
-`lite` tier supports `720p` and `1080p`; use `generate` or `fast` for `4k`.
+or `8` second provider duration. The `lite` tier supports `720p` and `1080p`;
+use `generate` or `fast` for `4k`.
 
 ### Aspect Ratio
 
@@ -143,9 +142,7 @@ three values, with `4k` limited to the `generate` and `fast` tiers
 
 `VideoDurationSeconds` (`src/shared/videoGenerationOptions.ts:3`): `4`, `6`,
 or `8` seconds, default `8` (`src/shared/videoGenerationOptions.ts:21`). The
-web tray and CLI `--duration` flag expose all three values. This is a provider
-duration control, not the `--duration-ms` CLI flag, which records intended
-production-scene duration as metadata and is never passed to Veo.
+web tray and CLI `--duration` flag expose all three values.
 
 ### Reference Modes
 

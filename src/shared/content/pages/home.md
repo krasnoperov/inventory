@@ -2,9 +2,9 @@
 
 Make Effects is the project layer for CLI-first media generation.
 
-Start with the fast loop you already like: use a shell, script, or coding agent to generate images, video, audio, speech, music, and sound effects. That works well until the project grows. Then you need to remember which prompt created which result, compare variants, keep source references attached, refine promising directions, and move the chosen media into the thing you are building.
+Start with the fast loop you already like: use a shell, script, or coding agent to generate images, video, audio, speech, music, and sound effects. That works well until the project grows. Then you need to remember which prompt created which result, compare variants, keep source references attached, refine promising directions, and keep the chosen media moving.
 
-Make Effects keeps that thread together. The `makefx` CLI gives agents and local workflows a command surface. The web app gives people a visual workspace for review, collaboration, variants, lineage, and production handoff.
+Make Effects keeps that thread together. The `makefx` CLI gives agents and local workflows a command surface. The web app gives people a visual workspace for review, collaboration, variants, and lineage.
 
 ## Quick Start
 
@@ -23,6 +23,5 @@ makefx assets --json
 - [Quickstart](https://makefx.app/docs/quickstart.md)
 - [Core Concepts](https://makefx.app/docs/concepts.md)
 - [CLI Reference](https://makefx.app/docs/cli.md)
-- [Production Handoff](https://makefx.app/docs/production-handoff.md)
 - [Media Playbooks](https://makefx.app/docs/media-playbooks.md)
 - [Choosing Models and Settings](https://makefx.app/docs/model-and-parameter-selection.md)

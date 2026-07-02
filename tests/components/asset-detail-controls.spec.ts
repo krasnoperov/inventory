@@ -3,62 +3,6 @@ import { mountComponent, screenshot } from './harness';
 
 const baseTime = 1_700_000_000_000;
 
-const collections = [
-  collection('cast', 'Cast', 'cast'),
-  collection('style', 'Style refs', 'style_refs'),
-];
-
-const variants = [
-  { id: 'variant-1', asset_id: 'asset-1', media_kind: 'image', starred: false },
-  { id: 'variant-2', asset_id: 'asset-1', media_kind: 'image', starred: true },
-];
-
-const selectedVariant = variants[1];
-
-const collectionItems = [
-  {
-    id: 'item-asset',
-    collection_id: 'cast',
-    subject_type: 'asset',
-    asset_id: 'asset-1',
-    variant_id: null,
-    role: 'hero',
-    pinned_variant_id: null,
-    sort_index: 0,
-    created_by: 'user-1',
-    created_at: baseTime,
-    updated_at: baseTime,
-  },
-  {
-    id: 'item-variant',
-    collection_id: 'style',
-    subject_type: 'variant',
-    asset_id: null,
-    variant_id: 'variant-2',
-    role: 'style_ref',
-    pinned_variant_id: null,
-    sort_index: 1,
-    created_by: 'user-1',
-    created_at: baseTime,
-    updated_at: baseTime,
-  },
-];
-
-function collection(id: string, name: string, kind: string) {
-  return {
-    id,
-    name,
-    kind,
-    color: null,
-    description: null,
-    sort_index: 0,
-    item_count: 0,
-    created_by: 'user-1',
-    created_at: baseTime,
-    updated_at: baseTime,
-  };
-}
-
 function asset(overrides: Record<string, unknown> = {}) {
   return {
     id: 'asset-1',
@@ -178,301 +122,14 @@ test('asset detail title rename uses shared inline field', async ({ page }) => {
   ]));
 });
 
-test('asset detail controls use shared selects and collection buttons', async ({ page }) => {
-  await page.setViewportSize({ width: 900, height: 720 });
-  await mountComponent(page, 'AssetDetailControls', {
-    value: 'character',
-    disabled: false,
-    collections,
-    collectionItems,
-    variants,
-    selectedVariant,
-    assetPlacementDrafts: [{
-      collectionId: 'style',
-      role: 'style_ref',
-      subjectType: 'asset',
-      pinToCreatedVariant: true,
-    }],
-    variantPlacementDrafts: [{
-      collectionId: 'cast',
-      role: 'thumbnail',
-      subjectType: 'variant',
-    }],
-    onChange: '__record__:type',
-    onApplyAssetPlacements: '__record__:applyAsset',
-    onApplyVariantPlacements: '__record__:applyVariant',
-    onAssetPlacementDraftsChange: '__record__:assetDrafts',
-    onDeleteCollectionItem: '__record__:deleteItem',
-    onUpdateCollectionItem: '__record__:updateItem',
-    onVariantPlacementDraftsChange: '__record__:variantDrafts',
-  });
-
-  await expect(page.getByRole('combobox', { name: 'Asset type' })).toBeVisible();
-  await expect(page.getByText('Collections', { exact: true })).toBeVisible();
-  await selectDropdown(page, 'Asset type', 'Environment');
-  await expect(page.getByLabel('Role in Cast')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Edit Cast asset collection' }).click();
-  await selectDropdown(page, 'Pinned variant in Cast', 'Variant 2 star');
-  await page.getByLabel('Role in Cast').fill('lead');
-  await page.getByRole('button', { name: 'Remove Cast from asset collections' }).click();
-  await expect(page.getByRole('button', { name: 'Remove Style refs placement draft' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Remove Cast placement draft' })).toBeVisible();
-  await page.getByRole('button', { name: 'Apply asset collections' }).click();
-  await page.getByRole('button', { name: 'Apply variant collections' }).click();
-
-  await screenshot(page, 'asset-detail-controls', { fullPage: true });
-
-  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
-  expect(calls).toEqual(expect.arrayContaining([
-    expect.objectContaining({ eventName: 'type', args: ['environment'] }),
-    expect.objectContaining({ eventName: 'updateItem', args: ['cast', 'item-asset', { pinnedVariantId: 'variant-2' }] }),
-    expect.objectContaining({ eventName: 'updateItem', args: ['cast', 'item-asset', { role: 'lead' }] }),
-    expect.objectContaining({ eventName: 'deleteItem', args: ['cast', 'item-asset'] }),
-    expect.objectContaining({ eventName: 'applyAsset', args: [] }),
-    expect.objectContaining({ eventName: 'applyVariant', args: [] }),
-  ]));
-});
-
-test('asset collection membership is compact until management is requested', async ({ page }) => {
-  await page.setViewportSize({ width: 900, height: 540 });
-  await mountComponent(page, 'AssetDetailControls', {
-    value: 'character',
-    disabled: false,
-    collections,
-    collectionItems,
-    variants,
-    selectedVariant,
-    assetPlacementDrafts: [],
-    variantPlacementDrafts: [],
-    onChange: '__record__:type',
-    onApplyAssetPlacements: '__record__:applyAsset',
-    onApplyVariantPlacements: '__record__:applyVariant',
-    onAssetPlacementDraftsChange: '__record__:assetDrafts',
-    onDeleteCollectionItem: '__record__:deleteItem',
-    onUpdateCollectionItem: '__record__:updateItem',
-    onVariantPlacementDraftsChange: '__record__:variantDrafts',
-  });
-
-  await expect(page.getByText('Collections', { exact: true })).toBeVisible();
-  await expect(page.getByText('Cast')).toBeVisible();
-  await expect(page.getByText('Asset')).toBeVisible();
-  await expect(page.getByText('hero')).toBeVisible();
-  await expect(page.getByText('Style refs')).toBeVisible();
-  await expect(page.getByText('Variant', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Manage collections' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Manage collections' })).not.toContainText('Manage');
-  await expect(page.getByLabel('Role in Cast')).toHaveCount(0);
-  await expect(page.getByText('Remove', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Remove Cast from asset collections' })).toHaveCount(0);
-  await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('Add selected variant to collections', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Add asset to collection' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Add selected variant' })).toHaveCount(0);
-
-  await screenshot(page, 'collection-membership-compact');
-
-  await page.getByRole('button', { name: 'Manage collections' }).click();
-  await expect(page.getByLabel('Role in Cast')).toHaveCount(0);
-  await expect(page.getByLabel('Pinned variant in Cast')).toHaveCount(0);
-  await expect(page.getByLabel('Variant role in Style refs')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Edit Cast asset collection' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Edit Style refs variant collection' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Remove Cast from asset collections' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Remove Style refs from variant collections' })).toBeVisible();
-  await expect(page.getByText('Remove', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Add asset to collection' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Add selected variant to collection' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Done managing collections' })).toBeVisible();
-  await expect(page.getByText('Variant collections', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('Add asset to collection', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('Add selected variant', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('Done', { exact: true })).toHaveCount(0);
-  await screenshot(page, 'collection-membership-management');
-
-  await page.getByRole('button', { name: 'Edit Cast asset collection' }).click();
-  await expect(page.getByLabel('Role in Cast')).toBeVisible();
-  await expect(page.getByLabel('Pinned variant in Cast')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Done editing Cast asset collection' })).toBeVisible();
-  const editingControlsMetrics = await page.getByLabel('Role in Cast').evaluate((input) => {
-    const controls = input.closest('[class*="collectionMembershipControls"]');
-    const row = input.closest('[class*="collectionMembershipRow"]');
-    if (!controls || !row) return null;
-    const controlsStyles = window.getComputedStyle(controls);
-    const rowStyles = window.getComputedStyle(row);
-    const rowRect = row.getBoundingClientRect();
-    return {
-      controlsDisplay: controlsStyles.display,
-      rowBorderStyle: rowStyles.borderTopStyle,
-      rowWidth: rowRect.width,
-    };
-  });
-  expect(editingControlsMetrics).toMatchObject({
-    controlsDisplay: 'grid',
-    rowBorderStyle: 'solid',
-  });
-  await screenshot(page, 'collection-membership-management-editing');
-  await page.getByRole('button', { name: 'Add asset to collection' }).click();
-  await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('combobox', { name: 'Add asset to collection' })).toBeVisible();
-
-  await page.getByRole('button', { name: 'Hide asset collection picker' }).click();
-  await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
-});
-
-test('asset collection management stacks without overflow on mobile', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 560 });
-  await mountComponent(page, 'AssetDetailControls', {
-    value: 'character',
-    disabled: false,
-    collections,
-    collectionItems,
-    variants,
-    selectedVariant,
-    assetPlacementDrafts: [],
-    variantPlacementDrafts: [],
-    onChange: '__record__:type',
-    onApplyAssetPlacements: '__record__:applyAsset',
-    onApplyVariantPlacements: '__record__:applyVariant',
-    onAssetPlacementDraftsChange: '__record__:assetDrafts',
-    onDeleteCollectionItem: '__record__:deleteItem',
-    onUpdateCollectionItem: '__record__:updateItem',
-    onVariantPlacementDraftsChange: '__record__:variantDrafts',
-  });
-
-  await page.getByRole('button', { name: 'Manage collections' }).click();
-  await expect(page.getByLabel('Role in Cast')).toHaveCount(0);
-  await expect(page.getByLabel('Variant role in Style refs')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Edit Cast asset collection' }).click();
-  await expect(page.getByLabel('Role in Cast')).toBeVisible();
-  await expect(page.getByLabel('Pinned variant in Cast')).toBeVisible();
-  await page.getByRole('button', { name: 'Edit Style refs variant collection' }).click();
-  await expect(page.getByLabel('Variant role in Style refs')).toBeVisible();
-
-  const metrics = await page.evaluate(() => ({
-    clientWidth: document.documentElement.clientWidth,
-    scrollWidth: document.documentElement.scrollWidth,
-  }));
-  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
-  await screenshot(page, 'collection-membership-management-mobile');
-});
-
-test('asset collection placement shortcut opens selected variant picker', async ({ page }) => {
-  await page.setViewportSize({ width: 900, height: 540 });
-  await mountComponent(page, 'AssetDetailControls', {
-    value: 'character',
-    disabled: false,
-    collections,
-    collectionItems,
-    variants,
-    selectedVariant,
-    assetPlacementDrafts: [],
-    variantPlacementControlsOpen: true,
-    variantPlacementDrafts: [],
-    onChange: '__record__:type',
-    onApplyAssetPlacements: '__record__:applyAsset',
-    onApplyVariantPlacements: '__record__:applyVariant',
-    onAssetPlacementDraftsChange: '__record__:assetDrafts',
-    onDeleteCollectionItem: '__record__:deleteItem',
-    onUpdateCollectionItem: '__record__:updateItem',
-    onVariantPlacementControlsOpenChange: '__record__:variantPlacementOpen',
-    onVariantPlacementDraftsChange: '__record__:variantDrafts',
-  });
-
-  await expect(page.getByText('Add asset to collections', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('Add selected variant to collections', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('combobox', { name: 'Add selected variant to collection' })).toBeVisible();
-  await page.getByRole('button', { name: 'Hide variant collection picker' }).click();
-
-  const calls = await page.evaluate(() => window.__componentHarnessCallDetails ?? []);
-  expect(calls).toEqual(expect.arrayContaining([
-    { eventName: 'variantPlacementOpen', args: [false] },
-  ]));
-});
-
-test('asset collection membership keeps reusable empty state by default', async ({ page }) => {
-  await page.setViewportSize({ width: 900, height: 360 });
-  await mountComponent(page, 'AssetDetailControls', {
-    value: 'character',
-    disabled: false,
-    collections,
-    collectionItems: [],
-    variants,
-    selectedVariant,
-    assetPlacementDrafts: [],
-    variantPlacementDrafts: [],
-    onChange: '__record__:type',
-    onApplyAssetPlacements: '__record__:applyAsset',
-    onApplyVariantPlacements: '__record__:applyVariant',
-    onAssetPlacementDraftsChange: '__record__:assetDrafts',
-    onDeleteCollectionItem: '__record__:deleteItem',
-    onUpdateCollectionItem: '__record__:updateItem',
-    onVariantPlacementDraftsChange: '__record__:variantDrafts',
-  });
-
-  await expect(page.getByRole('region', { name: 'Collection membership' })).toBeVisible();
-  await expect(page.getByText('No collection membership')).toBeVisible();
-});
-
-test('asset collection membership hides empty Details-only structure until placement opens', async ({ page }) => {
-  await page.setViewportSize({ width: 900, height: 360 });
-  await mountComponent(page, 'AssetDetailControls', {
-    value: 'character',
-    disabled: false,
-    collections,
-    collectionItems: [],
-    hideWhenEmpty: true,
-    variants,
-    selectedVariant,
-    assetPlacementDrafts: [],
-    variantPlacementDrafts: [],
-    onChange: '__record__:type',
-    onApplyAssetPlacements: '__record__:applyAsset',
-    onApplyVariantPlacements: '__record__:applyVariant',
-    onAssetPlacementDraftsChange: '__record__:assetDrafts',
-    onDeleteCollectionItem: '__record__:deleteItem',
-    onUpdateCollectionItem: '__record__:updateItem',
-    onVariantPlacementDraftsChange: '__record__:variantDrafts',
-  });
-
-  await expect(page.getByRole('region', { name: 'Collection membership' })).toHaveCount(0);
-  await expect(page.getByText('No collection membership')).toHaveCount(0);
-
-  await mountComponent(page, 'AssetDetailControls', {
-    value: 'character',
-    disabled: false,
-    collections,
-    collectionItems: [],
-    hideWhenEmpty: true,
-    variants,
-    selectedVariant,
-    assetPlacementDrafts: [],
-    variantPlacementControlsOpen: true,
-    variantPlacementDrafts: [],
-    onChange: '__record__:type',
-    onApplyAssetPlacements: '__record__:applyAsset',
-    onApplyVariantPlacements: '__record__:applyVariant',
-    onAssetPlacementDraftsChange: '__record__:assetDrafts',
-    onDeleteCollectionItem: '__record__:deleteItem',
-    onUpdateCollectionItem: '__record__:updateItem',
-    onVariantPlacementControlsOpenChange: '__record__:variantPlacementOpen',
-    onVariantPlacementDraftsChange: '__record__:variantDrafts',
-  });
-
-  await expect(page.getByRole('region', { name: 'Collection membership' })).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Add selected variant to collection' })).toBeVisible();
-  await screenshot(page, 'collection-membership-empty-hidden-details', { fullPage: true });
-});
-
 test('asset details strip makes video facts visible without dock disclosure chrome', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 420 });
   await mountComponent(page, 'AssetDetailsStrip', {
     asset: asset(),
-    assetCollectionCount: 1,
     assetTypeDisabled: false,
     onAssetTypeChange: '__record__:type',
     selectedVariant: fullVariant(),
     selectedVariantIndex: 0,
-    selectedVariantCollectionCount: 1,
     variantCount: 3,
   });
 
@@ -519,7 +176,6 @@ test('asset details strip also exposes image facts without a hidden click target
       type: 'character',
       media_kind: 'image',
     }),
-    assetCollectionCount: 0,
     selectedVariant: fullVariant({
       media_kind: 'image',
       media_key: 'images/hero.png',
@@ -529,7 +185,6 @@ test('asset details strip also exposes image facts without a hidden click target
       media_duration_ms: null,
     }),
     selectedVariantIndex: 0,
-    selectedVariantCollectionCount: 0,
     variantCount: 1,
   });
 
@@ -553,9 +208,7 @@ test('asset details strip keeps variant focus visible without a selected variant
       type: 'character',
       media_kind: 'image',
     }),
-    assetCollectionCount: 0,
     selectedVariant: null,
-    selectedVariantCollectionCount: 0,
     variantCount: 2,
   });
 
@@ -595,7 +248,6 @@ test('asset details strip names audio details explicitly', async ({ page }) => {
       type: 'sound',
       media_kind: 'audio',
     }),
-    assetCollectionCount: 0,
     selectedVariant: fullVariant({
       media_kind: 'audio',
       media_key: 'audio/narration.mp3',
@@ -605,7 +257,6 @@ test('asset details strip names audio details explicitly', async ({ page }) => {
       media_duration_ms: 42000,
     }),
     selectedVariantIndex: 0,
-    selectedVariantCollectionCount: 0,
     variantCount: 1,
   });
 
@@ -622,12 +273,10 @@ test('asset details dock keeps heavy details outside ForgeTray', async ({ page }
   await page.setViewportSize({ width: 900, height: 720 });
   await mountComponent(page, 'AssetGenerationDock', {
     asset: asset(),
-    assetCollectionCount: 1,
     assetTypeDisabled: false,
     onAssetTypeChange: '__record__:type',
     selectedVariant: fullVariant(),
     selectedVariantIndex: 0,
-    selectedVariantCollectionCount: 1,
     variantCount: 3,
   });
 
@@ -638,47 +287,10 @@ test('asset details dock keeps heavy details outside ForgeTray', async ({ page }
   const dock = page.getByRole('region', { name: 'Asset generation controls' });
   await expect(dock).not.toContainText('Collection membership');
   await expect(dock).not.toContainText('Manual relations');
-  const inspector = page.getByRole('region', { name: 'Asset details inspector' });
-  await expect(inspector).toBeVisible();
-  await expect(inspector).toHaveCSS('box-shadow', 'none');
-  await expect(inspector).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(inspector).toHaveCSS('border-left-width', '1px');
-  await expect(inspector).toHaveCSS('border-radius', '0px');
-  await expect(inspector.getByRole('region', { name: 'Collection membership' })).toBeVisible();
-  await expect(inspector.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
-  await expect(inspector.getByRole('region', { name: 'Manual relations' })).toBeVisible();
-  await expect(inspector.getByRole('region', { name: 'Composition usage' })).toBeVisible();
-  await expect(inspector.getByRole('region', { name: 'Collection membership' }).getByText('Collections', { exact: true })).toBeVisible();
-  await expect(inspector.getByRole('region', { name: 'Collection membership' }).getByText('2', { exact: true })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(inspector.getByRole('region', { name: 'Collection membership' }).getByText('2', { exact: true })).toHaveCSS('border-top-width', '0px');
-  await expect(inspector.getByRole('button', { name: 'Manage collections' }).locator('svg')).toHaveCSS('width', '16px');
-  const collectionRows = inspector.getByRole('region', { name: 'Collection membership' }).locator('[class*="collectionSummaryRow"]');
-  await expect(collectionRows.first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(collectionRows.first()).toHaveCSS('border-top-width', '0px');
-  await expect(collectionRows.first()).toHaveCSS('border-left-width', '0px');
-  await expect(inspector.getByRole('region', { name: 'Style reference usage' }).getByRole('heading', { name: /Style/ })).toBeVisible();
-  await expect(inspector.getByRole('region', { name: 'Style reference usage' }).locator('[class*="countBadge"]')).toHaveCSS('border-top-width', '0px');
-  await expect(inspector.getByRole('region', { name: 'Style reference usage' }).locator('[class*="countBadge"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(inspector.getByRole('region', { name: 'Manual relations' }).getByText('Relations')).toBeVisible();
-  await expect(inspector.getByRole('region', { name: 'Manual relations' }).locator('[class*="countBadge"]')).toHaveCSS('border-top-width', '0px');
-  await expect(inspector.getByRole('region', { name: 'Manual relations' }).locator('[class*="directionBadge"]').first()).toHaveCSS('border-top-width', '0px');
-  await expect(inspector.getByRole('region', { name: 'Manual relations' }).locator('[class*="directionBadge"]').first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(inspector.getByRole('region', { name: 'Manual relations' }).getByText('Outgoing')).toHaveCount(0);
-  await expect(inspector.getByRole('region', { name: 'Manual relations' }).getByText('Incoming')).toHaveCount(0);
-  await expect(inspector.getByRole('region', { name: 'Composition usage' }).getByRole('heading', { name: /Compositions/ })).toBeVisible();
-  await expect(inspector.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Scene Bar composition/ })).toBeVisible();
-  await expect(inspector.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Scene Bar composition/ })).toHaveCSS('border-top-width', '0px');
-  await expect(inspector.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Scene Bar composition/ })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(inspector.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Pinned variant scene/ })).toBeVisible();
-  await expect(inspector.getByRole('region', { name: 'Composition usage' })).toHaveCSS('border-top-width', '1px');
-  await expect(inspector.getByRole('region', { name: 'Composition usage' })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  const compositionBeforeRelations = await page.evaluate(() => {
-    const inspector = document.querySelector('[aria-label="Asset details inspector"]');
-    const composition = inspector?.querySelector('[aria-label="Composition usage"]');
-    const relations = inspector?.querySelector('[aria-label="Manual relations"]');
-    return Boolean(composition && relations && composition.compareDocumentPosition(relations) & Node.DOCUMENT_POSITION_FOLLOWING);
-  });
-  expect(compositionBeforeRelations).toBe(true);
+  await expect(page.getByRole('region', { name: 'Asset details inspector' })).toHaveCount(0);
+  await expect(page.getByText('Collection membership')).toHaveCount(0);
+  await expect(page.getByText('Manual relations')).toHaveCount(0);
+  await expect(page.getByText('Composition usage')).toHaveCount(0);
   await expect(page.getByLabel('Prompt')).toBeVisible();
   const embeddedTray = page.locator('[class*="tray"]').first();
   await expect(embeddedTray).toHaveCSS('box-shadow', 'none');
@@ -701,157 +313,7 @@ test('asset details dock keeps heavy details outside ForgeTray', async ({ page }
   await expect.poll(() => visibleHeightInViewport(page.getByLabel('Prompt'))).toBeGreaterThanOrEqual(56);
   await expect.poll(() => visibleRatioInViewport(page.getByLabel('Prompt'))).toBeGreaterThanOrEqual(0.95);
 
-  const stackMetrics = await page.evaluate(() => {
-    const inspector = document.querySelector('[aria-label="Asset details inspector"]');
-    const relations = inspector?.querySelector('[aria-label="Manual relations"]');
-    return {
-      inspectorCanScroll: inspector ? inspector.scrollHeight > inspector.clientHeight : false,
-      relationsHasInnerScroll: relations ? relations.scrollHeight > relations.clientHeight : true,
-    };
-  });
-  expect(stackMetrics).toEqual({
-    inspectorCanScroll: false,
-    relationsHasInnerScroll: false,
-  });
-
-  await screenshot(page, 'asset-details-inspector-outside-dock-desktop', { fullPage: true });
-});
-
-test('asset details inspector docks relation editor above relations list', async ({ page }) => {
-  await page.setViewportSize({ width: 900, height: 760 });
-  await mountComponent(page, 'AssetGenerationDock', {
-    asset: asset(),
-    assetCollectionCount: 1,
-    assetTypeDisabled: false,
-    onAssetTypeChange: '__record__:type',
-    selectedVariant: fullVariant(),
-    selectedVariantIndex: 0,
-    selectedVariantCollectionCount: 1,
-    variantCount: 3,
-    showRelationEditor: true,
-  });
-
-  const dock = page.getByRole('region', { name: 'Asset generation controls' });
-  const inspector = page.getByRole('region', { name: 'Asset details inspector' });
-  const editor = inspector.getByRole('region', { name: 'Create relation' });
-  const relations = inspector.getByRole('region', { name: 'Manual relations' });
-
-  await expect(editor).toBeVisible();
-  await expect(editor).toHaveCSS('position', 'static');
-  await expect(editor).toHaveCSS('border-radius', '8px');
-  await expect(page.locator('[class*="dialogOverlay"]')).toHaveCount(0);
-  await expect(dock).not.toContainText('Create relation');
-  await expect(relations).toBeVisible();
-
-  const editorBeforeRelations = await page.evaluate(() => {
-    const inspector = document.querySelector('[aria-label="Asset details inspector"]');
-    const editor = inspector?.querySelector('[aria-label="Create relation"]');
-    const relations = inspector?.querySelector('[aria-label="Manual relations"]');
-    return Boolean(editor && relations && editor.compareDocumentPosition(relations) & Node.DOCUMENT_POSITION_FOLLOWING);
-  });
-  expect(editorBeforeRelations).toBe(true);
-
-  const geometry = await page.evaluate(() => {
-    const editor = document.querySelector('[aria-label="Create relation"]');
-    const dock = document.querySelector('[aria-label="Asset generation controls"]');
-    if (!editor || !dock) return null;
-    const editorBox = editor.getBoundingClientRect();
-    const dockBox = dock.getBoundingClientRect();
-    const overlaps = !(
-      editorBox.right <= dockBox.left ||
-      dockBox.right <= editorBox.left ||
-      editorBox.bottom <= dockBox.top ||
-      dockBox.bottom <= editorBox.top
-    );
-    return { overlaps };
-  });
-  expect(geometry).toEqual({ overlaps: false });
-
-  await screenshot(page, 'asset-details-relation-editor-docked-inspector', { fullPage: true });
-});
-
-test('asset details inspector stays separate from ForgeTray on mobile', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 760 });
-  await mountComponent(page, 'AssetGenerationDock', {
-    asset: asset(),
-    assetCollectionCount: 1,
-    assetTypeDisabled: false,
-    onAssetTypeChange: '__record__:type',
-    selectedVariant: fullVariant(),
-    selectedVariantIndex: 0,
-    selectedVariantCollectionCount: 1,
-    variantCount: 3,
-  });
-
-  await expect(page.getByRole('region', { name: 'Asset generation controls' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Details scoped space summary', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: /asset scope details/i })).toHaveCount(0);
-  const inspector = page.getByRole('region', { name: 'Asset details inspector' });
-  await expect(inspector).toHaveCSS('box-shadow', 'none');
-  await expect(inspector).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(inspector).toHaveCSS('border-left-width', '0px');
-  await expect(inspector).toHaveCSS('border-bottom-width', '1px');
-  await expect(inspector.getByRole('region', { name: 'Collection membership' })).toBeVisible();
-  await expect(inspector.getByRole('region', { name: 'Style reference usage' })).toBeVisible();
-  await expect(inspector.getByRole('region', { name: 'Manual relations' })).toBeVisible();
-  await expect(inspector.getByRole('region', { name: 'Composition usage' })).toBeVisible();
-  await expect(inspector.getByRole('region', { name: 'Composition usage' }).getByRole('button', { name: /Scene Bar composition/ })).toBeVisible();
-  await expect(page.getByLabel('Prompt')).toBeVisible();
-  const embeddedTray = page.locator('[class*="tray"]').first();
-  await expect(embeddedTray).toHaveCSS('box-shadow', 'none');
-  await expect(embeddedTray).toHaveCSS('border-radius', '8px');
-  const mobileDockGap = await page.evaluate(() => {
-    const details = document.querySelector('[aria-label="Details scoped space summary"]');
-    const tray = document.querySelector('[class*="tray"]');
-    if (!details || !tray) return null;
-    return tray.getBoundingClientRect().top - details.getBoundingClientRect().bottom;
-  });
-  expect(mobileDockGap).not.toBeNull();
-  expect(mobileDockGap!).toBeGreaterThanOrEqual(12);
-  const inspectorBeforeDock = await page.evaluate(() => {
-    const details = document.querySelector('[aria-label="Asset details inspector"]');
-    const dock = document.querySelector('[aria-label="Asset generation controls"]');
-    if (!details || !dock) return null;
-    return details.getBoundingClientRect().bottom <= dock.getBoundingClientRect().top;
-  });
-  expect(inspectorBeforeDock).toBe(true);
-  await expect.poll(() => visibleHeightInViewport(page.getByLabel('Prompt'))).toBeGreaterThanOrEqual(56);
-  await expect.poll(() => visibleRatioInViewport(page.getByLabel('Prompt'))).toBeGreaterThanOrEqual(0.95);
-
-  await screenshot(page, 'asset-details-inspector-outside-dock-mobile', { fullPage: true });
-});
-
-test('asset composition detail docks inside the details inspector', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await mountComponent(page, 'AssetGenerationDock', {
-    asset: asset(),
-    assetCollectionCount: 1,
-    assetTypeDisabled: false,
-    onAssetTypeChange: '__record__:type',
-    selectedVariant: fullVariant(),
-    selectedVariantIndex: 0,
-    selectedVariantCollectionCount: 1,
-    variantCount: 3,
-    showCompositionDetail: true,
-  });
-
-  const inspector = page.getByRole('region', { name: 'Asset details inspector' });
-  const compositionDetail = page.getByRole('complementary', { name: 'Composition detail' });
-  const compositionContainer = page.locator('[class*="compositionPanelContainer"]');
-  const stage = page.locator('[class*="canvasStage"]');
-  await expect(inspector).toBeVisible();
-  await expect(compositionDetail).toBeVisible();
-  await expect(compositionContainer).not.toHaveCSS('position', 'absolute');
-
-  const detailInsideInspector = await page.evaluate(() => {
-    const inspectorNode = document.querySelector('[aria-label="Asset details inspector"]');
-    const detailNode = document.querySelector('[aria-label="Composition detail"]');
-    return Boolean(inspectorNode && detailNode && inspectorNode.contains(detailNode));
-  });
-  expect(detailInsideInspector).toBe(true);
-  await expectNoOverlap(compositionDetail, stage);
-
-  await screenshot(page, 'asset-details-composition-detail-docked', { fullPage: true });
+  await screenshot(page, 'asset-details-summary-above-dock-desktop', { fullPage: true });
 });
 
 test('asset details closed mobile layout keeps the canvas stage in the primary row', async ({ page }) => {

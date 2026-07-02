@@ -1,10 +1,4 @@
-/* Docked sheet host: positions the panel without blocking the workspace. */
-.sheetHost {
-  composes: host from "../DockedSheet.module.css";
-}
-
 .sheetPanel {
-  composes: panel from "../DockedSheet.module.css";
   --docked-sheet-width: min(640px, calc(100vw - 2rem));
   --docked-sheet-max-width: 640px;
 }

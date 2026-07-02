@@ -84,8 +84,8 @@ test('asset picker uses shared search field and filters selectable assets', asyn
       asset('voice', 'Narrator Voice', 'speech', 'audio'),
       asset(
         'handoff',
-        'Storyboard reference asset with readable production handoff title',
-        'environment reference with production handoff labels',
+        'Storyboard reference asset with readable selected asset title',
+        'environment reference with selected asset labels',
       ),
     ],
     variants: [variant('hero'), variant('forest'), variant('voice'), variant('handoff')],

@@ -2,11 +2,11 @@
 
 Make Effects is not trying to replace a good generator CLI. It gives that CLI a project memory.
 
-The goal is simple: generate freely, explore broadly, keep the best variants, understand how each result was made, and move chosen media into production.
+The goal is simple: generate freely, explore broadly, keep the best variants, understand how each result was made, and continue from the chosen media.
 
 ## Space
 
-A space is a collaborative container for media work. It owns assets, variants, lineage, chat, production records, and real-time sync.
+A space is a collaborative container for media work. It owns assets, variants, lineage, chat, and real-time sync.
 
 Use one space for a game, episode, trailer, campaign, or other project boundary where you and an agent or colleague need shared context.
 
@@ -39,12 +39,6 @@ For example, a video attack animation can be derived from a character image and 
 CLI generation commands write debug manifests under `.inventory/runs/`.
 
 Manifests map local downloaded files to website asset IDs, variant IDs, prompts, references, media keys, timestamps, and failed variant errors. They are troubleshooting traces, not the source of truth.
-
-## Production Record
-
-A production record places a completed variant into a named production timeline or handoff group.
-
-Records can include scene label, timeline start, duration, shot ID, motion prompt, and source references. They make generated files easier to export into render, game, and editorial tools.
 
 ## Source of Truth
 

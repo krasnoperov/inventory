@@ -130,12 +130,6 @@ function buildApp(options: {
             if (path === '/internal/relations' && request.method === 'POST') {
               return Response.json({ success: true, relation: body });
             }
-            if (path === '/internal/compositions' && request.method === 'POST') {
-              return Response.json({ success: true, composition: body });
-            }
-            if (/^\/internal\/compositions\/[^/]+\/items$/.test(path) && request.method === 'POST') {
-              return Response.json({ success: true, item: body });
-            }
             return Response.json({ error: 'Unexpected DO route' }, { status: 404 });
           },
         }),
@@ -216,26 +210,6 @@ function buildOrganizationImportManifest(): Record<string, any> {
       relationType: 'reference_for',
       label: null,
       context: null,
-      metadata: {},
-      sortIndex: 0,
-    }],
-    compositions: [{
-      id: 'composition-source',
-      name: 'Final Mix',
-      description: null,
-      status: 'final',
-      outputAssetId: 'asset-source',
-      outputVariantId: 'variant-source',
-      metadata: {},
-      sortIndex: 0,
-    }],
-    compositionItems: [{
-      id: 'composition-item-source',
-      compositionId: 'composition-source',
-      role: 'output',
-      label: null,
-      assetId: 'asset-source',
-      variantId: 'variant-source',
       metadata: {},
       sortIndex: 0,
     }],
@@ -396,26 +370,6 @@ describe('exportRoutes', () => {
           metadata: '{}',
           sort_index: 0,
         }],
-        compositions: [{
-          id: 'composition-1',
-          name: 'Final Mix',
-          description: null,
-          status: 'final',
-          output_asset_id: 'asset-1',
-          output_variant_id: 'variant-missing',
-          metadata: '{}',
-          sort_index: 0,
-        }],
-        compositionItems: [{
-          id: 'composition-item-1',
-          composition_id: 'composition-1',
-          role: 'output',
-          label: null,
-          asset_id: 'asset-1',
-          variant_id: 'variant-missing',
-          metadata: '{}',
-          sort_index: 0,
-        }],
       },
       objects: {
         'images/space-1/variant-present.png': makeObject('images/space-1/variant-present.png', 'present-image', 'image/png'),
@@ -547,26 +501,6 @@ describe('exportRoutes', () => {
           metadata: '{}',
           sort_index: 0,
         }],
-        compositions: [{
-          id: 'composition-1',
-          name: 'Final Mix',
-          description: null,
-          status: 'draft',
-          output_asset_id: 'asset-1',
-          output_variant_id: 'variant-pending',
-          metadata: '{}',
-          sort_index: 0,
-        }],
-        compositionItems: [{
-          id: 'composition-item-pending',
-          composition_id: 'composition-1',
-          role: 'output',
-          label: null,
-          asset_id: 'asset-1',
-          variant_id: 'variant-pending',
-          metadata: '{}',
-          sort_index: 0,
-        }],
       },
       objects: {
         'images/space-1/variant-complete.png': makeObject('images/space-1/variant-complete.png', 'complete-image', 'image/png'),
@@ -587,9 +521,8 @@ describe('exportRoutes', () => {
     assert.deepEqual(manifest.collectionItems.map((item: { id: string }) => item.id), ['collection-item-asset']);
     assert.equal(manifest.collectionItems[0].pinnedVariantId, null);
     assert.deepEqual(manifest.relations, []);
-    assert.equal(manifest.compositions[0].outputAssetId, 'asset-1');
-    assert.equal(manifest.compositions[0].outputVariantId, null);
-    assert.deepEqual(manifest.compositionItems, []);
+    assert.equal('compositions' in manifest, false);
+    assert.equal('compositionItems' in manifest, false);
     assert.equal(strFromU8(unzipped[manifest.assets[0].variants[0].mediaFile]), 'complete-image');
   });
 
@@ -679,26 +612,6 @@ describe('exportRoutes', () => {
           metadata: '{"confidence":"approved"}',
           sort_index: 6,
         }],
-        compositions: [{
-          id: 'composition-1',
-          name: 'Final Mix',
-          description: 'Composite output',
-          status: 'final',
-          output_asset_id: 'asset-1',
-          output_variant_id: 'variant-2',
-          metadata: '{"shot":"010"}',
-          sort_index: 7,
-        }],
-        compositionItems: [{
-          id: 'composition-item-1',
-          composition_id: 'composition-1',
-          role: 'output',
-          label: 'Final frame',
-          asset_id: 'asset-1',
-          variant_id: 'variant-2',
-          metadata: '{"layer":"final"}',
-          sort_index: 8,
-        }],
       },
       objects: {
         'images/space-1/variant-1.png': makeObject('images/space-1/variant-1.png', 'parent-image', 'image/png'),
@@ -729,9 +642,8 @@ describe('exportRoutes', () => {
     assert.equal(manifest.relations[0].relationType, 'reference_for');
     assert.equal(manifest.relations[0].label, 'Paintover source');
     assert.deepEqual(manifest.relations[0].metadata, { confidence: 'approved' });
-    assert.deepEqual(manifest.compositions[0].metadata, { shot: '010' });
-    assert.equal(manifest.compositionItems[0].label, 'Final frame');
-    assert.deepEqual(manifest.compositionItems[0].metadata, { layer: 'final' });
+    assert.equal('compositions' in manifest, false);
+    assert.equal('compositionItems' in manifest, false);
   });
 
   it('round-trips asset-backed style presets and exact style provenance', async () => {
@@ -895,8 +807,6 @@ describe('exportRoutes', () => {
           enabled: 1,
           is_default: 1,
         }],
-        compositions: [],
-        compositionItems: [],
       },
       objects: {
         'images/source/style-a.png': makeObject('images/source/style-a.png', 'style-a', 'image/png'),
@@ -955,8 +865,6 @@ describe('exportRoutes', () => {
       collectionItems: 2,
       stylePresets: 1,
       relations: 2,
-      compositions: 0,
-      compositionItems: 0,
     });
 
     const applyCalls = doCalls.filter((call) => call.path === '/internal/apply-variant');
@@ -1137,26 +1045,6 @@ describe('exportRoutes', () => {
         metadata: {},
         sortIndex: 0,
       }],
-      compositions: [{
-        id: 'composition-source',
-        name: 'Final Mix',
-        description: null,
-        status: 'final',
-        outputAssetId: 'asset-source',
-        outputVariantId: 'variant-missing',
-        metadata: {},
-        sortIndex: 0,
-      }],
-      compositionItems: [{
-        id: 'composition-item-source',
-        compositionId: 'composition-source',
-        role: 'output',
-        label: null,
-        assetId: 'asset-source',
-        variantId: 'variant-missing',
-        metadata: {},
-        sortIndex: 0,
-      }],
     };
     const zip = zipSync({
       'manifest.json': strToU8(JSON.stringify(manifest)),
@@ -1250,44 +1138,6 @@ describe('exportRoutes', () => {
         mutate: (manifest) => { manifest.relations[0].context = 5; },
         expected: /Relation relation-source context must be a string, object, or null/,
       },
-      {
-        name: 'composition name',
-        mutate: (manifest) => { manifest.compositions[0].name = 5; },
-        expected: /Composition composition-source name is required/,
-      },
-      {
-        name: 'composition output ownership',
-        mutate: (manifest) => {
-          addSecondAsset(manifest);
-          manifest.compositions[0].outputAssetId = 'asset-source';
-          manifest.compositions[0].outputVariantId = 'variant-other';
-        },
-        expected: /Composition composition-source outputVariantId must belong to outputAssetId/,
-      },
-      {
-        name: 'composition status',
-        mutate: (manifest) => { manifest.compositions[0].status = 'published'; },
-        expected: /Composition composition-source status must be draft or final/,
-      },
-      {
-        name: 'composition item asset ownership',
-        mutate: (manifest) => {
-          addSecondAsset(manifest);
-          manifest.compositionItems[0].assetId = 'asset-other';
-          manifest.compositionItems[0].variantId = 'variant-source';
-        },
-        expected: /Composition item composition-item-source assetId must match the variant asset/,
-      },
-      {
-        name: 'composition item label',
-        mutate: (manifest) => { manifest.compositionItems[0].label = 5; },
-        expected: /Composition item composition-item-source label must be a string or null/,
-      },
-      {
-        name: 'composition item role',
-        mutate: (manifest) => { manifest.compositionItems[0].role = 'bogus'; },
-        expected: /Composition item composition-item-source role is invalid/,
-      },
     ];
 
     for (const testCase of cases) {
@@ -1314,7 +1164,7 @@ describe('exportRoutes', () => {
     }
   });
 
-  it('imports organization records with remapped relation, composition, and severed lineage IDs', async () => {
+  it('imports organization records with remapped relation and severed lineage IDs', async () => {
     const manifest = {
       version: '1.0',
       exportedAt: '2026-06-16T00:00:00.000Z',
@@ -1392,26 +1242,6 @@ describe('exportRoutes', () => {
         metadata: { confidence: 'approved' },
         sortIndex: 3,
       }],
-      compositions: [{
-        id: 'composition-source',
-        name: 'Final Mix',
-        description: 'Composite output',
-        status: 'final',
-        outputAssetId: 'asset-source',
-        outputVariantId: 'variant-child',
-        metadata: { shot: '010' },
-        sortIndex: 4,
-      }],
-      compositionItems: [{
-        id: 'composition-item-source',
-        compositionId: 'composition-source',
-        role: 'output',
-        label: 'Final frame',
-        assetId: 'asset-source',
-        variantId: 'variant-child',
-        metadata: { layer: 'final' },
-        sortIndex: 5,
-      }],
     };
     const zip = zipSync({
       'manifest.json': strToU8(JSON.stringify(manifest)),
@@ -1438,8 +1268,6 @@ describe('exportRoutes', () => {
       collectionItems: 1,
       stylePresets: 0,
       relations: 1,
-      compositions: 1,
-      compositionItems: 1,
     });
 
     const assetId = doCalls.find((call) => call.path === '/internal/create-asset')!.body!.id;
@@ -1472,18 +1300,7 @@ describe('exportRoutes', () => {
     assert.equal(relationCall.body!.label, 'Paintover source');
     assert.equal(relationCall.body!.context, '{"label":"paintover"}');
     assert.deepEqual(relationCall.body!.metadata, { confidence: 'approved' });
-
-    const compositionCall = doCalls.find((call) => call.path === '/internal/compositions')!;
-    assert.equal(compositionCall.body!.outputAssetId, assetId);
-    assert.equal(compositionCall.body!.outputVariantId, childVariantId);
-    assert.deepEqual(compositionCall.body!.metadata, { shot: '010' });
-
-    const compositionItemCall = doCalls.find((call) => /^\/internal\/compositions\/[^/]+\/items$/.test(call.path))!;
-    assert.equal(compositionItemCall.body!.assetId, assetId);
-    assert.equal(compositionItemCall.body!.variantId, childVariantId);
-    assert.equal(compositionItemCall.body!.role, 'output');
-    assert.equal(compositionItemCall.body!.label, 'Final frame');
-    assert.deepEqual(compositionItemCall.body!.metadata, { layer: 'final' });
+    assert.equal(doCalls.some((call) => call.path.includes('/internal/compositions')), false);
   });
 
   it('rejects organization records that reference unknown variants', async () => {

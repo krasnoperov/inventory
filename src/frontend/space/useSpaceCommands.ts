@@ -5,14 +5,6 @@ import type {
   BatchRequestParams,
   ChatForgeContext,
   ChatRequestParams,
-  CollectionCreateParams,
-  CollectionItemCreateParams,
-  CollectionItemUpdateParams,
-  CollectionUpdateParams,
-  CompositionCreateParams,
-  CompositionItemCreateParams,
-  CompositionItemUpdateParams,
-  CompositionUpdateParams,
   CompareRequestParams,
   DescribeRequestParams,
   ForkParams,
@@ -21,9 +13,6 @@ import type {
   JobContext,
   RefineRequestParams,
   RotationRequestParams,
-  SpaceRelationContext,
-  SpaceRelationType,
-  SpaceSubject,
   StylePresetCreateParams,
   StylePresetUpdateParams,
   TileSetRequestParams,
@@ -51,23 +40,6 @@ type SpaceCommands = Pick<UseSpaceWebSocketReturn,
   | 'retryVariant'
   | 'regenerateVariant'
   | 'severLineage'
-  | 'createRelation'
-  | 'updateRelation'
-  | 'deleteRelation'
-  | 'createCollection'
-  | 'updateCollection'
-  | 'deleteCollection'
-  | 'addCollectionItem'
-  | 'updateCollectionItem'
-  | 'reorderCollectionItems'
-  | 'deleteCollectionItem'
-  | 'createComposition'
-  | 'updateComposition'
-  | 'deleteComposition'
-  | 'createCompositionItem'
-  | 'updateCompositionItem'
-  | 'reorderCompositionItems'
-  | 'deleteCompositionItem'
   | 'requestSync'
   | 'requestOverviewSync'
   | 'trackJob'
@@ -147,7 +119,6 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
       name: params.name,
       assetType: params.assetType,
       mediaKind: params.mediaKind,
-      collectionPlacements: params.collectionPlacements,
     });
   }, [sendMessage]);
 
@@ -168,133 +139,6 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
   // Sever lineage link (cut historical connection)
   const severLineage = useCallback((lineageId: string) => {
     sendMessage({ type: 'lineage:sever', lineageId });
-  }, [sendMessage]);
-
-  const createRelation = useCallback((params: {
-    subject: SpaceSubject;
-    object: SpaceSubject;
-    relationType: SpaceRelationType;
-    context?: SpaceRelationContext | string | null;
-  }) => {
-    sendMessage({
-      type: 'relation:create',
-      subject: params.subject,
-      object: params.object,
-      relationType: params.relationType,
-      context: params.context ?? null,
-    });
-  }, [sendMessage]);
-
-  const updateRelation = useCallback((relationId: string, changes: {
-    relationType?: SpaceRelationType;
-    context?: SpaceRelationContext | string | null;
-  }) => {
-    sendMessage({ type: 'relation:update', relationId, changes });
-  }, [sendMessage]);
-
-  const deleteRelation = useCallback((relationId: string) => {
-    sendMessage({ type: 'relation:delete', relationId });
-  }, [sendMessage]);
-
-  const createCollection = useCallback((params: CollectionCreateParams) => {
-    sendMessage({
-      type: 'collection:create',
-      id: params.id,
-      name: params.name,
-      kind: params.kind,
-      color: params.color,
-      description: params.description,
-      sortIndex: params.sortIndex,
-    });
-  }, [sendMessage]);
-
-  const updateCollection = useCallback((collectionId: string, changes: CollectionUpdateParams) => {
-    sendMessage({ type: 'collection:update', collectionId, changes });
-  }, [sendMessage]);
-
-  const deleteCollection = useCallback((collectionId: string) => {
-    sendMessage({ type: 'collection:delete', collectionId });
-  }, [sendMessage]);
-
-  const addCollectionItem = useCallback((params: CollectionItemCreateParams) => {
-    sendMessage({
-      type: 'collection_item:create',
-      collectionId: params.collectionId,
-      id: params.id,
-      subjectType: params.subjectType,
-      assetId: params.assetId,
-      variantId: params.variantId,
-      role: params.role,
-      pinnedVariantId: params.pinnedVariantId,
-      sortIndex: params.sortIndex,
-    });
-  }, [sendMessage]);
-
-  const updateCollectionItem = useCallback((collectionId: string, itemId: string, changes: CollectionItemUpdateParams) => {
-    sendMessage({ type: 'collection_item:update', collectionId, itemId, changes });
-  }, [sendMessage]);
-
-  const reorderCollectionItems = useCallback((collectionId: string, itemIds: string[]) => {
-    sendMessage({ type: 'collection_items:reorder', collectionId, itemIds });
-  }, [sendMessage]);
-
-  const deleteCollectionItem = useCallback((collectionId: string, itemId: string) => {
-    sendMessage({ type: 'collection_item:delete', collectionId, itemId });
-  }, [sendMessage]);
-
-  const createComposition = useCallback((params: CompositionCreateParams): string => {
-    const compositionId = params.id ?? crypto.randomUUID();
-    sendMessage({
-      type: 'composition:create',
-      id: compositionId,
-      name: params.name,
-      description: params.description,
-      status: params.status,
-      outputAssetId: params.outputAssetId,
-      outputVariantId: params.outputVariantId,
-      metadata: params.metadata,
-      sortIndex: params.sortIndex,
-    });
-    return compositionId;
-  }, [sendMessage]);
-
-  const updateComposition = useCallback((compositionId: string, changes: CompositionUpdateParams) => {
-    sendMessage({ type: 'composition:update', compositionId, changes });
-  }, [sendMessage]);
-
-  const deleteComposition = useCallback((compositionId: string) => {
-    sendMessage({ type: 'composition:delete', compositionId });
-  }, [sendMessage]);
-
-  const createCompositionItem = useCallback((compositionId: string, params: CompositionItemCreateParams): string => {
-    const itemId = params.id ?? crypto.randomUUID();
-    sendMessage({
-      type: 'composition_item:create',
-      compositionId,
-      id: itemId,
-      role: params.role,
-      assetId: params.assetId,
-      variantId: params.variantId,
-      metadata: params.metadata,
-      sortIndex: params.sortIndex,
-    });
-    return itemId;
-  }, [sendMessage]);
-
-  const updateCompositionItem = useCallback((
-    compositionId: string,
-    itemId: string,
-    changes: CompositionItemUpdateParams,
-  ) => {
-    sendMessage({ type: 'composition_item:update', compositionId, itemId, changes });
-  }, [sendMessage]);
-
-  const reorderCompositionItems = useCallback((compositionId: string, itemIds: string[]) => {
-    sendMessage({ type: 'composition_items:reorder', compositionId, itemIds });
-  }, [sendMessage]);
-
-  const deleteCompositionItem = useCallback((compositionId: string, itemId: string) => {
-    sendMessage({ type: 'composition_item:delete', compositionId, itemId });
   }, [sendMessage]);
 
   const requestSync = useCallback(() => {
@@ -363,7 +207,6 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
       videoResolution: params.videoResolution,
       videoDurationSeconds: params.videoDurationSeconds,
       videoTier: params.videoTier,
-      collectionPlacements: params.collectionPlacements,
     });
     return requestId;
   }, [sendMessage]);
@@ -398,7 +241,6 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
       videoResolution: params.videoResolution,
       videoDurationSeconds: params.videoDurationSeconds,
       videoTier: params.videoTier,
-      collectionPlacements: params.collectionPlacements,
     });
     return requestId;
   }, [sendMessage]);
@@ -650,23 +492,6 @@ export function useSpaceCommands({ spaceId, setJobs, syncModeRef }: SpaceCommand
     retryVariant,
     regenerateVariant,
     severLineage,
-    createRelation,
-    updateRelation,
-    deleteRelation,
-    createCollection,
-    updateCollection,
-    deleteCollection,
-    addCollectionItem,
-    updateCollectionItem,
-    reorderCollectionItems,
-    deleteCollectionItem,
-    createComposition,
-    updateComposition,
-    deleteComposition,
-    createCompositionItem,
-    updateCompositionItem,
-    reorderCompositionItems,
-    deleteCompositionItem,
     requestSync,
     requestOverviewSync,
     updatePresence,

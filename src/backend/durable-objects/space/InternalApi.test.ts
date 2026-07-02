@@ -23,7 +23,6 @@ function createApp(backfill = mock.fn(async (data: unknown) => ({
     organization: {
       httpBackfillParentHierarchy: backfill,
     },
-    production: {},
   });
   return { app, backfill };
 }

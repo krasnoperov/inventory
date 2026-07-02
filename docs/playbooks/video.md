@@ -24,11 +24,9 @@ makefx derive --refs CHARACTER_VARIANT_ID,BACKGROUND_VARIANT_ID \
   "Hero centered in the market, cinematic 16:9 composition" \
   -o keyframes/shot-001.png
 
-# 2. Animate the keyframe with Veo, attaching production metadata
+# 2. Animate the keyframe with Veo
 makefx video derive --refs KEYFRAME_VARIANT_ID \
   --name "Episode 01 Shot 001" --type animation \
-  --production-id episode-01 --shot-id shot-001 \
-  --scene-label "Market" --timeline-start-ms 0 --duration-ms 8000 \
   "Slow dolly-in, subtle crowd movement, keep the hero centered" \
   -o video/episode-01/shot-001.mp4
 ```
@@ -90,23 +88,6 @@ job: the default `generate` model for hero shots, `fast`/`lite` for cheaper
 iteration and background motion. Details and defaults live in
 [model-and-parameter-selection.md](../model-and-parameter-selection.md).
 
-## Hand Off To A Renderer
-
-When a clip is destined for a timeline, attach production metadata
-(`--production-id`, `--shot-id`, `--scene-label`, `--timeline-start-ms`,
-`--duration-ms`) at generation time, then export the whole production as
-renderer-ready scene arguments:
-
-```bash
-makefx productions export --production-id episode-01 -o handoff/episode-01.scenes.args
-```
-
-This downloads the media through your authenticated session and emits sorted
-`--scene '<startMs>|<label>|<path>'` arguments (use `--json` for structured
-data). Keep variant IDs in your shotlist as the source of truth — not local
-filenames. The full loop is in the
-[CLI media production cookbook](../cli-media-production-cookbook.md).
-
 ## Quick Reference
 
 | Goal | Do this |
@@ -117,7 +98,7 @@ filenames. The full loop is in the
 | A directed shot | Cinematography + Subject + Action + Context + Style, ~100–200 words |
 | Multi-beat clip | Timestamp prompting, matched to a 4/6/8s clip |
 | Cheaper iteration | Use the `fast` / `lite` Veo variant |
-| Timeline handoff | Add production metadata, then `productions export` |
+| Continue a chosen clip | Open Details, choose the best variant, then derive/refine from it |
 
 ## Sources
 

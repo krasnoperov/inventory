@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { type Asset, type SpaceSubject, type Variant, isVariantAudioReady, isVariantForgeTrayReady } from '../hooks/useSpaceWebSocket';
+import { type Asset, type Variant, isVariantAudioReady, isVariantForgeTrayReady } from '../hooks/useSpaceWebSocket';
 import { formatMediaKind } from '../mediaKind';
 import { AssetMenu } from './AssetMenu';
 import { getAudioCardMetadata } from './assetCardMetadata';
@@ -20,7 +20,6 @@ export interface AssetCardProps {
   onAssetClick?: (asset: Asset) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   onRenameAsset?: (asset: Asset) => void;
-  onCreateRelation?: (subject: SpaceSubject) => void;
   onDeleteAsset?: (asset: Asset) => void;
 }
 
@@ -36,7 +35,6 @@ export function AssetCard(props: AssetCardProps) {
     onAssetClick,
     onAddToTray,
     onRenameAsset,
-    onCreateRelation,
     onDeleteAsset,
   } = props;
   const [showAssetMenu, setShowAssetMenu] = useState(false);
@@ -189,7 +187,6 @@ export function AssetCard(props: AssetCardProps) {
           position={menuPosition}
           onClose={handleCloseMenu}
           onRename={onRenameAsset ? () => onRenameAsset(asset) : undefined}
-          onCreateRelation={onCreateRelation ? () => onCreateRelation({ subjectType: 'asset', assetId: asset.id }) : undefined}
           onDelete={onDeleteAsset ? () => onDeleteAsset(asset) : undefined}
         />
       )}

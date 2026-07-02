@@ -35,8 +35,6 @@ import { useForgeOperations } from '../hooks/useForgeOperations';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { defaultAssetNameFromFile, findAcceptedUploadFile } from '../mediaUpload';
 import { TileSetPanel } from '../components/TileSetPanel/TileSetPanel';
-import { StylePanel } from '../components/ForgeTray/StylePanel';
-import { CompositionDetail } from '../components/CompositionDetail';
 import { ButtonLink, IconButton } from '../ui';
 import {
   approveSpaceAccessRequest,
@@ -140,8 +138,6 @@ export default function SpacePage() {
     collections,
     collectionItems,
     stylePresets,
-    compositions,
-    compositionItems,
     jobs,
     requestSync,
     requestOverviewSync,
@@ -152,16 +148,6 @@ export default function SpacePage() {
     requestChatHistory,
     clearChatSession,
     forkAsset,
-    createComposition,
-    updateComposition,
-    deleteComposition,
-    createCompositionItem,
-    updateCompositionItem,
-    reorderCompositionItems,
-    deleteCompositionItem,
-    createStylePreset,
-    updateStylePreset,
-    deleteStylePreset,
     sendBatchRequest,
     sendGenerationEstimateRequest,
     tileSets,
@@ -237,7 +223,7 @@ export default function SpacePage() {
 
   // The Space overview is the canvas. It draws lineage edges, while the default
   // overview sync omits lineage, so upgrade to a full sync once the socket is
-  // open. The full sync then sticks for contextual details and composition work.
+  // open.
   useEffect(() => {
     if (wsStatus === 'connected') {
       requestSync();
@@ -247,17 +233,11 @@ export default function SpacePage() {
   // Tile Set panel state
   const [showTileSetPanel, setShowTileSetPanel] = useState(false);
 
-  // Composition detail panel state
-  const [showCompositionPanel, setShowCompositionPanel] = useState(false);
-  const [selectedCompositionId, setSelectedCompositionId] = useState<string | null>(null);
-
-  // Style panel state
-  const [showStylePanel, setShowStylePanel] = useState(false);
   const defaultStylePreset = stylePresets.find((preset) => (
     (preset.enabled === true || preset.enabled === 1) &&
     (preset.is_default === true || preset.is_default === 1)
   ));
-  const hasSpaceSidePanel = showCompositionPanel || (showSharingPanel && isOwner) || (showStylePanel && Boolean(spaceId));
+  const hasSpaceSidePanel = showSharingPanel && isOwner;
 
   useEffect(() => {
     if (!user) {
@@ -332,24 +312,6 @@ export default function SpacePage() {
     addTemporaryUserMessage(content);
     sendPersistentChatMessage(content, forgeContext);
   }, [sendPersistentChatMessage, addTemporaryUserMessage]);
-
-  const handleOpenCompositions = useCallback(() => {
-    requestSync();
-    setSelectedCompositionId((current) => current ?? compositions[0]?.id ?? null);
-    setShowSharingPanel(false);
-    setShowStylePanel(false);
-    setShowCompositionPanel(true);
-  }, [compositions, requestSync]);
-
-  const handleCreateComposition = useCallback(() => {
-    const id = createComposition({
-      name: `Composition ${compositions.length + 1}`,
-    });
-    setSelectedCompositionId(id);
-    setShowSharingPanel(false);
-    setShowStylePanel(false);
-    setShowCompositionPanel(true);
-  }, [compositions.length, createComposition]);
 
   const refreshSharingState = useCallback(async () => {
     if (!spaceId) return;
@@ -592,10 +554,6 @@ export default function SpacePage() {
                   setSharingActionError(null);
                   setShowSharingPanel((value) => {
                     const next = !value;
-                    if (next) {
-                      setShowCompositionPanel(false);
-                      setShowStylePanel(false);
-                    }
                     return next;
                   });
                 }}
@@ -623,30 +581,6 @@ export default function SpacePage() {
             </CanvasToolbarStat>
             {wsStatus === 'connected' && <CanvasToolbarLive />}
           </CanvasToolbarGroup>
-          <CanvasToolbarDivider />
-          <CanvasToolbarButton
-            onClick={() => navigate(`/spaces/${spaceId}/production`)}
-            title="Open Production view"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 6h16" />
-              <path d="M4 12h16" />
-              <path d="M4 18h10" />
-              <circle cx="17" cy="18" r="3" />
-            </svg>
-          </CanvasToolbarButton>
-          <CanvasToolbarButton
-            onClick={handleOpenCompositions}
-            title="Open compositions"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="4" y="4" width="7" height="7" rx="1" />
-              <rect x="13" y="4" width="7" height="7" rx="1" />
-              <rect x="8.5" y="13" width="7" height="7" rx="1" />
-              <path d="M11 7.5h2" />
-              <path d="M12 11v2" />
-            </svg>
-          </CanvasToolbarButton>
           <CanvasToolbarDivider />
           <CanvasToolbarButton
             onClick={handleExport}
@@ -692,25 +626,6 @@ export default function SpacePage() {
                   <rect x="13" y="3" width="8" height="8" rx="1" />
                   <rect x="3" y="13" width="8" height="8" rx="1" />
                   <rect x="13" y="13" width="8" height="8" rx="1" />
-                </svg>
-              </CanvasToolbarButton>
-              <CanvasToolbarButton
-                className={defaultStylePreset ? styles.styleActive : undefined}
-                onClick={() => setShowStylePanel((value) => {
-                  const next = !value;
-                  if (next) {
-                    setShowCompositionPanel(false);
-                    setShowSharingPanel(false);
-                  }
-                  return next;
-                })}
-                title={defaultStylePreset ? `Style: ${defaultStylePreset.name}` : 'Configure style presets'}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.8-.1 2.6-.4.5-.2.8-.7.7-1.2-.1-.4-.3-.7-.6-.9-.4-.3-.6-.8-.6-1.3 0-1 .8-1.8 1.8-1.8h2.1c3 0 5.5-2.5 5.5-5.5C23.5 5.5 18.5 2 12 2z" />
-                  <circle cx="8" cy="10" r="1.5" fill="currentColor" stroke="none" />
-                  <circle cx="12" cy="7" r="1.5" fill="currentColor" stroke="none" />
-                  <circle cx="16" cy="10" r="1.5" fill="currentColor" stroke="none" />
                 </svg>
               </CanvasToolbarButton>
             </>
@@ -760,36 +675,6 @@ export default function SpacePage() {
         )}
           </div>
 
-          {showCompositionPanel && (
-            <div className={styles.spaceSidePanelContainer}>
-              <CompositionDetail
-                spaceId={spaceId}
-                layout="dock"
-                compositions={compositions}
-                compositionItems={compositionItems}
-                assets={assets}
-                variants={variants}
-                lineage={lineage}
-                collections={collections}
-                collectionItems={collectionItems}
-                selectedCompositionId={selectedCompositionId}
-                canEdit={canEdit}
-                onSelectComposition={setSelectedCompositionId}
-                onCreateComposition={canEdit ? handleCreateComposition : undefined}
-                onUpdateComposition={updateComposition}
-                onDeleteComposition={(compositionId) => {
-                  deleteComposition(compositionId);
-                  setSelectedCompositionId((current) => current === compositionId ? null : current);
-                }}
-                onCreateItem={createCompositionItem}
-                onUpdateItem={updateCompositionItem}
-                onDeleteItem={deleteCompositionItem}
-                onReorderItems={reorderCompositionItems}
-                onOpenAsset={(assetId) => navigate(`/spaces/${spaceId}/assets/${assetId}`)}
-                onClose={() => setShowCompositionPanel(false)}
-              />
-            </div>
-          )}
           {showSharingPanel && isOwner && (
             <div className={styles.spaceSidePanelContainer}>
               <SpaceSharingPanel
@@ -807,20 +692,6 @@ export default function SpacePage() {
                 onRevokeInvitation={handleRevokeInvitation}
                 onChangeMemberRole={handleChangeMemberRole}
                 onRevokeMember={handleRevokeMember}
-              />
-            </div>
-          )}
-          {showStylePanel && spaceId && (
-            <div className={styles.spaceSidePanelContainer}>
-              <StylePanel
-                spaceId={spaceId}
-                layout="rail"
-                onClose={() => setShowStylePanel(false)}
-                createStylePreset={createStylePreset}
-                updateStylePreset={updateStylePreset}
-                deleteStylePreset={deleteStylePreset}
-                stylePresets={stylePresets}
-                styleReferenceCollections={collections.filter((collection) => collection.kind === 'style_refs')}
               />
             </div>
           )}
@@ -845,13 +716,7 @@ export default function SpacePage() {
           sendChatMessage={handleSendChatMessage}
           requestChatHistory={requestChatHistory}
           clearChatSession={clearChatSession}
-          spaceId={spaceId}
-          createStylePreset={createStylePreset}
-          updateStylePreset={updateStylePreset}
-          deleteStylePreset={deleteStylePreset}
           stylePresets={stylePresets}
-          collections={collections}
-          collectionItems={collectionItems}
           forgeError={forgeError}
           forgeErrorCode={forgeErrorCode}
           generationEstimate={generationEstimate}

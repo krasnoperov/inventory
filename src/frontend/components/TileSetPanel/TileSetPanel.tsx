@@ -8,6 +8,7 @@ import type {
 } from '../../hooks/useSpaceWebSocket';
 import { getR2ImageUrl } from '../../media-cdn';
 import { Button, Checkbox, IconButton, TextArea, UiSelect, type SelectOption } from '../../ui';
+import { DockedSheet } from '../DockedSheet';
 import styles from './TileSetPanel.module.css';
 
 type GenerationMode = 'sequential' | 'single-shot';
@@ -125,8 +126,7 @@ export function TileSetPanel({
   if (activeSet) {
     const positions = tilePositions.filter((tp) => tp.tile_set_id === activeSet.id);
     return (
-      <div className={styles.sheetHost} onClick={handleSheetHostClick}>
-        <div className={styles.sheetPanel}>
+      <DockedSheet onClick={handleSheetHostClick}>
           <div className={styles.header}>
             <h2 className={styles.title}>Tile Set in Progress</h2>
             <IconButton onClick={onClose} aria-label="Close tile set panel" title="Close" variant="ghost" size="sm">
@@ -186,8 +186,7 @@ export function TileSetPanel({
               Close
             </Button>
           </div>
-        </div>
-      </div>
+      </DockedSheet>
     );
   }
 
@@ -200,8 +199,7 @@ export function TileSetPanel({
     }).length;
 
     return (
-      <div className={styles.sheetHost} onClick={handleSheetHostClick}>
-        <div className={styles.sheetPanel}>
+      <DockedSheet onClick={handleSheetHostClick}>
           <div className={styles.header}>
             <h2 className={styles.title}>Tile Set Failed</h2>
             <IconButton onClick={onClose} aria-label="Close tile set panel" title="Close" variant="ghost" size="sm">
@@ -234,15 +232,13 @@ export function TileSetPanel({
               Try Again
             </Button>
           </div>
-        </div>
-      </div>
+      </DockedSheet>
     );
   }
 
   // Setup view
   return (
-    <div className={styles.sheetHost} onClick={handleSheetHostClick}>
-      <div className={styles.sheetPanel}>
+    <DockedSheet onClick={handleSheetHostClick}>
         <div className={styles.header}>
           <h2 className={styles.title}>Create Tile Set</h2>
           <IconButton onClick={onClose} aria-label="Close tile set panel" title="Close" variant="ghost" size="sm">
@@ -333,7 +329,6 @@ export function TileSetPanel({
             Generate {gridSize}x{gridSize} Tiles
           </Button>
         </div>
-      </div>
-    </div>
+    </DockedSheet>
   );
 }

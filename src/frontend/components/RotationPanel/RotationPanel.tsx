@@ -9,6 +9,7 @@ import type {
 } from '../../hooks/useSpaceWebSocket';
 import { getR2ImageUrl } from '../../media-cdn';
 import { Button, Checkbox, IconButton, SegmentedControl, TextInput, UiSelect, type SelectOption } from '../../ui';
+import { DockedSheet } from '../DockedSheet';
 import styles from './RotationPanel.module.css';
 
 type GenerationMode = 'sequential' | 'single-shot';
@@ -140,8 +141,7 @@ export function RotationPanel({
   if (activeSet) {
     const views = rotationViews.filter((rv) => rv.rotation_set_id === activeSet.id);
     return (
-      <div className={styles.sheetHost} onClick={handleSheetHostClick}>
-        <div className={styles.sheetPanel}>
+      <DockedSheet onClick={handleSheetHostClick}>
           <div className={styles.header}>
             <h2 className={styles.title}>Rotation in Progress</h2>
             <IconButton onClick={onClose} aria-label="Close rotation panel" title="Close" variant="ghost" size="sm">
@@ -192,8 +192,7 @@ export function RotationPanel({
               Close
             </Button>
           </div>
-        </div>
-      </div>
+      </DockedSheet>
     );
   }
 
@@ -206,8 +205,7 @@ export function RotationPanel({
     }).length;
 
     return (
-      <div className={styles.sheetHost} onClick={handleSheetHostClick}>
-        <div className={styles.sheetPanel}>
+      <DockedSheet onClick={handleSheetHostClick}>
           <div className={styles.header}>
             <h2 className={styles.title}>Rotation Failed</h2>
             <IconButton onClick={onClose} aria-label="Close rotation panel" title="Close" variant="ghost" size="sm">
@@ -240,8 +238,7 @@ export function RotationPanel({
               Try Again
             </Button>
           </div>
-        </div>
-      </div>
+      </DockedSheet>
     );
   }
 
@@ -257,8 +254,7 @@ export function RotationPanel({
       selectedRating === 'approved' || selectedRating === 'rejected' ? selectedRating : null;
 
     return (
-      <div className={styles.sheetHost} onClick={handleSheetHostClick}>
-        <div className={styles.sheetPanel}>
+      <DockedSheet onClick={handleSheetHostClick}>
           <div className={styles.header}>
             <h2 className={styles.title}>Rotation Complete</h2>
             <IconButton onClick={onClose} aria-label="Close rotation panel" title="Close" variant="ghost" size="sm">
@@ -324,15 +320,13 @@ export function RotationPanel({
               Generate New Set
             </Button>
           </div>
-        </div>
-      </div>
+      </DockedSheet>
     );
   }
 
   // Setup view
   return (
-    <div className={styles.sheetHost} onClick={handleSheetHostClick}>
-      <div className={styles.sheetPanel}>
+    <DockedSheet onClick={handleSheetHostClick}>
         <div className={styles.header}>
           <h2 className={styles.title}>Generate Rotation Set</h2>
           <IconButton onClick={onClose} aria-label="Close rotation panel" title="Close" variant="ghost" size="sm">
@@ -422,7 +416,6 @@ export function RotationPanel({
             Start Rotation
           </Button>
         </div>
-      </div>
-    </div>
+    </DockedSheet>
   );
 }

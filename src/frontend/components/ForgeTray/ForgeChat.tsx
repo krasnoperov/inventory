@@ -5,6 +5,7 @@ import type {
   ForgeChatProgressResult,
 } from '../../hooks/useSpaceWebSocket';
 import { Button, IconButton, TextInput } from '../../ui';
+import { DockedSheet } from '../DockedSheet';
 import styles from './ForgeChat.module.css';
 
 /** Progress state for description phase */
@@ -176,8 +177,7 @@ export function ForgeChat({
   }, [clearChat]);
 
   return (
-    <div className={styles.sheetHost}>
-      <div className={styles.chatPanel}>
+    <DockedSheet panelClassName={styles.chatPanel}>
       {/* Header */}
       <div className={styles.header}>
         <h3 className={styles.title}>Chat with Claude</h3>
@@ -360,8 +360,7 @@ export function ForgeChat({
           </svg>
         </IconButton>
       </div>
-      </div>
-    </div>
+    </DockedSheet>
   );
 }
 

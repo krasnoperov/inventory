@@ -4,17 +4,13 @@ import { useForgeTrayStore } from '../../stores/forgeTrayStore';
 import type { ForgeOperation } from '../../stores/forgeTrayStore';
 import {
   type Asset,
-  type CollectionItem,
-  type SpaceCollection,
   type Variant,
   type ChatMessageClient,
   type ChatForgeContext,
   type ForgeChatProgressResult,
   type GenerationEstimateRequestParams,
   type GenerationEstimateResult,
-  type StylePresetCreateParams,
   type StylePresetRaw,
-  type StylePresetUpdateParams,
 } from '../../hooks/useSpaceWebSocket';
 import type { MediaKind, MusicGenerationProvider } from '../../../shared/websocket-types';
 import {
@@ -44,7 +40,6 @@ import {
 } from '../../../shared/videoGenerationOptions';
 import { AssetPickerModal } from './AssetPickerModal';
 import { ForgeChat } from './ForgeChat';
-import { StylePanel } from './StylePanel';
 import { VoicePicker } from './VoicePicker';
 import { Thumbnail } from '../Thumbnail';
 import { Link } from '../Link';
@@ -145,15 +140,9 @@ export interface ForgeTrayProps {
   requestChatHistory?: () => void;
   /** Handler to clear chat session */
   clearChatSession?: () => void;
-  /** Space ID for style panel */
+  /** Space context for media previews and picker requests */
   spaceId?: string;
-  /** Asset-backed style methods */
-  createStylePreset?: (params: StylePresetCreateParams) => void;
-  updateStylePreset?: (presetId: string, changes: StylePresetUpdateParams) => void;
-  deleteStylePreset?: (presetId: string) => void;
   stylePresets?: StylePresetRaw[];
-  collections?: SpaceCollection[];
-  collectionItems?: CollectionItem[];
   /** Batch send function */
   sendBatchRequest?: (params: import('../../hooks/useSpaceWebSocket').BatchRequestParams) => string;
   /** Forge error (generate/refine/batch failure) */
@@ -225,8 +214,7 @@ const VIDEO_TIER_SELECT_OPTIONS: Array<SelectOption<VideoGenerationTier>> = VIDE
 type StyleSelection =
   | { mode: 'default' }
   | { mode: 'preset'; presetId: string }
-  | { mode: 'none' }
-  | { mode: 'custom'; variantIds: string[] };
+  | { mode: 'none' };
 
 const ESTIMATE_METER_LABELS: Record<string, string> = {
   gemini_images: 'Gemini image',
@@ -292,29 +280,6 @@ function isDefaultPreset(preset: StylePresetRaw): boolean {
   return preset.is_default === true || preset.is_default === 1;
 }
 
-function getCollectionStyleVariantIds(
-  collectionId: string,
-  collectionItems: CollectionItem[],
-  allAssets: Asset[],
-  allVariants: Variant[],
-): string[] {
-  const ids: string[] = [];
-  const seen = new Set<string>();
-  for (const item of collectionItems) {
-    if (item.collection_id !== collectionId || item.role !== 'style_ref') continue;
-    let variantId = item.variant_id ?? item.pinned_variant_id ?? null;
-    if (!variantId && item.asset_id) {
-      const asset = allAssets.find((candidate) => candidate.id === item.asset_id);
-      variantId = asset?.active_variant_id ?? null;
-    }
-    const variant = variantId ? allVariants.find((candidate) => candidate.id === variantId) : null;
-    if (!variant || variant.status !== 'completed' || !variant.image_key || seen.has(variant.id)) continue;
-    seen.add(variant.id);
-    ids.push(variant.id);
-  }
-  return ids;
-}
-
 export function ForgeTray({
   allAssets,
   allVariants,
@@ -335,16 +300,11 @@ export function ForgeTray({
   requestChatHistory,
   clearChatSession,
   spaceId,
-  createStylePreset,
-  updateStylePreset,
-  deleteStylePreset,
   stylePresets = [],
   forgeError,
   forgeErrorCode,
   generationEstimate,
   sendGenerationEstimateRequest,
-  collections = [],
-  collectionItems = [],
 }: ForgeTrayProps) {
   const { slots, prompt, setPrompt, clearSlots, removeSlot, setMaxSlots, prefillAudio, prefillToken } = useForgeTrayStore();
   const [showAssetPicker, setShowAssetPicker] = useState(false);
@@ -355,10 +315,8 @@ export function ForgeTray({
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
   const [showChat, setShowChat] = useState(false);
   // Tray rests as a compact prompt + control bar; the per-mode options reveal
-  // once the user engages the tray (focus, a draft prompt, references, or an
-  // open panel).
+  // once the user engages the tray (focus, a draft prompt, references, or chat).
   const [trayFocused, setTrayFocused] = useState(false);
-  const [showStylePanel, setShowStylePanel] = useState(false);
   const [styleSelection, setStyleSelection] = useState<StyleSelection>({ mode: 'default' });
   const [batchCount, setBatchCount] = useState(1);
   const [batchMode, setBatchMode] = useState<'explore' | 'set'>('explore');
@@ -524,19 +482,13 @@ export function ForgeTray({
     () => enabledStylePresets.find(isDefaultPreset) ?? null,
     [enabledStylePresets],
   );
-  const styleVariantIds = useMemo(
-    () => (styleSelection.mode === 'custom' ? styleSelection.variantIds : []),
-    [styleSelection],
-  );
   const selectedStylePreset = styleSelection.mode === 'preset'
     ? enabledStylePresets.find((preset) => preset.id === styleSelection.presetId) ?? null
     : styleSelection.mode === 'default'
       ? defaultStylePreset
       : null;
   const styleOverride = styleSelection.mode === 'none';
-  const selectedStyleCount = styleSelection.mode === 'custom'
-    ? styleVariantIds.length
-    : selectedStylePreset?.reference_count ?? 0;
+  const selectedStyleCount = selectedStylePreset?.reference_count ?? 0;
   const styleImageCount = mediaModeConfig.supportsStyle && !styleOverride ? selectedStyleCount : 0;
   const referenceSlotLimit = currentMediaGroup === 'image'
     ? getImageModelMaxReferenceImages(imageModel)
@@ -568,29 +520,6 @@ export function ForgeTray({
     () => slots.filter(isVeoImageInput).map((slot) => slot.id),
     [slots]
   );
-  const styleReferenceCollections = useMemo(
-    () => collections.filter((collection) => collection.kind === 'style_refs'),
-    [collections],
-  );
-  const customStyleOptions = useMemo(() => {
-    const options: Array<{ variantId: string; label: string; collectionName: string }> = [];
-    const seen = new Set<string>();
-    for (const collection of styleReferenceCollections) {
-      for (const variantId of getCollectionStyleVariantIds(collection.id, collectionItems, allAssets, allVariants)) {
-        if (seen.has(variantId)) continue;
-        const variant = allVariants.find((candidate) => candidate.id === variantId);
-        const asset = variant ? allAssets.find((candidate) => candidate.id === variant.asset_id) : null;
-        if (!variant || !asset) continue;
-        seen.add(variantId);
-        options.push({
-          variantId,
-          label: asset.name,
-          collectionName: collection.name,
-        });
-      }
-    }
-    return options;
-  }, [allAssets, allVariants, collectionItems, styleReferenceCollections]);
   const selectedStyleControlValue = styleSelection.mode === 'preset'
     ? `preset:${styleSelection.presetId}`
     : styleSelection.mode;
@@ -664,42 +593,11 @@ export function ForgeTray({
   const handleStyleSelectionChange = useCallback((value: string) => {
     if (value === 'default') {
       setStyleSelection({ mode: 'default' });
-      setShowStylePanel(false);
     } else if (value === 'none') {
       setStyleSelection({ mode: 'none' });
-      setShowStylePanel(false);
-    } else if (value === 'custom') {
-      setStyleSelection((current) => ({
-        mode: 'custom',
-        variantIds: current.mode === 'custom' ? current.variantIds : [],
-      }));
-      setPendingUploadFile(null);
-      setUploadAssetName('');
-      setShowUploadPrompt(false);
-      setShowAssetPicker(false);
-      setShowChat(false);
-      setShowStylePanel(true);
-    } else if (value === 'manage') {
-      setPendingUploadFile(null);
-      setUploadAssetName('');
-      setShowUploadPrompt(false);
-      setShowAssetPicker(false);
-      setShowChat(false);
-      setShowStylePanel(true);
     } else if (value.startsWith('preset:')) {
       setStyleSelection({ mode: 'preset', presetId: value.slice('preset:'.length) });
-      setShowStylePanel(false);
     }
-  }, []);
-
-  const handleToggleCustomStyleVariant = useCallback((variantId: string) => {
-    setStyleSelection((current) => {
-      const currentIds = current.mode === 'custom' ? current.variantIds : [];
-      const nextIds = currentIds.includes(variantId)
-        ? currentIds.filter((id) => id !== variantId)
-        : [...currentIds, variantId];
-      return { mode: 'custom', variantIds: nextIds };
-    });
   }, []);
 
   const handleNameChange = useCallback((value: string) => {
@@ -712,7 +610,6 @@ export function ForgeTray({
     setUploadAssetName('');
     setShowUploadPrompt(false);
     setShowChat(false);
-    setShowStylePanel(false);
     setShowAssetPicker(true);
   }, []);
 
@@ -751,7 +648,6 @@ export function ForgeTray({
       setUploadAssetName(defaultName);
       setShowAssetPicker(false);
       setShowChat(false);
-      setShowStylePanel(false);
       setShowUploadPrompt(true);
     }
   }, [targetAsset, onUpload, onUploadNewAsset]);
@@ -835,7 +731,6 @@ export function ForgeTray({
       setUploadAssetName(defaultName);
       setShowAssetPicker(false);
       setShowChat(false);
-      setShowStylePanel(false);
       setShowUploadPrompt(true);
     }
   }, [onUpload, onUploadNewAsset, targetAsset]);
@@ -888,10 +783,9 @@ export function ForgeTray({
         disableStyle:
           isAudioMode ||
           styleSelection.mode === 'none' ||
-          (styleSelection.mode === 'custom' && styleVariantIds.length === 0) ||
           undefined,
         stylePresetId: !isAudioMode && styleSelection.mode === 'preset' ? styleSelection.presetId : undefined,
-        styleVariantIds: !isAudioMode && styleSelection.mode === 'custom' && styleVariantIds.length > 0 ? styleVariantIds : undefined,
+        styleVariantIds: undefined,
         voiceId: mediaMode === 'speech' ? voiceId : undefined,
         videoResolution: mediaMode === 'video' ? videoResolution : undefined,
         videoDurationSeconds: mediaMode === 'video' ? videoDurationSeconds : undefined,
@@ -925,7 +819,7 @@ export function ForgeTray({
     } finally {
       setIsSubmitting(false);
     }
-  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, isOverReferenceBudget, activeEstimate, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, styleSelection, styleVariantIds, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoResolution, videoDurationSeconds, videoTier]);
+  }, [prompt, effectiveDestinationType, effectiveAssetName, slots, targetAsset, onSubmit, clearSlots, setPrompt, operation, mediaMode, selectedMediaKind, isAudioMode, hasIncompatibleMediaSlots, isOverReferenceBudget, activeEstimate, effectiveBatchCount, batchMode, imageModel, aspectRatio, imageSize, styleSelection, voiceId, dialogueVoiceIds, musicProvider, musicProviderExplicit, videoResolution, videoDurationSeconds, videoTier]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -965,7 +859,6 @@ export function ForgeTray({
         setUploadAssetName('');
         setShowUploadPrompt(false);
         setShowAssetPicker(false);
-        setShowStylePanel(false);
       }
       return next;
     });
@@ -1059,13 +952,8 @@ export function ForgeTray({
   // Show destination select on AssetDetailPage (has currentAsset) so user can choose existing vs new.
   const showDestinationToggle = !!currentAsset;
   const showNameInput = effectiveDestinationType === 'new_asset';
-  const canManageStyles = !!spaceId;
-  const hasStyleChoices =
-    enabledStylePresets.length > 0 ||
-    customStyleOptions.length > 0 ||
-    styleVariantIds.length > 0 ||
-    styleSelection.mode !== 'default';
-  const showStyleControls = mediaModeConfig.supportsStyle && (canManageStyles || hasStyleChoices);
+  const hasStyleChoices = enabledStylePresets.length > 0 || styleSelection.mode !== 'default';
+  const showStyleControls = mediaModeConfig.supportsStyle && hasStyleChoices;
   const showBatchControls = effectiveDestinationType === 'new_asset' && mediaModeConfig.supportsBatch;
   // Empty-state reference add lives in the control bar; once slots exist the
   // thumbnail strip carries its own "+".
@@ -1164,25 +1052,13 @@ export function ForgeTray({
       { value: 'none', label: 'No style' },
     ];
 
-    if (customStyleOptions.length > 0 || canManageStyles || styleVariantIds.length > 0) {
-      options.push({
-        value: 'custom',
-        label: styleVariantIds.length > 0 ? `Custom refs (${styleVariantIds.length})` : 'Custom refs',
-      });
-    }
-
-    if (canManageStyles) {
-      options.push({ value: 'manage', label: 'Manage styles' });
-    }
-
     return options;
-  }, [canManageStyles, customStyleOptions.length, enabledStylePresets, styleVariantIds.length]);
+  }, [enabledStylePresets]);
 
   const isTrayExpanded =
     trayFocused ||
     prompt.trim().length > 0 ||
     slots.length > 0 ||
-    showStylePanel ||
     showChat;
   const hasCreationIntent = hasPrompt || slots.length > 0 || nameEdited || showDestinationToggle;
   const showNameChip = showNameInput && hasCreationIntent;
@@ -1664,22 +1540,6 @@ export function ForgeTray({
           )}
         </div>
       </div>
-
-      {/* StylePanel - docked sheet */}
-      {showStylePanel && mediaModeConfig.supportsStyle && spaceId && (
-        <StylePanel
-          spaceId={spaceId}
-          onClose={() => setShowStylePanel(false)}
-          stylePresets={stylePresets}
-          styleReferenceCollections={styleReferenceCollections}
-          customStyleOptions={customStyleOptions}
-          customStyleVariantIds={styleVariantIds}
-          onToggleCustomStyleVariant={handleToggleCustomStyleVariant}
-          createStylePreset={createStylePreset}
-          updateStylePreset={updateStylePreset}
-          deleteStylePreset={deleteStylePreset}
-        />
-      )}
 
       {/* ForgeChat - docked sheet */}
       {showChat && sendChatMessage && requestChatHistory && clearChatSession && (

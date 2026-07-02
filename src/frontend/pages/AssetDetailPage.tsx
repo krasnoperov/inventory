@@ -27,10 +27,6 @@ import {
   type Asset,
   type Variant,
   type ChatForgeContext,
-  type SpaceRelation,
-  type SpaceRelationContext,
-  type SpaceRelationType,
-  type SpaceSubject,
   type GenerationEstimateResult,
 } from '../hooks/useSpaceWebSocket';
 import { ForgeTray } from '../components/ForgeTray';
@@ -40,17 +36,6 @@ import { useImageUpload } from '../hooks/useImageUpload';
 import { findAcceptedUploadFile } from '../mediaUpload';
 import { RotationPanel } from '../components/RotationPanel/RotationPanel';
 import { TileGrid } from '../components/TileGrid/TileGrid';
-import { RelationEditorPanel, RelationsPanel } from '../components/RelationsPanel';
-import { CompositionDetail, CompositionUsageList } from '../components/CompositionDetail';
-import { StyleReferenceUsagePanel } from '../components/StyleReferenceUsagePanel';
-import {
-  applyCompositionShortcut,
-  type CompositionShortcut,
-} from '../productionShortcuts';
-import { applyCreatedOutputCollectionPlacements } from '../collectionPlacements';
-import { CollectionPlacementPicker } from '../components/CollectionPlacementPicker';
-import type { CollectionPlacementInput } from '../../shared/websocket-types';
-import type { CollectionItem, SpaceCollection } from '../space/protocol';
 import { formatMediaKind } from '../mediaKind';
 import { assetDetailsQueryOptions, sessionQueryOptions, spacePageQueryOptions } from '../queries';
 import { isWebRotationEnabled } from '../feature-flags';
@@ -64,10 +49,6 @@ interface ConfirmDialog {
   message: string;
   onConfirm: () => void;
 }
-
-type RelationEditorState =
-  | { mode: 'create'; subject: SpaceSubject }
-  | { mode: 'edit'; relation: SpaceRelation };
 
 const JOB_STATUS_LABELS = {
   pending: 'Queued',
@@ -93,44 +74,16 @@ interface AssetTitleInlineEditorProps {
   onStartEditName: () => void;
 }
 
-interface AssetCollectionsPanelProps {
-  assetPlacementControlsOpen?: boolean;
-  assetPlacementDrafts: CollectionPlacementInput[];
-  collections: SpaceCollection[];
-  collectionItems: CollectionItem[];
-  hideWhenEmpty?: boolean;
-  onAssetPlacementControlsOpenChange?: (open: boolean) => void;
-  onApplyAssetPlacements: () => void;
-  onApplyVariantPlacements: () => void;
-  onAssetPlacementDraftsChange: (value: CollectionPlacementInput[]) => void;
-  onDeleteCollectionItem: (collectionId: string, itemId: string) => void;
-  onUpdateCollectionItem: (collectionId: string, itemId: string, changes: { role?: string; pinnedVariantId?: string | null }) => void;
-  onVariantPlacementControlsOpenChange?: (open: boolean) => void;
-  onVariantPlacementDraftsChange: (value: CollectionPlacementInput[]) => void;
-  selectedVariant: Variant | null;
-  variantPlacementControlsOpen?: boolean;
-  variantPlacementDrafts: CollectionPlacementInput[];
-  variants: Variant[];
-}
-
 interface AssetDetailsStripProps {
   asset: Asset;
-  assetCollectionCount: number;
   assetTypeDisabled?: boolean;
   onAssetTypeChange?: (value: string) => void;
   selectedVariant: Variant | null;
   selectedVariantIndex?: number;
-  selectedVariantCollectionCount: number;
   variantCount: number;
 }
 
 type AssetDetailsContextProps = AssetDetailsStripProps;
-
-interface AssetDetailsInspectorProps {
-  children?: React.ReactNode;
-  className?: string;
-  open: boolean;
-}
 
 function titleizeAssetType(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1).replace('-', ' ');
@@ -175,30 +128,6 @@ const ASSET_TYPE_OPTIONS: Array<SelectOption<string>> = PREDEFINED_ASSET_TYPES.m
   value: type,
   label: titleizeAssetType(type),
 }));
-
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" width="14" height="14" aria-hidden="true">
-      <path d="m5 12 4 4L19 6" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
-      <path d="M18 6 6 18M6 6l12 12" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
 
 export function AssetTypeSelect({
   className,
@@ -257,395 +186,16 @@ export function AssetTitleInlineEditor({
   );
 }
 
-export function AssetCollectionsPanel({
-  assetPlacementControlsOpen,
-  assetPlacementDrafts,
-  collections,
-  collectionItems,
-  hideWhenEmpty = false,
-  onAssetPlacementControlsOpenChange,
-  onApplyAssetPlacements,
-  onApplyVariantPlacements,
-  onAssetPlacementDraftsChange,
-  onDeleteCollectionItem,
-  onUpdateCollectionItem,
-  onVariantPlacementControlsOpenChange,
-  onVariantPlacementDraftsChange,
-  selectedVariant,
-  variantPlacementControlsOpen,
-  variantPlacementDrafts,
-  variants,
-}: AssetCollectionsPanelProps) {
-  const [managementOpen, setManagementOpen] = useState(false);
-  const [assetPlacementOpen, setAssetPlacementOpen] = useState(false);
-  const [variantPlacementOpen, setVariantPlacementOpen] = useState(false);
-  const [editingCollectionItemId, setEditingCollectionItemId] = useState<string | null>(null);
-  const assetCollectionMemberships = collectionItems.filter((item) => item.subject_type === 'asset');
-  const selectedVariantCollectionMemberships = selectedVariant
-    ? collectionItems.filter((item) => item.subject_type === 'variant' && item.variant_id === selectedVariant.id)
-    : [];
-  const variantOptions = useMemo<Array<SelectOption<string>>>(() => [
-    { value: '', label: 'Main variant' },
-    ...variants.map((variant, index) => ({
-      value: variant.id,
-      label: getVariantOptionLabel(variant, index),
-    })),
-  ], [variants]);
-  const resolvedAssetPlacementOpen = assetPlacementControlsOpen ?? assetPlacementOpen;
-  const resolvedVariantPlacementOpen = variantPlacementControlsOpen ?? variantPlacementOpen;
-  const setResolvedAssetPlacementOpen = onAssetPlacementControlsOpenChange ?? setAssetPlacementOpen;
-  const setResolvedVariantPlacementOpen = onVariantPlacementControlsOpenChange ?? setVariantPlacementOpen;
-  const showAssetPlacementControls = resolvedAssetPlacementOpen || assetPlacementDrafts.length > 0;
-  const showVariantPlacementControls = resolvedVariantPlacementOpen || variantPlacementDrafts.length > 0;
-  const showManagement = managementOpen || showAssetPlacementControls || showVariantPlacementControls;
-  const totalMembershipCount = assetCollectionMemberships.length + selectedVariantCollectionMemberships.length;
-  const getCollectionName = useCallback((collectionId: string) => (
-    collections.find((entry) => entry.id === collectionId)?.name ?? 'Collection'
-  ), [collections]);
-  const getPinnedVariantLabel = useCallback((variantId: string | null | undefined) => {
-    if (!variantId) return null;
-    const variantIndex = variants.findIndex((entry) => entry.id === variantId);
-    if (variantIndex === -1) return 'Pinned variant';
-    return getVariantOptionLabel(variants[variantIndex], variantIndex);
-  }, [variants]);
-
-  useEffect(() => {
-    if (editingCollectionItemId && !collectionItems.some((item) => item.id === editingCollectionItemId)) {
-      setEditingCollectionItemId(null);
-    }
-  }, [collectionItems, editingCollectionItemId]);
-
-  if (collections.length === 0) return null;
-  if (hideWhenEmpty && totalMembershipCount === 0 && !showManagement) return null;
-
-  if (!showManagement) {
-    return (
-      <section className={`${styles.collectionPanel} ${styles.collectionPanelCompact}`} aria-label="Collection membership">
-        <div className={styles.collectionPanelHeader}>
-          <span className={styles.collectionPanelHeaderText}>
-            <span>Collections</span>
-            <span>{totalMembershipCount}</span>
-          </span>
-          <IconButton
-            size="sm"
-            variant="ghost"
-            className={styles.collectionPanelIconAction}
-            aria-label="Manage collections"
-            title="Manage collections"
-            onClick={() => setManagementOpen(true)}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 20h9" />
-              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-            </svg>
-          </IconButton>
-        </div>
-        {totalMembershipCount > 0 ? (
-          <div className={styles.collectionSummaryList}>
-            {assetCollectionMemberships.map((item) => {
-              const pinnedVariant = getPinnedVariantLabel(item.pinned_variant_id);
-              return (
-                <div key={item.id} className={styles.collectionSummaryRow}>
-                  <span className={styles.collectionSummaryName}>{getCollectionName(item.collection_id)}</span>
-                  <span className={styles.collectionSummaryMeta}>Asset</span>
-                  {item.role && <span className={styles.collectionSummaryMeta}>{item.role}</span>}
-                  {pinnedVariant && <span className={styles.collectionSummaryMeta}>{pinnedVariant}</span>}
-                </div>
-              );
-            })}
-            {selectedVariantCollectionMemberships.map((item) => (
-              <div key={item.id} className={styles.collectionSummaryRow}>
-                <span className={styles.collectionSummaryName}>{getCollectionName(item.collection_id)}</span>
-                <span className={styles.collectionSummaryMeta}>Variant</span>
-                {item.role && <span className={styles.collectionSummaryMeta}>{item.role}</span>}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className={styles.collectionSummaryEmpty}>No collection membership</p>
-        )}
-      </section>
-    );
-  }
-
-  return (
-    <section className={styles.collectionPanel} aria-label="Collection membership">
-      <div className={styles.collectionPanelHeader}>
-        <span>Collections</span>
-        <span className={styles.collectionPanelHeaderActions}>
-          {totalMembershipCount > 0 && <span>{totalMembershipCount}</span>}
-          {managementOpen && (
-            <IconButton
-              size="sm"
-              variant="ghost"
-              className={styles.collectionPanelAction}
-              aria-label="Done managing collections"
-              title="Done managing collections"
-              onClick={() => setManagementOpen(false)}
-            >
-              <CheckIcon />
-            </IconButton>
-          )}
-        </span>
-      </div>
-      <div className={styles.collectionPanelHeader}>
-        <span>Asset</span>
-        {assetCollectionMemberships.length > 0 && <span>{assetCollectionMemberships.length}</span>}
-      </div>
-      {assetCollectionMemberships.map((item) => {
-        const collection = collections.find((entry) => entry.id === item.collection_id);
-        const collectionName = collection?.name ?? 'collection';
-        const pinnedVariant = getPinnedVariantLabel(item.pinned_variant_id);
-        const isEditing = editingCollectionItemId === item.id;
-        return (
-          <div key={item.id} className={`${styles.collectionMembershipRow} ${isEditing ? styles.collectionMembershipRowEditing : ''}`}>
-            <div className={styles.collectionMembershipSummary}>
-              <span className={styles.collectionMembershipName}>{collection?.name ?? 'Collection'}</span>
-              <span className={styles.collectionSummaryMeta}>Asset</span>
-              {item.role && <span className={styles.collectionSummaryMeta}>{item.role}</span>}
-              {pinnedVariant && <span className={styles.collectionSummaryMeta}>{pinnedVariant}</span>}
-            </div>
-            <div className={styles.collectionMembershipActions}>
-              <IconButton
-                size="sm"
-                variant={isEditing ? 'secondary' : 'ghost'}
-                className={styles.collectionPanelAction}
-                aria-label={`${isEditing ? 'Done editing' : 'Edit'} ${collectionName} asset collection`}
-                title={`${isEditing ? 'Done editing' : 'Edit'} ${collectionName}`}
-                onClick={() => setEditingCollectionItemId(isEditing ? null : item.id)}
-              >
-                {isEditing ? (
-                  <CheckIcon />
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                  </svg>
-                )}
-              </IconButton>
-              <IconButton
-                size="sm"
-                variant="ghost"
-                className={styles.collectionRemoveAction}
-                aria-label={`Remove ${collectionName} from asset collections`}
-                title={`Remove ${collectionName}`}
-                onClick={() => onDeleteCollectionItem(item.collection_id, item.id)}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
-                  <path d="M4 7h16" />
-                  <path d="M10 11v6M14 11v6" />
-                  <path d="M6 7l1 13h10l1-13" />
-                  <path d="M9 7V4h6v3" />
-                </svg>
-              </IconButton>
-            </div>
-            {isEditing && (
-              <div className={styles.collectionMembershipControls}>
-                <TextInput
-                  value={item.role}
-                  aria-label={`Role in ${collectionName}`}
-                  onChange={(event) => onUpdateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
-                  fullWidth
-                />
-                <UiSelect
-                  value={item.pinned_variant_id ?? ''}
-                  options={variantOptions}
-                  onValueChange={(nextValue) => onUpdateCollectionItem(item.collection_id, item.id, { pinnedVariantId: nextValue || null })}
-                  label={`Pinned variant in ${collectionName}`}
-                  fullWidth
-                />
-              </div>
-            )}
-          </div>
-        );
-      })}
-      {showAssetPlacementControls ? (
-        <div className={styles.collectionPlacementControls}>
-          <CollectionPlacementPicker
-            collections={collections}
-            value={assetPlacementDrafts}
-            onChange={onAssetPlacementDraftsChange}
-            label="Add asset to collections"
-            addSelectLabel="Add asset to collection"
-            showLabel={false}
-            defaultSubjectType="asset"
-            showPinToCreatedVariant={Boolean(selectedVariant)}
-          />
-          <div className={styles.collectionPanelActions}>
-            {assetPlacementDrafts.length > 0 && (
-              <IconButton
-                size="sm"
-                variant="secondary"
-                className={styles.collectionPanelAction}
-                aria-label="Apply asset collections"
-                title="Apply asset collections"
-                onClick={() => {
-                  onApplyAssetPlacements();
-                  setResolvedAssetPlacementOpen(false);
-                }}
-              >
-                <CheckIcon />
-              </IconButton>
-            )}
-            <IconButton
-              size="sm"
-              variant="ghost"
-              className={styles.collectionPanelAction}
-              aria-label="Hide asset collection picker"
-              title="Hide asset collection picker"
-              onClick={() => setResolvedAssetPlacementOpen(false)}
-            >
-              <CloseIcon />
-            </IconButton>
-          </div>
-        </div>
-      ) : (
-        <IconButton
-          size="sm"
-          variant="secondary"
-          className={styles.collectionPanelAction}
-          aria-label="Add asset to collection"
-          title="Add asset to collection"
-          onClick={() => setResolvedAssetPlacementOpen(true)}
-        >
-          <PlusIcon />
-        </IconButton>
-      )}
-
-      {selectedVariant && (
-        <>
-          <div className={styles.collectionPanelHeader}>
-            <span>Variant</span>
-            {selectedVariantCollectionMemberships.length > 0 && <span>{selectedVariantCollectionMemberships.length}</span>}
-          </div>
-          {selectedVariantCollectionMemberships.map((item) => {
-            const collection = collections.find((entry) => entry.id === item.collection_id);
-            const collectionName = collection?.name ?? 'collection';
-            const isEditing = editingCollectionItemId === item.id;
-            return (
-              <div key={item.id} className={`${styles.collectionMembershipRow} ${isEditing ? styles.collectionMembershipRowEditing : ''}`}>
-                <div className={styles.collectionMembershipSummary}>
-                  <span className={styles.collectionMembershipName}>{collection?.name ?? 'Collection'}</span>
-                  <span className={styles.collectionSummaryMeta}>Variant</span>
-                  {item.role && <span className={styles.collectionSummaryMeta}>{item.role}</span>}
-                </div>
-                <div className={styles.collectionMembershipActions}>
-                  <IconButton
-                    size="sm"
-                    variant={isEditing ? 'secondary' : 'ghost'}
-                    className={styles.collectionPanelAction}
-                    aria-label={`${isEditing ? 'Done editing' : 'Edit'} ${collectionName} variant collection`}
-                    title={`${isEditing ? 'Done editing' : 'Edit'} ${collectionName}`}
-                    onClick={() => setEditingCollectionItemId(isEditing ? null : item.id)}
-                  >
-                    {isEditing ? (
-                      <CheckIcon />
-                    ) : (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                      </svg>
-                    )}
-                  </IconButton>
-                  <IconButton
-                    size="sm"
-                    variant="ghost"
-                    className={styles.collectionRemoveAction}
-                    aria-label={`Remove ${collectionName} from variant collections`}
-                    title={`Remove ${collectionName}`}
-                    onClick={() => onDeleteCollectionItem(item.collection_id, item.id)}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="14" height="14" aria-hidden="true">
-                      <path d="M4 7h16" />
-                      <path d="M10 11v6M14 11v6" />
-                      <path d="M6 7l1 13h10l1-13" />
-                      <path d="M9 7V4h6v3" />
-                    </svg>
-                  </IconButton>
-                </div>
-                {isEditing && (
-                  <div className={styles.collectionMembershipControls}>
-                    <TextInput
-                      value={item.role}
-                      aria-label={`Variant role in ${collectionName}`}
-                      onChange={(event) => onUpdateCollectionItem(item.collection_id, item.id, { role: event.target.value })}
-                      fullWidth
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {showVariantPlacementControls ? (
-            <div className={styles.collectionPlacementControls}>
-              <CollectionPlacementPicker
-                collections={collections}
-                value={variantPlacementDrafts}
-                onChange={onVariantPlacementDraftsChange}
-                label="Add selected variant to collections"
-                addSelectLabel="Add selected variant to collection"
-                showLabel={false}
-                defaultSubjectType="variant"
-              />
-              <div className={styles.collectionPanelActions}>
-                {variantPlacementDrafts.length > 0 && (
-                  <IconButton
-                    size="sm"
-                    variant="secondary"
-                    className={styles.collectionPanelAction}
-                    aria-label="Apply variant collections"
-                    title="Apply variant collections"
-                    onClick={() => {
-                      onApplyVariantPlacements();
-                      setResolvedVariantPlacementOpen(false);
-                    }}
-                  >
-                    <CheckIcon />
-                  </IconButton>
-                )}
-                <IconButton
-                  size="sm"
-                  variant="ghost"
-                  className={styles.collectionPanelAction}
-                  aria-label="Hide variant collection picker"
-                  title="Hide variant collection picker"
-                  onClick={() => setResolvedVariantPlacementOpen(false)}
-                >
-                  <CloseIcon />
-                </IconButton>
-              </div>
-            </div>
-          ) : (
-            <IconButton
-              size="sm"
-              variant="secondary"
-              className={styles.collectionPanelAction}
-              aria-label="Add selected variant to collection"
-              title="Add selected variant to collection"
-              onClick={() => setResolvedVariantPlacementOpen(true)}
-            >
-              <PlusIcon />
-            </IconButton>
-          )}
-        </>
-      )}
-    </section>
-  );
-}
-
 export function AssetDetailsStrip({
   asset,
-  assetCollectionCount,
   assetTypeDisabled = false,
   onAssetTypeChange,
   selectedVariant,
   selectedVariantIndex,
-  selectedVariantCollectionCount,
   variantCount,
 }: AssetDetailsStripProps) {
   const dimensions = formatDimensions(selectedVariant);
   const duration = formatDuration(selectedVariant?.media_duration_ms);
-  const collectionCount = assetCollectionCount + selectedVariantCollectionCount;
   const variantScope = selectedVariant
     ? formatSelectedVariant(selectedVariant, selectedVariantIndex, variantCount)
     : `${formatVariantCount(variantCount)} · None`;
@@ -684,10 +234,6 @@ export function AssetDetailsStrip({
             )}
           </dd>
         </div>
-        <div>
-          <dt>Collections</dt>
-          <dd>{collectionCount}</dd>
-        </div>
         {dimensions && (
           <div>
             <dt>Size</dt>
@@ -711,21 +257,6 @@ export function AssetDetailsContext({
   return (
     <div className={styles.assetDetailsContext}>
       <AssetDetailsStrip {...stripProps} />
-    </div>
-  );
-}
-
-export function AssetDetailsInspector({ children, className, open }: AssetDetailsInspectorProps) {
-  if (!open || !children) return null;
-
-  return (
-    <div
-      id="asset-details-inspector"
-      className={`${styles.assetDetailsInspector} ${className ?? ''}`}
-      role="region"
-      aria-label="Asset details inspector"
-    >
-      {children}
     </div>
   );
 }
@@ -779,15 +310,7 @@ export default function AssetDetailPage() {
   const [forgeError, setForgeError] = useState<string | null>(null);
   const [forgeErrorCode, setForgeErrorCode] = useState<string | null>(null);
   const [generationEstimate, setGenerationEstimate] = useState<GenerationEstimateResult | null>(null);
-  const [assetPlacementDrafts, setAssetPlacementDrafts] = useState<CollectionPlacementInput[]>([]);
-  const [variantPlacementDrafts, setVariantPlacementDrafts] = useState<CollectionPlacementInput[]>([]);
-  const [variantPlacementControlsOpen, setVariantPlacementControlsOpen] = useState(false);
-  const [showInspector, setShowInspector] = useState(false);
-  const [relationEditor, setRelationEditor] = useState<RelationEditorState | null>(null);
-  const [showCompositionPanel, setShowCompositionPanel] = useState(false);
-  const [selectedCompositionId, setSelectedCompositionId] = useState<string | null>(null);
   const [isDetailsDragOver, setIsDetailsDragOver] = useState(false);
-  const collectionPanelRef = React.useRef<HTMLDivElement | null>(null);
   const rotationEnabled = isWebRotationEnabled(sessionQuery.data);
 
   // Variant selection state (persisted in store)
@@ -833,13 +356,8 @@ export default function AssetDetailPage() {
   const {
     assets: wsAssets,
     variants: wsVariants,
-    collections,
-    collectionItems,
     stylePresets,
-    compositions,
-    compositionItems,
     lineage: wsLineage,
-    relations: wsRelations,
     jobs,
     setActiveVariant,
     deleteVariant,
@@ -847,14 +365,7 @@ export default function AssetDetailPage() {
     starVariant,
     retryVariant,
     updateAsset,
-    addCollectionItem,
-    updateCollectionItem,
-    deleteCollectionItem,
-    createRelation,
-    updateRelation,
-    deleteRelation,
     clearJob,
-    requestSync,
     status: wsStatus,
     sendGenerateRequest,
     sendRefineRequest,
@@ -862,17 +373,7 @@ export default function AssetDetailPage() {
     requestChatHistory,
     clearChatSession,
     forkAsset,
-    createComposition,
-    updateComposition,
-    deleteComposition,
-    createCompositionItem,
-    updateCompositionItem,
-    reorderCompositionItems,
-    deleteCompositionItem,
     updateSession,
-    createStylePreset,
-    updateStylePreset,
-    deleteStylePreset,
     sendBatchRequest,
     sendGenerationEstimateRequest,
     rotationSets,
@@ -972,15 +473,6 @@ export default function AssetDetailPage() {
       l => variantIds.has(l.child_variant_id) || variantIds.has(l.parent_variant_id)
     );
   }, [queryLineage, wsStatus, wsAssetVariants, wsLineage]);
-  const relationSubjects = useMemo<SpaceSubject[]>(() => {
-    if (!assetId) return [];
-    return [
-      { subjectType: 'asset', assetId },
-      ...variants.map((variant) => ({ subjectType: 'variant' as const, variantId: variant.id })),
-    ];
-  }, [assetId, variants]);
-  const relationAssets = wsAssets.length > 0 ? wsAssets : ([asset].filter(Boolean) as Asset[]);
-  const relationVariants = wsVariants.length > 0 ? wsVariants : variants;
   const isLoading = assetDetailsQuery.isPending && !asset;
 
   // Derive selectedVariant from variants array
@@ -988,63 +480,11 @@ export default function AssetDetailPage() {
     if (!selectedVariantId) return null;
     return variants.find(v => v.id === selectedVariantId) || null;
   }, [selectedVariantId, variants]);
-  const assetCollectionMemberships = useMemo(() => {
-    if (!assetId) return [];
-    return collectionItems.filter((item) => item.subject_type === 'asset' && item.asset_id === assetId);
-  }, [assetId, collectionItems]);
-  const selectedVariantCollectionMemberships = useMemo(() => {
-    if (!selectedVariant) return [];
-    return collectionItems.filter((item) => item.subject_type === 'variant' && item.variant_id === selectedVariant.id);
-  }, [collectionItems, selectedVariant]);
-
-  useEffect(() => {
-    setVariantPlacementDrafts([]);
-  }, [selectedVariantId]);
-
+  const selectedVariantIndex = selectedVariant
+    ? variants.findIndex((variant) => variant.id === selectedVariant.id)
+    : -1;
   // Set page title
   useDocumentTitle(asset?.name);
-
-  // Child assets derived from variant lineage. Historical parent_asset_id values
-  // stay readable in asset payloads but are no longer used as organization UI.
-  const styleUsage = useMemo(() => {
-    if (!assetId) {
-      return { collections: [], presets: [], outputs: [] as Asset[] };
-    }
-    const assetVariantIds = new Set(variants.map((variant) => variant.id));
-    const usedCollectionIds = new Set(
-      collectionItems
-        .filter((item) => (
-          item.role === 'style_ref' &&
-          (
-            item.asset_id === assetId ||
-            (item.variant_id ? assetVariantIds.has(item.variant_id) : false) ||
-            (item.pinned_variant_id ? assetVariantIds.has(item.pinned_variant_id) : false)
-          )
-        ))
-        .map((item) => item.collection_id)
-    );
-    const usedCollections = collections.filter((collection) => usedCollectionIds.has(collection.id));
-    const usedPresets = stylePresets.filter((preset) => (
-      Boolean(preset.collection_id && usedCollectionIds.has(preset.collection_id)) ||
-      preset.style_reference_variant_ids.some((variantId) => assetVariantIds.has(variantId))
-    ));
-    const outputAssetIds = new Set<string>();
-    for (const relation of wsRelations) {
-      if (relation.relation_type !== 'style_reference_for') continue;
-      const subjectMatches =
-        relation.subject_asset_id === assetId ||
-        (relation.subject_variant_id ? assetVariantIds.has(relation.subject_variant_id) : false);
-      if (!subjectMatches) continue;
-      if (relation.object_asset_id) {
-        outputAssetIds.add(relation.object_asset_id);
-      } else if (relation.object_variant_id) {
-        const outputVariant = wsVariants.find((variant) => variant.id === relation.object_variant_id);
-        if (outputVariant) outputAssetIds.add(outputVariant.asset_id);
-      }
-    }
-    const outputs = wsAssets.filter((candidate) => outputAssetIds.has(candidate.id));
-    return { collections: usedCollections, presets: usedPresets, outputs };
-  }, [assetId, collectionItems, collections, stylePresets, variants, wsAssets, wsRelations, wsVariants]);
 
   useEffect(() => {
     if (!user) {
@@ -1132,6 +572,11 @@ export default function AssetDetailPage() {
     setEditingName(false);
   }, [asset, assetId, editNameValue, updateAsset]);
 
+  const handleAssetTypeChange = useCallback((type: string) => {
+    if (!assetId || !canEdit) return;
+    updateAsset(assetId, { type });
+  }, [assetId, canEdit, updateAsset]);
+
   const handleCancelEditName = useCallback(() => {
     setEditingName(false);
     setEditNameValue('');
@@ -1181,37 +626,8 @@ export default function AssetDetailPage() {
     });
   }, [assetId, asset?.name, deleteAsset, navigate, spaceId]);
 
-  const handleOpenCreateRelation = useCallback((subject: SpaceSubject) => {
-    setShowInspector(true);
-    setRelationEditor({ mode: 'create', subject });
-  }, []);
-
-  const handleOpenEditRelation = useCallback((relation: SpaceRelation) => {
-    setShowInspector(true);
-    setRelationEditor({ mode: 'edit', relation });
-  }, []);
-
-  const handleCreateRelation = useCallback((params: {
-    subject: SpaceSubject;
-    object: SpaceSubject;
-    relationType: SpaceRelationType;
-    context: SpaceRelationContext | null;
-  }) => {
-    createRelation(params);
-    setRelationEditor(null);
-  }, [createRelation]);
-
-  const handleUpdateRelation = useCallback((relationId: string, changes: {
-    relationType: SpaceRelationType;
-    context: SpaceRelationContext | null;
-  }) => {
-    updateRelation(relationId, changes);
-    setRelationEditor(null);
-  }, [updateRelation]);
-
   const handleVariantClick = useCallback((variant: Variant) => {
     setSelectedVariantId(assetId!, variant.id);
-    setVariantPlacementDrafts([]);
   }, [assetId, setSelectedVariantId]);
 
   // Handle add to forge tray
@@ -1223,62 +639,6 @@ export default function AssetDetailPage() {
     }
   }, [addSlot, asset]);
 
-  const handleAddVariantToCollection = useCallback((variant: Variant) => {
-    if (!assetId || !canEdit) return;
-    setSelectedVariantId(assetId, variant.id);
-    setVariantPlacementDrafts([]);
-    setVariantPlacementControlsOpen(true);
-    setShowInspector(true);
-    requestAnimationFrame(() => {
-      collectionPanelRef.current?.scrollIntoView({ block: 'nearest' });
-    });
-  }, [assetId, canEdit, setSelectedVariantId]);
-
-  const handleApplyAssetPlacements = useCallback(() => {
-    if (!asset || assetPlacementDrafts.length === 0) return;
-    const pinVariantId = selectedVariant?.id ?? asset.active_variant_id ?? variants[0]?.id;
-    if (!pinVariantId) return;
-    applyCreatedOutputCollectionPlacements(
-      assetPlacementDrafts,
-      { assetId: asset.id, variantId: pinVariantId },
-      collectionItems,
-      addCollectionItem,
-      'asset'
-    );
-    setAssetPlacementDrafts([]);
-  }, [addCollectionItem, asset, assetPlacementDrafts, collectionItems, selectedVariant, variants]);
-
-  const handleApplyVariantPlacements = useCallback(() => {
-    if (!asset || !selectedVariant || variantPlacementDrafts.length === 0) return;
-    applyCreatedOutputCollectionPlacements(
-      variantPlacementDrafts,
-      { assetId: asset.id, variantId: selectedVariant.id },
-      collectionItems,
-      addCollectionItem,
-      'variant'
-    );
-    setVariantPlacementDrafts([]);
-  }, [addCollectionItem, asset, collectionItems, selectedVariant, variantPlacementDrafts]);
-
-  const handleCreateCompositionFromVariant = useCallback(() => {
-    if (!canEdit || !asset || !selectedVariant) return;
-    const id = createComposition({
-      name: `${asset.name} composition`,
-      outputAssetId: asset.id,
-      outputVariantId: selectedVariant.id,
-    });
-    setSelectedCompositionId(id);
-    setShowInspector(true);
-    setShowCompositionPanel(true);
-  }, [asset, canEdit, createComposition, selectedVariant]);
-
-  const handleOpenComposition = useCallback((compositionId: string) => {
-    requestSync();
-    setSelectedCompositionId(compositionId);
-    setShowInspector(true);
-    setShowCompositionPanel(true);
-  }, [requestSync]);
-
   // Use shared forge operations hook
   const { handleForgeSubmit } = useForgeOperations({
     sendGenerateRequest,
@@ -1286,16 +646,6 @@ export default function AssetDetailPage() {
     forkAsset,
     sendBatchRequest,
   });
-
-  // Post-generation composition placement: apply a chosen role to a finished
-  // variant, replacing the old pre-generation shortcut dropdown.
-  const handlePlaceInComposition = useCallback((variant: Variant, shortcut: CompositionShortcut) => {
-    applyCompositionShortcut(shortcut, variant, compositionItems, {
-      updateComposition,
-      createCompositionItem,
-      updateCompositionItem,
-    });
-  }, [compositionItems, updateComposition, createCompositionItem, updateCompositionItem]);
 
   // Image upload hook
   const { upload: uploadImage, isUploading } = useImageUpload({
@@ -1385,14 +735,6 @@ export default function AssetDetailPage() {
     );
   }
 
-  const relationEditorSourceSubject: SpaceSubject | null = relationEditor
-    ? relationEditor.mode === 'create'
-      ? relationEditor.subject
-      : relationEditor.relation.subject_type === 'asset'
-        ? { subjectType: 'asset', assetId: relationEditor.relation.subject_asset_id ?? undefined }
-        : { subjectType: 'variant', variantId: relationEditor.relation.subject_variant_id ?? undefined }
-    : null;
-
   return (
     <div className={styles.page}>
       <WorkspaceChrome
@@ -1403,7 +745,7 @@ export default function AssetDetailPage() {
 
       {/* Full-screen canvas container */}
       <div
-        className={`${styles.canvasContainer} ${showInspector ? styles.canvasContainerWithInspector : ''} ${isDetailsDragOver ? styles.canvasDropActive : ''}`}
+        className={`${styles.canvasContainer} ${isDetailsDragOver ? styles.canvasDropActive : ''}`}
         onDragOver={handleDetailsDragOver}
         onDragLeave={handleDetailsDragLeave}
         onDrop={handleDetailsDrop}
@@ -1429,11 +771,6 @@ export default function AssetDetailPage() {
           onGhostNodeClick={(assetId) => navigate(`/spaces/${spaceId}/assets/${assetId}`)}
           onStarVariant={handleStarVariant}
           onDeleteVariant={handleDeleteVariant}
-          onCreateRelation={handleOpenCreateRelation}
-          onAddVariantToCollection={canEdit && collections.length > 0 ? handleAddVariantToCollection : undefined}
-          compositions={compositions}
-          compositionItems={compositionItems}
-          onPlaceInComposition={canEdit ? handlePlaceInComposition : undefined}
         />
 
         {/* Tile Grid overlay for tile-set assets */}
@@ -1484,19 +821,6 @@ export default function AssetDetailPage() {
               </CanvasToolbarGroup>
             )}
             <CanvasToolbarDivider />
-            <CanvasToolbarButton
-              onClick={() => setShowInspector((open) => !open)}
-              active={showInspector}
-              title={showInspector ? 'Hide asset details' : 'Show asset details'}
-              aria-expanded={showInspector}
-              aria-controls="asset-details-inspector"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4 5h16" />
-                <path d="M4 12h16" />
-                <path d="M4 19h10" />
-              </svg>
-            </CanvasToolbarButton>
             {rotationEnabled && selectedVariant?.status === 'completed' && selectedVariant?.image_key && (
               <CanvasToolbarButton
                 onClick={() => setShowRotationPanel(true)}
@@ -1505,31 +829,6 @@ export default function AssetDetailPage() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M21 12a9 9 0 1 1-2.64-6.36" />
                   <path d="M21 3v6h-6" />
-                </svg>
-              </CanvasToolbarButton>
-            )}
-            <CanvasToolbarButton
-              onClick={() => handleOpenCreateRelation({ subjectType: 'asset', assetId })}
-              disabled={actionInProgress}
-              title="Create relation"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11 4.93" />
-                <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L13 19.07" />
-              </svg>
-            </CanvasToolbarButton>
-            {canEdit && (
-              <CanvasToolbarButton
-                onClick={handleCreateCompositionFromVariant}
-                disabled={!selectedVariant}
-                title="Create composition from selected variant"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="4" y="4" width="7" height="7" rx="1" />
-                  <rect x="13" y="4" width="7" height="7" rx="1" />
-                  <rect x="8.5" y="13" width="7" height="7" rx="1" />
-                  <path d="M11 7.5h2" />
-                  <path d="M12 11v2" />
                 </svg>
               </CanvasToolbarButton>
             )}
@@ -1628,6 +927,16 @@ export default function AssetDetailPage() {
 
       {/* Asset details + Forge Tray - persistent bottom controls */}
       <AssetGenerationDock
+        details={(
+          <AssetDetailsContext
+            asset={asset}
+            assetTypeDisabled={!canEdit}
+            onAssetTypeChange={canEdit ? handleAssetTypeChange : undefined}
+            selectedVariant={selectedVariant}
+            selectedVariantIndex={selectedVariantIndex >= 0 ? selectedVariantIndex : undefined}
+            variantCount={variants.length}
+          />
+        )}
         tray={(
           <ForgeTray
             allAssets={wsAssets}
@@ -1647,12 +956,7 @@ export default function AssetDetailPage() {
             requestChatHistory={requestChatHistory}
             clearChatSession={clearChatSession}
             spaceId={spaceId}
-            createStylePreset={createStylePreset}
-            updateStylePreset={updateStylePreset}
-            deleteStylePreset={deleteStylePreset}
             stylePresets={stylePresets}
-            collections={collections}
-            collectionItems={collectionItems}
             forgeError={forgeError}
             forgeErrorCode={forgeErrorCode}
             generationEstimate={generationEstimate}
@@ -1660,112 +964,6 @@ export default function AssetDetailPage() {
           />
         )}
       />
-
-        <AssetDetailsInspector open={showInspector}>
-          {canEdit && collections.length > 0 && (
-            <div ref={collectionPanelRef}>
-              <AssetCollectionsPanel
-                assetPlacementDrafts={assetPlacementDrafts}
-                collections={collections}
-                collectionItems={[
-                  ...assetCollectionMemberships,
-                  ...selectedVariantCollectionMemberships,
-                ]}
-                hideWhenEmpty
-                onApplyAssetPlacements={handleApplyAssetPlacements}
-                onApplyVariantPlacements={handleApplyVariantPlacements}
-                onAssetPlacementDraftsChange={setAssetPlacementDrafts}
-                onDeleteCollectionItem={deleteCollectionItem}
-                onUpdateCollectionItem={updateCollectionItem}
-                onVariantPlacementControlsOpenChange={setVariantPlacementControlsOpen}
-                onVariantPlacementDraftsChange={setVariantPlacementDrafts}
-                selectedVariant={selectedVariant}
-                variantPlacementControlsOpen={variantPlacementControlsOpen}
-                variantPlacementDrafts={variantPlacementDrafts}
-                variants={variants}
-              />
-            </div>
-          )}
-
-          <StyleReferenceUsagePanel
-            spaceId={spaceId || ''}
-            collections={styleUsage.collections}
-            presets={styleUsage.presets}
-            outputs={styleUsage.outputs}
-          />
-
-          {assetId && (
-            <CompositionUsageList
-              targetAssetId={assetId}
-              assets={wsAssets}
-              variants={wsVariants}
-              compositions={compositions}
-              compositionItems={compositionItems}
-              onOpenComposition={handleOpenComposition}
-            />
-          )}
-
-          {showCompositionPanel && (
-            <div className={styles.compositionPanelContainer}>
-              <CompositionDetail
-                spaceId={spaceId}
-                layout="rail"
-                compositions={compositions}
-                compositionItems={compositionItems}
-                assets={wsAssets}
-                variants={wsVariants}
-                lineage={wsLineage}
-                collections={collections}
-                collectionItems={collectionItems}
-                selectedCompositionId={selectedCompositionId}
-                canEdit={canEdit}
-                onSelectComposition={setSelectedCompositionId}
-                onCreateComposition={canEdit ? () => {
-                  const id = createComposition({ name: `Composition ${compositions.length + 1}` });
-                  setSelectedCompositionId(id);
-                } : undefined}
-                onUpdateComposition={updateComposition}
-                onDeleteComposition={(compositionId) => {
-                  deleteComposition(compositionId);
-                  setSelectedCompositionId((current) => current === compositionId ? null : current);
-                }}
-                onCreateItem={createCompositionItem}
-                onUpdateItem={updateCompositionItem}
-                onDeleteItem={deleteCompositionItem}
-                onReorderItems={reorderCompositionItems}
-                onOpenAsset={(nextAssetId) => navigate(`/spaces/${spaceId}/assets/${nextAssetId}`)}
-                onClose={() => setShowCompositionPanel(false)}
-              />
-            </div>
-          )}
-
-          {relationSubjects.length > 0 && (
-            <>
-              {relationEditor && relationEditorSourceSubject && (
-                <RelationEditorPanel
-                  mode={relationEditor.mode}
-                  assets={relationAssets}
-                  variants={relationVariants}
-                  sourceSubject={relationEditorSourceSubject}
-                  relation={relationEditor.mode === 'edit' ? relationEditor.relation : undefined}
-                  onCancel={() => setRelationEditor(null)}
-                  onCreate={handleCreateRelation}
-                  onUpdate={handleUpdateRelation}
-                />
-              )}
-              <RelationsPanel
-                assets={relationAssets}
-                variants={relationVariants}
-                relations={wsRelations}
-                subjects={relationSubjects}
-                primarySubject={{ subjectType: 'asset', assetId }}
-                onCreate={handleOpenCreateRelation}
-                onEdit={handleOpenEditRelation}
-                onDelete={deleteRelation}
-              />
-            </>
-          )}
-        </AssetDetailsInspector>
       </div>
 
       {/* Rotation Panel modal */}

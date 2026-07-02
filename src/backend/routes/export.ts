@@ -5,8 +5,6 @@ import { authMiddleware } from '../middleware/auth-middleware';
 import { MemberDAO } from '../../dao/member-dao';
 import { DEFAULT_MEDIA_KIND, type MediaKind } from '../../shared/websocket-types';
 import {
-  CompositionItemRoleSchema,
-  CompositionStatusSchema,
   MediaKindSchema,
   SpaceRelationTypeSchema,
   SpaceSubjectTypeSchema,
@@ -25,8 +23,6 @@ interface ExportManifest {
   collectionItems?: ExportCollectionItem[];
   stylePresets?: ExportStylePreset[];
   relations?: ExportRelation[];
-  compositions?: ExportComposition[];
-  compositionItems?: ExportCompositionItem[];
 }
 
 interface ExportAsset {
@@ -108,28 +104,6 @@ interface ExportRelation {
   relationType: string;
   label: string | null;
   context: string | null;
-  metadata: unknown;
-  sortIndex: number;
-}
-
-interface ExportComposition {
-  id: string;
-  name: string;
-  description: string | null;
-  status: 'draft' | 'final';
-  outputAssetId: string | null;
-  outputVariantId: string | null;
-  metadata: unknown;
-  sortIndex: number;
-}
-
-interface ExportCompositionItem {
-  id: string;
-  compositionId: string;
-  role: string;
-  label: string | null;
-  assetId: string | null;
-  variantId: string;
   metadata: unknown;
   sortIndex: number;
 }
@@ -322,7 +296,6 @@ function validateManifestReferences(manifest: ExportManifest): string | null {
     manifest.assets.flatMap((asset) => asset.variants.map((variant) => [variant.id, asset.id] as const))
   );
   const collectionIds = new Set(optionalArray(manifest.collections).map((collection) => collection.id));
-  const compositionIds = new Set(optionalArray(manifest.compositions).map((composition) => composition.id));
 
   const hasAsset = (id: string | null | undefined, label: string) =>
     !id || assetIds.has(id) ? null : `${label} references unknown asset: ${id}`;
@@ -401,30 +374,6 @@ function validateManifestReferences(manifest: ExportManifest): string | null {
     );
     if (objectError) return objectError;
   }
-  for (const composition of optionalArray(manifest.compositions)) {
-    const assetError = hasAsset(composition.outputAssetId, `Composition ${composition.id} outputAssetId`);
-    if (assetError) return assetError;
-    const variantError = hasVariant(composition.outputVariantId, `Composition ${composition.id} outputVariantId`);
-    if (variantError) return variantError;
-    if (
-      composition.outputAssetId &&
-      composition.outputVariantId &&
-      variantAssetIds.get(composition.outputVariantId) !== composition.outputAssetId
-    ) {
-      return `Composition ${composition.id} outputVariantId must belong to outputAssetId`;
-    }
-  }
-  for (const item of optionalArray(manifest.compositionItems)) {
-    if (!compositionIds.has(item.compositionId)) return `Composition item ${item.id} references unknown composition: ${item.compositionId}`;
-    const assetError = hasAsset(item.assetId, `Composition item ${item.id} assetId`);
-    if (assetError) return assetError;
-    if (!item.variantId) return `Composition item ${item.id} is missing variantId`;
-    const variantError = hasVariant(item.variantId, `Composition item ${item.id} variantId`);
-    if (variantError) return variantError;
-    if (item.assetId && variantAssetIds.get(item.variantId) !== item.assetId) {
-      return `Composition item ${item.id} assetId must match the variant asset`;
-    }
-  }
   return null;
 }
 
@@ -434,16 +383,12 @@ function validateManifestOrganizationFields(manifest: ExportManifest): string | 
     collectionItems?: unknown;
     stylePresets?: unknown;
     relations?: unknown;
-    compositions?: unknown;
-    compositionItems?: unknown;
   };
   const optionalSections: Array<[unknown, string]> = [
     [rawManifest.collections, 'collections'],
     [rawManifest.collectionItems, 'collectionItems'],
     [rawManifest.stylePresets, 'stylePresets'],
     [rawManifest.relations, 'relations'],
-    [rawManifest.compositions, 'compositions'],
-    [rawManifest.compositionItems, 'compositionItems'],
   ];
   for (const [value, label] of optionalSections) {
     const error = validateOptionalArraySection(value, label);
@@ -498,28 +443,6 @@ function validateManifestOrganizationFields(manifest: ExportManifest): string | 
     if (sortIndexError) return sortIndexError;
   }
 
-  for (const composition of optionalArray(manifest.compositions)) {
-    const idError = requiredStringField(composition.id, 'Composition id');
-    if (idError) return idError;
-    const nameError = requiredStringField(composition.name, `Composition ${composition.id} name`);
-    if (nameError) return nameError;
-    const descriptionError = optionalNullableStringField(composition.description, `Composition ${composition.id} description`);
-    if (descriptionError) return descriptionError;
-    const sortIndexError = integerField(composition.sortIndex, `Composition ${composition.id} sortIndex`);
-    if (sortIndexError) return sortIndexError;
-  }
-
-  for (const item of optionalArray(manifest.compositionItems)) {
-    const idError = requiredStringField(item.id, 'Composition item id');
-    if (idError) return idError;
-    const compositionIdError = requiredStringField(item.compositionId, `Composition item ${item.id} compositionId`);
-    if (compositionIdError) return compositionIdError;
-    const labelError = optionalNullableStringField(item.label, `Composition item ${item.id} label`);
-    if (labelError) return labelError;
-    const sortIndexError = integerField(item.sortIndex, `Composition item ${item.id} sortIndex`);
-    if (sortIndexError) return sortIndexError;
-  }
-
   return null;
 }
 
@@ -536,10 +459,6 @@ function validateManifestVocabulary(manifest: ExportManifest): string | null {
       : `${label} relationType must be derived, refined, or forked`;
   const hasRelationType = (value: unknown, label: string) =>
     SpaceRelationTypeSchema.safeParse(value).success ? null : `${label} relationType is invalid`;
-  const hasCompositionStatus = (value: unknown, label: string) =>
-    CompositionStatusSchema.safeParse(value).success ? null : `${label} status must be draft or final`;
-  const hasCompositionRole = (value: unknown, label: string) =>
-    CompositionItemRoleSchema.safeParse(value).success ? null : `${label} role is invalid`;
 
   for (const asset of manifest.assets) {
     const assetMediaKindError = hasMediaKind(asset.mediaKind, `Asset ${asset.id}`);
@@ -570,14 +489,6 @@ function validateManifestVocabulary(manifest: ExportManifest): string | null {
     const relationTypeError = hasRelationType(relation.relationType, `Relation ${relation.id}`);
     if (relationTypeError) return relationTypeError;
   }
-  for (const composition of optionalArray(manifest.compositions)) {
-    const error = hasCompositionStatus(composition.status, `Composition ${composition.id}`);
-    if (error) return error;
-  }
-  for (const item of optionalArray(manifest.compositionItems)) {
-    const error = hasCompositionRole(item.role, `Composition item ${item.id}`);
-    if (error) return error;
-  }
   return null;
 }
 
@@ -585,12 +496,6 @@ function validateManifestMetadata(manifest: ExportManifest): string | null {
   try {
     for (const relation of optionalArray(manifest.relations)) {
       parseMetadataObject(relation.metadata, `Relation ${relation.id} metadata`);
-    }
-    for (const composition of optionalArray(manifest.compositions)) {
-      parseMetadataObject(composition.metadata, `Composition ${composition.id} metadata`);
-    }
-    for (const item of optionalArray(manifest.compositionItems)) {
-      parseMetadataObject(item.metadata, `Composition item ${item.id} metadata`);
     }
   } catch (error) {
     return error instanceof Error ? error.message : 'Invalid metadata';
@@ -715,26 +620,6 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       metadata?: string;
       sort_index: number;
     }>;
-    compositions?: Array<{
-      id: string;
-      name: string;
-      description: string | null;
-      status: 'draft' | 'final';
-      output_asset_id: string | null;
-      output_variant_id: string | null;
-      metadata: string;
-      sort_index: number;
-    }>;
-    compositionItems?: Array<{
-      id: string;
-      composition_id: string;
-      role: string;
-      label?: string | null;
-      asset_id: string | null;
-      variant_id: string;
-      metadata: string;
-      sort_index: number;
-    }>;
   };
 
   // Prepare ZIP contents
@@ -752,8 +637,6 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
     collectionItems: [],
     stylePresets: [],
     relations: [],
-    compositions: [],
-    compositionItems: [],
   };
 
   const exportedAssetIds = new Set<string>();
@@ -921,38 +804,6 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       metadata: parseJsonForManifest(relation.metadata),
       sortIndex: relation.sort_index,
     }));
-  manifest.compositions = (state.compositions || []).map(composition => {
-    const outputVariantId = composition.output_variant_id && exportedVariantIds.has(composition.output_variant_id)
-      ? composition.output_variant_id
-      : null;
-    const outputAssetId = outputVariantId
-      ? exportedVariantAssetIds.get(outputVariantId) ?? null
-      : composition.output_asset_id && exportedAssetIds.has(composition.output_asset_id)
-        ? composition.output_asset_id
-        : null;
-    return {
-      id: composition.id,
-      name: composition.name,
-      description: composition.description,
-      status: composition.status,
-      outputAssetId,
-      outputVariantId,
-      metadata: parseJsonForManifest(composition.metadata),
-      sortIndex: composition.sort_index,
-    };
-  });
-  manifest.compositionItems = (state.compositionItems || [])
-    .filter(item => exportedVariantIds.has(item.variant_id))
-    .map(item => ({
-      id: item.id,
-      compositionId: item.composition_id,
-      role: item.role,
-      label: item.label ?? null,
-      assetId: exportedVariantAssetIds.get(item.variant_id) ?? null,
-      variantId: item.variant_id,
-      metadata: parseJsonForManifest(item.metadata),
-      sortIndex: item.sort_index,
-    }));
 
   // Add manifest to ZIP
   zipFiles['manifest.json'] = strToU8(JSON.stringify(manifest, null, 2));
@@ -1050,8 +901,6 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
   const imageKeyMap = new Map<string, string>();
   const variantMediaKeys = new Map<string, { mediaKey: string; imageKey: string | null; thumbKey: string | null }>();
   const relationIdMap = new Map<string, string>();
-  const compositionIdMap = new Map<string, string>();
-  const compositionItemIdMap = new Map<string, string>();
 
   const importedAssets: string[] = [];
   const importedVariants: string[] = [];
@@ -1059,8 +908,6 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
   const importedCollectionItems: string[] = [];
   const importedStylePresets: string[] = [];
   const importedRelations: string[] = [];
-  const importedCompositions: string[] = [];
-  const importedCompositionItems: string[] = [];
 
   for (const asset of manifest.assets) {
     assetIdMap.set(asset.id, crypto.randomUUID());
@@ -1327,50 +1174,6 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
     importedRelations.push(newRelationId);
   }
 
-  for (const composition of optionalArray(manifest.compositions)) {
-    const newCompositionId = crypto.randomUUID();
-    compositionIdMap.set(composition.id, newCompositionId);
-    const response = await doStub.fetch(new Request('http://do/internal/compositions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: newCompositionId,
-        name: composition.name,
-        description: composition.description,
-        status: composition.status,
-        outputAssetId: requireMappedId(assetIdMap, composition.outputAssetId, `Composition ${composition.id} outputAssetId`),
-        outputVariantId: requireMappedId(variantIdMap, composition.outputVariantId, `Composition ${composition.id} outputVariantId`),
-        metadata: parseMetadataObject(composition.metadata, `Composition ${composition.id} metadata`),
-        sortIndex: composition.sortIndex,
-        createdBy: userId,
-      }),
-    }));
-    if (!response.ok) return c.json({ error: 'Failed to import composition' }, response.status as 400 | 500);
-    importedCompositions.push(newCompositionId);
-  }
-
-  for (const item of optionalArray(manifest.compositionItems)) {
-    const newItemId = crypto.randomUUID();
-    compositionItemIdMap.set(item.id, newItemId);
-    const newCompositionId = requireMappedId(compositionIdMap, item.compositionId, `Composition item ${item.id} compositionId`)!;
-    const response = await doStub.fetch(new Request(`http://do/internal/compositions/${newCompositionId}/items`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: newItemId,
-        role: item.role,
-        label: item.label ?? null,
-        assetId: requireMappedId(assetIdMap, item.assetId, `Composition item ${item.id} assetId`),
-        variantId: requireMappedId(variantIdMap, item.variantId, `Composition item ${item.id} variantId`),
-        metadata: parseMetadataObject(item.metadata, `Composition item ${item.id} metadata`),
-        sortIndex: item.sortIndex,
-        createdBy: userId,
-      }),
-    }));
-    if (!response.ok) return c.json({ error: 'Failed to import composition item' }, response.status as 400 | 500);
-    importedCompositionItems.push(newItemId);
-  }
-
   return c.json({
     success: true,
     imported: {
@@ -1381,8 +1184,6 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
       collectionItems: importedCollectionItems.length,
       stylePresets: importedStylePresets.length,
       relations: importedRelations.length,
-      compositions: importedCompositions.length,
-      compositionItems: importedCompositionItems.length,
     },
   });
 });

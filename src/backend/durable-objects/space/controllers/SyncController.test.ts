@@ -24,8 +24,6 @@ function createContext(repoOverrides: Partial<SpaceRepository>): {
       collections: [],
       collectionItems: [],
       relations: [],
-      compositions: [],
-      compositionItems: [],
       stylePresets: [],
       styleReferenceCollections: [],
       rotationSets: [],
@@ -39,7 +37,6 @@ function createContext(repoOverrides: Partial<SpaceRepository>): {
       variants: [],
       collections: [],
       collectionItems: [],
-      compositions: [],
       stylePresets: [],
       styleReferenceCollections: [],
       rotationSets: [],
@@ -79,7 +76,6 @@ describe('SyncController', () => {
         variants: [{ id: 'variant-1', asset_id: 'asset-1' }],
         collections: [{ id: 'collection-1', name: 'Scene Kit', kind: 'scenes', color: '#2f9e73', item_count: 2 }],
         collectionItems: [{ id: 'collection-item-1', collection_id: 'collection-1', asset_id: 'asset-1' }],
-        compositions: [{ id: 'composition-1', name: 'Opening', item_count: 1 }],
         stylePresets: [{
           id: 'preset-1',
           name: 'Painterly',
@@ -110,7 +106,6 @@ describe('SyncController', () => {
     assert.deepStrictEqual(sent[0].presence, presence);
     assert.deepStrictEqual(sent[0].collections, [{ id: 'collection-1', name: 'Scene Kit', kind: 'scenes', color: '#2f9e73', item_count: 2 }]);
     assert.deepStrictEqual(sent[0].collectionItems, [{ id: 'collection-item-1', collection_id: 'collection-1', asset_id: 'asset-1' }]);
-    assert.deepStrictEqual(sent[0].compositions, [{ id: 'composition-1', name: 'Opening', item_count: 1 }]);
     assert.deepStrictEqual(sent[0].stylePresets, [{
       id: 'preset-1',
       name: 'Painterly',
@@ -124,6 +119,7 @@ describe('SyncController', () => {
       preset_count: 1,
     }]);
     assert.ok(!('lineage' in sent[0]));
+    assert.ok(!('compositions' in sent[0]));
     assert.ok(!('compositionItems' in sent[0]));
   });
 
@@ -137,8 +133,6 @@ describe('SyncController', () => {
         collections: [{ id: 'collection-1', name: 'Scene Kit' }],
         collectionItems: [{ id: 'collection-item-1', collection_id: 'collection-1' }],
         relations: [{ id: 'relation-1', relation_type: 'appears_in' }],
-        compositions: [{ id: 'composition-1', name: 'Opening' }],
-        compositionItems: [{ id: 'composition-item-1', composition_id: 'composition-1' }],
         stylePresets: [{ id: 'preset-1', name: 'Painterly', reference_count: 1 }],
         styleReferenceCollections: [{ id: 'collection-2', name: 'Style refs', reference_count: 1 }],
         rotationSets: [],
@@ -157,8 +151,8 @@ describe('SyncController', () => {
     assert.deepStrictEqual(sent[0].collections, [{ id: 'collection-1', name: 'Scene Kit' }]);
     assert.deepStrictEqual(sent[0].collectionItems, [{ id: 'collection-item-1', collection_id: 'collection-1' }]);
     assert.deepStrictEqual(sent[0].relations, [{ id: 'relation-1', relation_type: 'appears_in' }]);
-    assert.deepStrictEqual(sent[0].compositions, [{ id: 'composition-1', name: 'Opening' }]);
-    assert.deepStrictEqual(sent[0].compositionItems, [{ id: 'composition-item-1', composition_id: 'composition-1' }]);
+    assert.ok(!('compositions' in sent[0]));
+    assert.ok(!('compositionItems' in sent[0]));
     assert.deepStrictEqual(sent[0].stylePresets, [{ id: 'preset-1', name: 'Painterly', reference_count: 1 }]);
     assert.deepStrictEqual(sent[0].styleReferenceCollections, [{ id: 'collection-2', name: 'Style refs', reference_count: 1 }]);
   });
@@ -172,8 +166,6 @@ describe('SyncController', () => {
         collections: [],
         collectionItems: [],
         relations: [],
-        compositions: [],
-        compositionItems: [],
         stylePresets: [{ id: 'preset-1', name: 'Painterly', reference_count: 1 }],
         styleReferenceCollections: [{ id: 'collection-1', name: 'Style refs', reference_count: 1 }],
         rotationSets: [],

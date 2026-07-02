@@ -2,7 +2,7 @@
 
 Make Effects started from a simple workflow: use a CLI with a Gemini key, generate images and media quickly, then keep moving.
 
-That loop works well until the project gets large. You make many variants. You lose which prompt led to which result. You want to compare directions, refine the promising ones, remember source references, and eventually turn the best ideas into production files.
+That loop works well until the project gets large. You make many variants. You lose which prompt led to which result. You want to compare directions, refine the promising ones, remember source references, and keep the best media moving.
 
 Make Effects adds a project layer for that loop. Use the `makefx` CLI when you want an agent, script, or local workflow to generate media. Use [makefx.app](https://makefx.app) when you want to review, organize, choose, refine, and collaborate.
 
@@ -27,7 +27,7 @@ The login flow opens the browser, authenticates with Google, and stores local CL
 
 ## Create or bind a space
 
-A space is the shared memory for a project: assets, variants, recipes, lineage, production records, and collaborators.
+A space is the shared memory for a project: assets, variants, recipes, lineage, and collaborators.
 
 ```sh
 makefx spaces create "My Game Assets" --init
@@ -86,4 +86,4 @@ The website remains the source of truth. The CLI reads and mutates the same spac
 
 - [Core Concepts](/docs/concepts) explains the data model.
 - [CLI Reference](/docs/cli) covers commands and agent automation.
-- [Production Handoff](/docs/production-handoff) explains scene placement and export.
+- [Media Playbooks](/docs/media-playbooks) shows how to build from references and continue selected assets.

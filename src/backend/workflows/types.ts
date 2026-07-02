@@ -6,7 +6,6 @@
  */
 
 import type {
-  CollectionPlacementInput,
   GenerationEstimateOperation,
   MediaKind,
   MusicGenerationProvider,
@@ -230,8 +229,6 @@ export interface GenerateRequestMessage {
   videoDurationSeconds?: VideoGenerationDurationSeconds;
   /** Veo model tier (video assets only) */
   videoTier?: VideoGenerationTier;
-  /** Optional collection memberships to create after the asset/variant placeholder exists */
-  collectionPlacements?: CollectionPlacementInput[];
 }
 
 /** Refine request from client (replaces HTTP POST /api/spaces/:id/assets/:id/variants) */
@@ -274,8 +271,6 @@ export interface RefineRequestMessage {
   videoDurationSeconds?: VideoGenerationDurationSeconds;
   /** Veo model tier (video assets only) */
   videoTier?: VideoGenerationTier;
-  /** Optional collection memberships to create after the variant placeholder exists */
-  collectionPlacements?: CollectionPlacementInput[];
 }
 
 export interface GenerationEstimateRequestMessage {

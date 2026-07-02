@@ -8,11 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   type Asset,
-  type Composition,
-  type CompositionItem,
-  type CompositionOverview,
   type Lineage,
-  type SpaceSubject,
   type Variant,
   getVariantMediaUrl,
   isVariantImageReady,
@@ -23,11 +19,9 @@ import { formatMediaKind } from '../../mediaKind';
 import { formatUtcDateTime } from '../../lib/dates';
 import { formatBytes } from '../../lib/format';
 import { ImageLightbox } from '../ImageLightbox';
-import { CompositionPlacementControl } from '../CompositionPlacementControl';
 import { getAudioCardMetadata } from '../assetCardMetadata';
 import { ForgeTrayActionButton } from '../ForgeTrayActionButton';
 import { Button, IconButton, UiMenu, type MenuItem } from '../../ui';
-import type { CompositionShortcut } from '../../productionShortcuts';
 import { buildAncestryTrail } from './variantLineage';
 import styles from './VariantDetailsPanel.module.css';
 
@@ -52,13 +46,8 @@ export interface VariantDetailsPanelProps {
   onClose: () => void;
   onStarVariant?: (variantId: string, starred: boolean) => void;
   onDeleteVariant?: (variant: Variant) => void;
-  onCreateRelation?: (subject: SpaceSubject) => void;
-  onAddVariantToCollection?: (variant: Variant) => void;
   onAddToTray?: (variant: Variant, asset: Asset) => void;
   onSetActive?: (variantId: string) => void;
-  compositions?: Array<Composition | CompositionOverview>;
-  compositionItems?: CompositionItem[];
-  onPlaceInComposition?: (variant: Variant, shortcut: CompositionShortcut) => void;
 }
 
 const RELATION_LABELS: Record<Lineage['relation_type'], string> = {
@@ -111,27 +100,6 @@ function MoreIcon() {
   );
 }
 
-function RelationIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" aria-hidden="true">
-      <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11 4.93" />
-      <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L13 19.07" />
-    </svg>
-  );
-}
-
-function CollectionIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" aria-hidden="true">
-      <path d="M4 6h16" />
-      <path d="M4 12h10" />
-      <path d="M4 18h7" />
-      <path d="M18 15v6" />
-      <path d="M15 18h6" />
-    </svg>
-  );
-}
-
 function CheckIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" aria-hidden="true">
@@ -163,13 +131,8 @@ export function VariantDetailsPanel({
   onClose,
   onStarVariant,
   onDeleteVariant,
-  onCreateRelation,
-  onAddVariantToCollection,
   onAddToTray,
   onSetActive,
-  compositions,
-  compositionItems,
-  onPlaceInComposition,
 }: VariantDetailsPanelProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
@@ -267,14 +230,6 @@ export function VariantDetailsPanel({
     onDeleteVariant?.(variant);
   }, [variant, onDeleteVariant]);
 
-  const handleCreateRelationClick = useCallback(() => {
-    onCreateRelation?.({ subjectType: 'variant', variantId: variant.id });
-  }, [onCreateRelation, variant.id]);
-
-  const handleAddVariantToCollectionClick = useCallback(() => {
-    onAddVariantToCollection?.(variant);
-  }, [onAddVariantToCollection, variant]);
-
   const handleAddToTray = useCallback(() => {
     if (isVariantForgeTrayReady(variant)) onAddToTray?.(variant, asset);
   }, [variant, asset, onAddToTray]);
@@ -285,24 +240,6 @@ export function VariantDetailsPanel({
 
   const secondaryActions = useMemo<MenuItem[]>(() => {
     const actions: MenuItem[] = [];
-    if (onCreateRelation) {
-      actions.push({
-        id: 'relation',
-        label: 'Create relation',
-        textValue: 'Create relation',
-        icon: <RelationIcon />,
-        onSelect: handleCreateRelationClick,
-      });
-    }
-    if (onAddVariantToCollection) {
-      actions.push({
-        id: 'collection',
-        label: 'Add to collection',
-        textValue: 'Add to collection',
-        icon: <CollectionIcon />,
-        onSelect: handleAddVariantToCollectionClick,
-      });
-    }
     if (!isActive && onSetActive) {
       actions.push({
         id: 'active',
@@ -324,13 +261,9 @@ export function VariantDetailsPanel({
     }
     return actions;
   }, [
-    handleAddVariantToCollectionClick,
-    handleCreateRelationClick,
     handleDeleteClick,
     handleSetActive,
     isActive,
-    onAddVariantToCollection,
-    onCreateRelation,
     onDeleteVariant,
     onSetActive,
     variantCount,
@@ -411,16 +344,6 @@ export function VariantDetailsPanel({
           {dimensionsLabel && <span className={styles.chip}>{dimensionsLabel}</span>}
           {sizeLabel && <span className={styles.chip}>{sizeLabel}</span>}
         </div>
-
-        {/* Place this finished variant into a composition (post-generation) */}
-        {onPlaceInComposition && compositions && compositions.length > 0 && isVariantReady(variant) && (
-          <CompositionPlacementControl
-            compositions={compositions}
-            compositionItems={compositionItems ?? []}
-            variant={variant}
-            onPlace={onPlaceInComposition}
-          />
-        )}
 
         {isAudioVariant && audioFacts.length > 0 && (
           <section className={styles.section}>

@@ -2,9 +2,9 @@
 
 The `makefx` CLI is the fast loop for Make Effects.
 
-Use it the way you would use a direct generator CLI: from a shell, script, or coding agent. The difference is that every generated file can also become tracked project state: assets, variants, prompts, lineage, and production handoff records.
+Use it the way you would use a direct generator CLI: from a shell, script, or coding agent. The difference is that every generated file can also become tracked project state: assets, variants, prompts, and lineage.
 
-It can create spaces, bind a local project, generate media, upload files, inspect website assets, watch real-time events, curate variants, and export production handoff data.
+It can create spaces, bind a local project, generate media, upload files, inspect website assets, watch real-time events, and curate variants.
 
 ## Install
 

@@ -1,9 +1,9 @@
 # Domain Model
 
-Graphical asset management for game development. Users build Spaces of
-**Assets**, organize them with collections and manual relations, bind exact
-variants into compositions, and iterate through AI-powered generation,
-refinement, import, and handoff.
+Graphical asset management for game development. Users build a visual
+**Space** of **Assets**, compare hidden **Variants** inside each asset, keep
+immutable **Lineage** for provenance, and continue promising assets through
+AI-powered generation, refinement, import, audio, and video.
 
 ---
 
@@ -11,8 +11,9 @@ refinement, import, and handoff.
 
 1. **Assets are the primary unit** — Users work with Assets, not raw images
 2. **Variants are internal** — Multiple versions exist within an Asset, but only the active variant is visible in catalog
-3. **Forge Tray is the workspace** — Always-visible bar for combining and transforming assets
-4. **Destination-first workflow** — Users define where results go BEFORE generation
+3. **Space is the organizing surface** — Users arrange assets visually instead of managing table-like relationship forms
+4. **Forge Tray is the workspace** — Always-visible bar for combining and transforming assets
+5. **Destination-first workflow** — Users choose whether a result creates a new asset or a new variant before generation
 
 ---
 
@@ -24,9 +25,9 @@ A named catalog entry representing a conceptual thing (character, item, scene, s
 
 - **Type** describes what it represents: `character`, `item`, `scene`, `sprite-sheet`, `style-sheet`, `reference`, `tile-set`, `animation` (unconstrained string — additional types can be added freely)
 - **Media kind** describes the stored output medium: `image`, `audio`, or `video`
-- **Collections and relations** organize assets without changing generation lineage
+- **Space position/grouping** organizes assets without changing generation lineage
 - **Active variant** — one variant represents the asset in catalog view
-- Users select Assets (not variants) when composing
+- Users select Assets (not variants) when continuing work from Space
 
 ### Variant
 
@@ -37,52 +38,23 @@ A media version belonging to an Asset. Variants are internal — visible only in
 - **Starred** variants mark important iterations
 - **Recipe** stores generation parameters for reproducibility
 
-### Collection
+### Space Organization
 
-A mutable Space organization container for assets or exact variants.
+Space organization is visual. Users arrange assets into lightweight canvas
+areas such as characters, props, backgrounds, concepts, or final candidates.
 
-- Collections are the primary organization model. Parent hierarchy is not.
-- A Space can have product collections such as `Cast`, `Backgrounds`,
-  `Props`, `Episode 01`, and `Style references`.
-- Collection items can point at an asset, which follows that asset's active
-  variant for catalog purposes, or at a specific pinned variant when exact
-  media matters.
-- Collection membership does not create or modify generation lineage.
-
-### Manual Relation
-
-A user-authored link between two assets or variants.
-
-- Relations describe meaning: `appears_in`, `background_for`,
-  `thumbnail_for`, `map_for`, `style_reference_for`, or `reference_for`.
-- Example: `Hero` `appears_in` `Tavern Interior`, or `Potion Icon v3`
-  `thumbnail_for` `Potion`.
-- Relations are mutable Space organization. They do not prove how a variant was
-  generated or imported.
-
-### Composition
-
-A named final mix that binds exact variants into production roles.
-
-- Composition items use roles such as `output`, `background`, `character`,
-  `prop`, `style_ref`, `overlay`, `map`, `thumbnail`, or `custom`.
-- Example: an `Opening Shot` composition can bind the exact `Hero v7` variant,
-  `Market Background v3` variant, and `Opening Shot Final v2` output variant.
-- Compositions are for final assembly and handoff. They are separate from
-  lineage, which records provenance.
+- Organization helps users scan, compare, and continue assets.
+- Organization does not create or modify generation lineage.
+- Exact variant comparison happens in Details, scoped to one asset.
 
 ### Style References And Presets
 
 Style references are normal image assets in the Space.
 
-- Users group style reference assets or exact variants into collections, usually
-  with a `style_ref` role.
-- A style preset names a style prompt and points to a style reference
-  collection.
-- Generation can use a named preset such as `Painterly` or `Low-poly UI`, and
-  the recipe records the exact preset, collection, and reference variants used.
+- Generation can use a named preset such as `Painterly` or `Low-poly UI`.
+- The recipe records the exact preset and reference variants used.
 - Style reference media remains visible as ordinary assets and variants; the
-  product model has no separate style-only media store.
+  product model has no separate style-only media store or style management page.
 
 ### Media Kind Contract
 
@@ -118,8 +90,7 @@ or imported.
 - `forked` — Fork/copy to new asset
 - Import records can also include prompt, model, provider, provider metadata,
   generation provenance, and related source images at import time.
-- Users do not manually rearrange lineage to organize a Space. Use collections,
-  manual relations, and compositions for organization.
+- Users do not manually rearrange lineage to organize a Space.
 
 ---
 
@@ -127,15 +98,17 @@ or imported.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│          COLLECTIONS / RELATIONS / COMPOSITIONS                   │
-│                 (Organizational, Mutable)                        │
+│                      SPACE CANVAS                                 │
+│                 (Visual Organization)                             │
 │                                                                 │
-│    Cast                         Opening Shot                     │
-│    ├── Hero                     ├── Hero v7 as character         │
-│    └── Merchant                 ├── Market v3 as background      │
-│                                 └── Final v2 as output           │
+│    Characters                   Backgrounds                      │
+│    ├── Hero                     ├── Market                       │
+│    └── Merchant                 └── Kitchen                      │
 │                                                                 │
-│  Users organize assets and exact variants without mutating lineage│
+│    Concepts                     Final candidates                 │
+│    ├── Potion tests             └── Opening shot                 │
+│                                                                 │
+│  Users organize assets without mutating lineage                   │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
@@ -155,25 +128,13 @@ or imported.
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Collections And Relations
-
-Organizational structure for grouping related assets and exact variants.
+### Space Organization
 
 | Property | Value |
 |----------|-------|
-| Mutable | Yes - users can rearrange |
-| Cycle prevention | Yes - backend validates |
-| Cascade delete | Collection and relation rows are removed or nulled with their targets |
-
-### Compositions
-
-Production structure for binding exact variants into a final mix.
-
-| Property | Value |
-|----------|-------|
-| Mutable | Yes - users can update roles and selected variants |
-| Exact variants | Yes - composition items identify the media used in the mix |
-| Output | Optional output asset/variant can point at the final rendered or generated result |
+| Mutable | Yes - users can rearrange assets |
+| Granularity | Assets in Space, variants in Details |
+| Purpose | Scan, compare, choose, and continue assets |
 
 ### Variant Lineage
 
@@ -189,13 +150,11 @@ Immutable generation history for audit trail and reproducibility.
 
 Generation, derive, batch, fork, and upload flows record provenance through
 variant lineage. They do not infer asset hierarchy from references or source
-variants. User organization is represented by collections, relations, and
-compositions.
+variants. User organization is represented visually on the Space canvas.
 
-- Changing collections or relations does NOT affect variant lineage
-- Creating lineage does NOT change collection membership
-- Editing a composition does NOT rewrite import or generation provenance
-- Deleting an asset removes its organization rows and cascades variant deletion
+- Moving assets in Space does NOT affect variant lineage
+- Creating lineage does NOT move an asset
+- Deleting an asset removes its organization data and cascades variant deletion
 
 ---
 
@@ -203,10 +162,8 @@ compositions.
 
 | View | Shows | Purpose |
 |------|-------|---------|
-| **Space (Catalog)** | Assets with active variant thumbnails | Browse, organize, add to tray |
-| **Asset Detail** | All variants of one asset | Manage variants, compare iterations |
-| **Asset Canvas** | Asset thumbnails | Browse assets spatially |
-| **Variant Canvas** | Variant lineage graph | Visualize generation history |
+| **Space** | Assets with active variant thumbnails on a canvas | Browse, organize, add to tray |
+| **Details** | One asset scoped as a focused canvas with its variants and lineage | Compare iterations, choose active variant, continue |
 
 ---
 

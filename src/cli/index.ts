@@ -16,9 +16,6 @@ import { handleInit } from './commands/init';
 import { handleRuns } from './commands/runs';
 import { handleAssets } from './commands/assets';
 import { handleVariants } from './commands/variants';
-import { handleStyles } from './commands/styles';
-import { handleCollections } from './commands/collections';
-import { handleProductions } from './commands/productions';
 import { handleUsage } from './commands/usage';
 import { handleSpend } from './commands/spend';
 import { handleRotation, handleTileSet } from './commands/pipelines';
@@ -222,24 +219,12 @@ function printCommandHelp(command: string, positionals: string[]): void {
     case 'variant':
       printVariantsHelp();
       return;
-    case 'styles':
-    case 'style':
-      printStylesHelp();
-      return;
-    case 'collections':
-    case 'collection':
-      printCollectionsHelp();
-      return;
     case 'rotation':
       printRotationHelp();
       return;
     case 'tileset':
     case 'tile-set':
       printTileSetHelp();
-      return;
-    case 'productions':
-    case 'production':
-      printProductionsHelp();
       return;
     default:
       console.error(`Unknown command: ${command}`);
@@ -286,18 +271,10 @@ Project:
   variants star <variant-id>      Star a variant (unstar to clear)
   variants rate <variant-id> approved|rejected
                                  Rate a variant for quality curation
-  styles presets                  List style presets
-  styles collections              List style reference collections
-  styles references               List style reference assets
-  collections                     Manage normal Space collections
 ${rotationHelp}
   tileset "prompt" --type terrain --grid 3x3
                                  Generate a consistent tile set
   tileset cancel <tile-set-id>    Cancel an active tile-set pipeline
-  productions list --production-id <id>
-                                 List Space-backed production placements
-  productions export --production-id <id>
-                                 Export production scene args from Space records
   usage [summary] [--space <id>] Show platform storage and workflow consumption
   spend [summary]               Show admin provider cost summary
 
@@ -326,9 +303,6 @@ Listen:
 Upload:
   upload <file> --asset <id> [--space <id>]   Upload image, audio, or video to existing asset
   upload <file> --name <name> [--space <id>]  Upload image, audio, or video as a new asset
-  upload <file> --collection <id>             Place uploaded media in a collection
-  upload <file> --collection-name <name>      Place uploaded media in an exact-name collection
-  upload <file> --manual-relation <spec>      Create a manual relation from uploaded media
 
 Forge:
   generate "prompt" --name <name> --type <type> -o <file>
@@ -370,11 +344,6 @@ Examples:
   makefx audio sfx generate "A short brass victory sting" --name "Victory Sting" -o victory.wav
   makefx video generate "A looping idle animation" --name "Idle Animation" --type animation --duration 6 --resolution 1080p --tier fast -o idle.mp4
   makefx video derive --first-frame keyframes/start.png --last-frame keyframes/end.png --name "Camera Move" --type animation "slow dolly from start to end" -o move.mp4
-  makefx productions export --production-id s01e01-a2
-  makefx upload hero.png --name "Hero" --collection collection_cast
-  makefx upload hero.png --name "Hero" --collection-name "Cast" --json
-  makefx collections add collection_cast --asset asset_123 --role character
-  makefx upload thumbnail.png --asset asset_thumb --manual-relation thumbnail_for:asset:asset_target
   makefx assets
   makefx usage --from 2026-06-01
   makefx spend --from 2026-06-01 --provider gemini
@@ -383,8 +352,6 @@ Examples:
   makefx assets set-active asset_123 variant_456
   makefx variants retry variant_456
   makefx variants delete variant_456
-  makefx styles collections create "Painterly refs" --refs asset_123,variant_456
-  makefx styles presets create "Painterly" --collection collection_123 --prompt "Painterly adventure game" --default
   makefx generate "A market background" --style-preset Painterly --name "Market" --type scene -o market.png
 ${rotationExample}  makefx tileset "grass and stone path tiles" --type terrain --grid 3x3
 `);
@@ -478,20 +445,6 @@ Options:
   --source-variants <ids>        Alias for --source-variant
   --relation-type <type>         Lineage type: derived, refined, or forked (default: derived)
   --active-variant-behavior <b>  if-missing, set-active, or keep
-  --collection <ids>             Comma-separated collection IDs for the uploaded asset or variant
-  --collection-name <names>      Comma-separated exact collection names for lookup
-  --collection-role <role>       Collection item role (default: member)
-  --collection-subject <type>    Collection subject: asset or variant (default: asset)
-  --collection-pinned-variant <id|uploaded|none>
-                                 Pin an asset collection item to the uploaded variant by default
-  --manual-relation <spec>       Comma-separated <type>:asset:<id> or <type>:variant:<id>
-  --manual-relation-subject <type>
-                                 Relation subject: uploaded asset or variant (default: variant)
-  --manual-relation-label <text> Optional manual relation label
-  --manual-relation-context <json|string>
-                                 Optional manual relation context
-  --manual-relation-metadata <json>
-                                 Optional manual relation metadata object
   --json            Print machine-readable upload output with Space IDs
   --env <env>       Environment (production|stage|local)
   --local           Shortcut for --env local
@@ -510,10 +463,6 @@ ${imageCapabilityHelp()}
 Style:
   --style-preset <id-or-name>  Use an enabled style preset for this generation
   --no-style                   Disable style preset injection for this generation
-
-Production metadata:
-  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
-  --shot-id <id> --production-id <id>
 `);
     return;
   }
@@ -529,10 +478,6 @@ ${imageCapabilityHelp()}
 Style:
   --style-preset <id-or-name>  Use an enabled style preset for this refinement
   --no-style                   Disable style preset injection for this refinement
-
-Production metadata:
-  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
-  --shot-id <id> --production-id <id>
 `);
     return;
   }
@@ -561,10 +506,6 @@ ${imageCapabilityHelp()}
 Style:
   --style-preset <id-or-name>  Use an enabled style preset for this derivation
   --no-style                   Disable style preset injection for this derivation
-
-Production metadata:
-  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
-  --shot-id <id> --production-id <id>
 `);
 }
 
@@ -682,10 +623,6 @@ ${videoCapabilityHelp()}
 
 Audio:
   Video defaults to generated audio. Current Veo models do not support --no-audio; the CLI rejects it before creating a job.
-
-Production metadata:
-  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
-  --shot-id <id> --production-id <id>
 `);
     return;
   }
@@ -700,10 +637,6 @@ ${videoCapabilityHelp()}
 
 Audio:
   Video defaults to generated audio. Current Veo models do not support --no-audio; the CLI rejects it before creating a job.
-
-Production metadata:
-  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
-  --shot-id <id> --production-id <id>
 `);
     return;
   }
@@ -719,10 +652,6 @@ ${videoCapabilityHelp()}
 
 Audio:
   Video defaults to generated audio. Current Veo models do not support --no-audio; the CLI rejects it before creating a job.
-
-Production metadata:
-  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
-  --shot-id <id> --production-id <id>
 `);
     return;
   }
@@ -739,10 +668,6 @@ ${videoCapabilityHelp()}
 
 Audio:
   Video defaults to generated audio. Current Veo models do not support --no-audio; the CLI rejects it before creating a job.
-
-Production metadata:
-  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
-  --shot-id <id> --production-id <id>
 `);
 }
 
@@ -761,9 +686,6 @@ Formats:
   remotion          Legacy remotion-keyframes JSON marker
 
 Local run manifests are debug-only artifacts, not a source of truth.
-
-Timed scene assembly:
-  makefx productions export --production-id <id> [-o scenes.args]
 `);
 }
 
@@ -778,68 +700,6 @@ Usage:
 
 Options:
   --space <id>      Target space ID; defaults from the initialized project
-  --env <env>       Environment (production|stage|local)
-  --local           Shortcut for --env local
-`);
-}
-
-function printStylesHelp(): void {
-  console.log(`
-Usage:
-  makefx styles references [--collection <id-or-name>] [--json]
-  makefx styles collections list [--json]
-  makefx styles collections create <name> --refs <asset_or_variant,...>
-  makefx styles collections update <collection-id> [--name <name>] [--refs <asset_or_variant,...>] [--append]
-  makefx styles presets list [--json]
-  makefx styles presets create <name> --collection <collection-id> --prompt "style prompt" [--default]
-  makefx styles presets update <preset-id> [--name <name>] [--collection <collection-id>] [--prompt "style prompt"]
-  makefx styles presets enable <preset-id>
-  makefx styles presets disable <preset-id>
-  makefx styles presets delete <preset-id>
-
-Generation:
-  makefx generate "prompt" --style-preset <id-or-name> --name <name> --type <type> -o <file>
-  makefx generate "prompt" --no-style --name <name> --type <type> -o <file>
-
-Model:
-  Style references are normal Space assets or exact variants grouped into style
-  collections. Style presets point to those collections plus a style prompt.
-
-Options:
-  --space <id>      Target space ID; defaults from the initialized project
-  --refs <ids>      Comma-separated asset IDs or variant IDs to use as style references
-  --assets <ids>    Comma-separated asset IDs; active variants are pinned
-  --variants <ids>  Comma-separated variant IDs
-  --json            Print machine-readable output
-  --env <env>       Environment (production|stage|local)
-  --local           Shortcut for --env local
-`);
-}
-
-function printCollectionsHelp(): void {
-  console.log(`
-Usage:
-  makefx collections list [--json]
-  makefx collections create <name> [--kind cast|backgrounds|scenes|thumbnails|maps|deliverables|custom] [--color <hex>] [--description <text>] [--sort-index <n>] [--json]
-  makefx collections update <collection-id> [--name <name>] [--kind cast|backgrounds|scenes|thumbnails|maps|deliverables|custom] [--color <hex|none>] [--description <text|none>] [--sort-index <n>] [--json]
-  makefx collections delete <collection-id> [--json]
-  makefx collections items <collection-id> [--json]
-  makefx collections add <collection-id> --asset <asset-id>[,<asset-id>] [--variant <variant-id>[,<variant-id>]] [--role <role>] [--pinned-variant <variant-id|none>] [--sort-index <n>] [--json]
-  makefx collections update-item <collection-id> <item-id> [--role <role>] [--pinned-variant <variant-id|none>] [--sort-index <n>] [--json]
-  makefx collections reorder <collection-id> --items <item-id,item-id> [--json]
-  makefx collections remove <collection-id> <item-id> [--json]
-
-Model:
-  Collections organize existing Space assets or exact variants. They do not
-  change generation lineage.
-
-Options:
-  --space <id>      Target space ID; defaults from the initialized project
-  --asset <ids>     Comma-separated asset IDs to add
-  --assets <ids>    Alias for --asset
-  --variant <ids>   Comma-separated variant IDs to add
-  --variants <ids>  Alias for --variant
-  --json            Print machine-readable output
   --env <env>       Environment (production|stage|local)
   --local           Shortcut for --env local
 `);
@@ -890,19 +750,6 @@ Options:
   --detach            Return after the pipeline starts instead of waiting for completion
   --timeout <sec>     Override the pipeline wait timeout
   --json              Print machine-readable output
-`);
-}
-
-function printProductionsHelp(): void {
-  console.log(`
-Usage:
-  makefx productions list --production-id <id>
-  makefx productions export --production-id <id> [-o scenes.args] [--media-dir media]
-  makefx productions export --production-id <id> --json [-o scenes.json] [--media-dir media]
-  makefx productions place --production-id <id> --variant <variant_id> --scene-label <label> --timeline-start-ms <ms>
-  makefx productions delete <record-id>
-
-Scene export downloads Space media through the CLI and emits --scene '<start>|<label>|<absolute path>' lines.
 `);
 }
 
@@ -1011,24 +858,12 @@ async function dispatchCommand(command: string, parsed: ReturnType<typeof parseA
     case 'variant':
       await handleVariants(parsed);
       break;
-    case 'styles':
-    case 'style':
-      await handleStyles(parsed);
-      break;
-    case 'collections':
-    case 'collection':
-      await handleCollections(parsed);
-      break;
     case 'rotation':
       await handleRotation(parsed);
       break;
     case 'tileset':
     case 'tile-set':
       await handleTileSet(parsed);
-      break;
-    case 'productions':
-    case 'production':
-      await handleProductions(parsed);
       break;
     default:
       console.error(`Unknown command: ${command}`);

@@ -31,17 +31,6 @@ export type RunManifestFailure = {
   error: string;
 };
 
-export type RunManifestScene = {
-  productionId?: string;
-  shotId?: string;
-  sceneLabel?: string;
-  timelineStartMs?: number;
-  durationMs?: number;
-  motionPrompt?: string;
-  sourceRefs: string[];
-  sourceVariantIds: string[];
-};
-
 export type RunManifest = {
   version: 1;
   runId: string;
@@ -62,7 +51,6 @@ export type RunManifest = {
   workingDir?: string;
   createdAt: string;
   completedAt: string;
-  scene?: RunManifestScene;
   media: RunManifestMedia[];
   images: RunManifestImage[];
   failed: RunManifestFailure[];
@@ -289,7 +277,6 @@ function normalizeRunManifest(
   return {
     ...manifest,
     mediaKind: manifest.mediaKind || inferManifestMediaKind(normalizedMedia),
-    scene: normalizeManifestScene(manifest.scene),
     media: normalizedMedia,
     images: normalizedMedia.filter(isRunManifestImage),
   } as RunManifest;
@@ -330,28 +317,4 @@ function isRunManifestImage(entry: RunManifestMedia): entry is RunManifestImage 
 
 function inferManifestMediaKind(media: RunManifestMedia[]): MediaKind {
   return media[0]?.mediaKind || 'image';
-}
-
-function normalizeManifestScene(scene: RunManifestScene | undefined): RunManifestScene | undefined {
-  if (!scene) return undefined;
-  return {
-    productionId: optionalString(scene.productionId),
-    shotId: optionalString(scene.shotId),
-    sceneLabel: optionalString(scene.sceneLabel),
-    timelineStartMs: optionalInteger(scene.timelineStartMs),
-    durationMs: optionalInteger(scene.durationMs),
-    motionPrompt: optionalString(scene.motionPrompt),
-    sourceRefs: Array.isArray(scene.sourceRefs) ? scene.sourceRefs.filter((ref): ref is string => typeof ref === 'string') : [],
-    sourceVariantIds: Array.isArray(scene.sourceVariantIds)
-      ? scene.sourceVariantIds.filter((ref): ref is string => typeof ref === 'string')
-      : [],
-  };
-}
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
-}
-
-function optionalInteger(value: unknown): number | undefined {
-  return Number.isInteger(value) ? value as number : undefined;
 }

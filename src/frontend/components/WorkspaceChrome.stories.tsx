@@ -12,7 +12,7 @@ const StatusPill = () => (
 export const Full: Story = () => (
   <WorkspaceChrome
     leftSlot={<Brand />}
-    centerSlot={<span style={{ color: 'var(--color-text-muted)' }}>Production</span>}
+    centerSlot={<span style={{ color: 'var(--color-text-muted)' }}>Space</span>}
     rightSlot={<HeaderNav userName="Ada Lovelace" userEmail="ada@example.com" />}
     statusSlot={<StatusPill />}
   />

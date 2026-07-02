@@ -29,11 +29,11 @@ Use `16:9` or `21:9` for keyframes and backgrounds, `9:16` for vertical clips, `
 
 Make Effects routes video jobs through Google's Veo 3.1 family. The public CLI
 lets you set prompt, references, resolution, provider duration, model tier,
-audio, and production metadata.
+and audio.
 
 | Tier | Exact model ID | Use for |
 |-|-|-|
-| `generate` | `veo-3.1-generate-preview` | clips you expect to review, place on a timeline, or ship |
+| `generate` | `veo-3.1-generate-preview` | clips you expect to review or reuse |
 | `fast` | `veo-3.1-fast-generate-preview` | cheaper iteration path |
 | `lite` | `veo-3.1-lite-generate-preview` | draft path for background motion tests |
 
@@ -43,11 +43,11 @@ audio, and production metadata.
 |-|-|-|
 | Aspect ratio | `16:9`, `9:16` | other values normalize to landscape behavior |
 | Resolution | `720p`, `1080p`, `4k` | pick `720p` for tests; `4k` requires the generate or fast tier |
-| Provider duration | `4`, `6`, `8` seconds | not controlled by `--duration-ms`; use CLI `--duration` or the web duration control |
+| Provider duration | `4`, `6`, `8` seconds | use CLI `--duration` or the web duration control |
 | Tier | `generate`, `fast`, `lite` | use `generate` for final clips, `fast`/`lite` for iteration |
 | References | up to 3 source images/keyframes | one unstyled image uses image-to-video; two unstyled images use first/last frames; any style image or 3 images uses reference-image mode |
 
-The CLI `--duration-ms` flag records where the clip fits on your production timeline. It does not set the generated clip length; use `--duration 4|6|8` for provider duration.
+Provider duration controls the generated clip length; use `--duration 4|6|8` in the CLI or the web duration control.
 
 ## Audio
 
@@ -61,7 +61,7 @@ Choose one audio mode for each request.
 | `sfx` | one-off sound effect | `makefx audio sfx generate` |
 
 Speech and dialogue depend on voice selection and provider configuration. Treat
-the voice as a reusable reference for identity. Production can use ElevenLabs;
+the voice as a reusable reference for identity. The hosted app can use ElevenLabs;
 music requests may opt into Lyria with `--provider lyria`. Stage and local
 environments may use fake providers. Entitlement, quota, and rate checks can
 stop image, video, or audio generation before a provider call is made.
@@ -127,6 +127,6 @@ Start with these controls when shaping output:
 - `--aspect` for image/video shape where supported
 - `--count` for batches
 - audio mode subcommands
-- production metadata such as `--production-id`, `--shot-id`, `--scene-label`, `--timeline-start-ms`, and `--duration-ms`
+- lineage controls such as `--source-variant`, `--source-variants`, and `--relation-type` for uploaded media
 
-If a control is not listed here, let Make Effects use its defaults and focus on prompt, references, aspect, count, and production metadata.
+If a control is not listed here, let Make Effects use its defaults and focus on prompt, references, aspect, count, and lineage.

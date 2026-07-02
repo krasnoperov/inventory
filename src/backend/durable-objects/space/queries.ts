@@ -205,25 +205,6 @@ export const SpaceRelationQueries = {
   DELETE: 'UPDATE space_relations SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
 } as const;
 
-export const CompositionQueries = {
-  GET_ALL: 'SELECT * FROM compositions WHERE deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC',
-  GET_BY_ID: 'SELECT * FROM compositions WHERE id = ? AND deleted_at IS NULL',
-  INSERT: `INSERT INTO compositions
-           (id, name, description, status, output_asset_id, output_variant_id, metadata, sort_index, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  DELETE: 'UPDATE compositions SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
-} as const;
-
-export const CompositionItemQueries = {
-  GET_ALL: 'SELECT * FROM composition_items WHERE deleted_at IS NULL ORDER BY composition_id ASC, sort_index ASC, created_at ASC',
-  GET_BY_ID: 'SELECT * FROM composition_items WHERE id = ? AND deleted_at IS NULL',
-  GET_BY_COMPOSITION: 'SELECT * FROM composition_items WHERE composition_id = ? AND deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC',
-  INSERT: `INSERT INTO composition_items
-           (id, composition_id, role, label, asset_id, variant_id, metadata, sort_index, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  DELETE: 'UPDATE composition_items SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
-} as const;
-
 // ============================================================================
 // Chat Queries
 // ============================================================================
@@ -644,110 +625,6 @@ export const TilePositionQueries = {
         OR (tp.grid_x = ? - 1 AND tp.grid_y = ?))`,
   INSERT: `INSERT INTO tile_positions (id, tile_set_id, variant_id, grid_x, grid_y, created_at)
            VALUES (?, ?, ?, ?, ?, ?)`,
-} as const;
-
-// ============================================================================
-// Production Record Queries
-// ============================================================================
-
-export const ProductionRecordQueries = {
-  GET_BY_ID: 'SELECT * FROM production_records WHERE id = ? AND deleted_at IS NULL',
-  GET_BY_PRODUCTION: 'SELECT * FROM production_records WHERE production_id = ? AND deleted_at IS NULL ORDER BY timeline_start_ms ASC, shot_id ASC, created_at ASC',
-  UPSERT: `INSERT INTO production_records
-           (id, production_id, variant_id, asset_id, media_kind, shot_id, scene_label, timeline_start_ms, duration_ms, motion_prompt, source_refs, source_variant_ids, metadata, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-             production_id = excluded.production_id,
-             variant_id = excluded.variant_id,
-             asset_id = excluded.asset_id,
-             media_kind = excluded.media_kind,
-             shot_id = excluded.shot_id,
-             scene_label = excluded.scene_label,
-             timeline_start_ms = excluded.timeline_start_ms,
-             duration_ms = excluded.duration_ms,
-             motion_prompt = excluded.motion_prompt,
-             source_refs = excluded.source_refs,
-             source_variant_ids = excluded.source_variant_ids,
-             metadata = excluded.metadata,
-             updated_at = excluded.updated_at,
-             deleted_at = NULL`,
-  DELETE: 'UPDATE production_records SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
-  DELETE_BY_PRODUCTION: 'UPDATE production_records SET deleted_at = ?, updated_at = ? WHERE production_id = ? AND deleted_at IS NULL',
-} as const;
-
-export const ProductionQueries = {
-  GET_ALL: 'SELECT * FROM productions WHERE deleted_at IS NULL ORDER BY updated_at DESC',
-  GET_BY_ID: 'SELECT * FROM productions WHERE id = ? AND deleted_at IS NULL',
-  UPSERT: `INSERT INTO productions (id, name, description, metadata, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-             name = excluded.name,
-             description = excluded.description,
-             metadata = excluded.metadata,
-             updated_at = excluded.updated_at,
-             deleted_at = NULL`,
-  DELETE: 'UPDATE productions SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
-} as const;
-
-export const ProductionShotQueries = {
-  GET_BY_ID: 'SELECT * FROM production_shots WHERE id = ? AND deleted_at IS NULL',
-  GET_BY_PRODUCTION: 'SELECT * FROM production_shots WHERE production_id = ? AND deleted_at IS NULL ORDER BY timeline_start_ms ASC, shot_id ASC, created_at ASC',
-  UPSERT: `INSERT INTO production_shots (id, production_id, shot_id, label, timeline_start_ms, duration_ms, metadata, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-             production_id = excluded.production_id,
-             shot_id = excluded.shot_id,
-             label = excluded.label,
-             timeline_start_ms = excluded.timeline_start_ms,
-             duration_ms = excluded.duration_ms,
-             metadata = excluded.metadata,
-             updated_at = excluded.updated_at,
-             deleted_at = NULL`,
-  DELETE: 'UPDATE production_shots SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
-  DELETE_BY_PRODUCTION: 'UPDATE production_shots SET deleted_at = ?, updated_at = ? WHERE production_id = ? AND deleted_at IS NULL',
-} as const;
-
-export const ProductionCueQueries = {
-  GET_BY_ID: 'SELECT * FROM production_cues WHERE id = ? AND deleted_at IS NULL',
-  GET_BY_PRODUCTION: 'SELECT * FROM production_cues WHERE production_id = ? AND deleted_at IS NULL ORDER BY timeline_start_ms ASC, cue_type ASC, created_at ASC',
-  UPSERT: `INSERT INTO production_cues (id, production_id, cue_type, label, timeline_start_ms, duration_ms, metadata, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-             production_id = excluded.production_id,
-             cue_type = excluded.cue_type,
-             label = excluded.label,
-             timeline_start_ms = excluded.timeline_start_ms,
-             duration_ms = excluded.duration_ms,
-             metadata = excluded.metadata,
-             updated_at = excluded.updated_at,
-             deleted_at = NULL`,
-  DELETE: 'UPDATE production_cues SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
-  DELETE_BY_PRODUCTION: 'UPDATE production_cues SET deleted_at = ?, updated_at = ? WHERE production_id = ? AND deleted_at IS NULL',
-} as const;
-
-export const ProductionPlacementQueries = {
-  GET_BY_ID: 'SELECT * FROM production_placements WHERE id = ? AND deleted_at IS NULL',
-  GET_BY_PRODUCTION: 'SELECT * FROM production_placements WHERE production_id = ? AND deleted_at IS NULL ORDER BY created_at ASC',
-  GET_BY_TARGET: 'SELECT * FROM production_placements WHERE target_kind = ? AND target_id = ? AND deleted_at IS NULL ORDER BY created_at ASC',
-  UPSERT: `INSERT INTO production_placements
-           (id, production_id, target_kind, target_id, variant_id, asset_id, media_kind, role, source_refs, source_variant_ids, metadata, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-             production_id = excluded.production_id,
-             target_kind = excluded.target_kind,
-             target_id = excluded.target_id,
-             variant_id = excluded.variant_id,
-             asset_id = excluded.asset_id,
-             media_kind = excluded.media_kind,
-             role = excluded.role,
-             source_refs = excluded.source_refs,
-             source_variant_ids = excluded.source_variant_ids,
-             metadata = excluded.metadata,
-             updated_at = excluded.updated_at,
-             deleted_at = NULL`,
-  DELETE: 'UPDATE production_placements SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
-  DELETE_BY_PRODUCTION: 'UPDATE production_placements SET deleted_at = ?, updated_at = ? WHERE production_id = ? AND deleted_at IS NULL',
-  DELETE_BY_TARGET: 'UPDATE production_placements SET deleted_at = ?, updated_at = ? WHERE target_kind = ? AND target_id = ? AND deleted_at IS NULL',
 } as const;
 
 // ============================================================================

@@ -20,7 +20,7 @@ import type {
   BatchRequestMessage,
   BatchMode,
 } from '../../workflows/types';
-import type { ClaudeUsage, CollectionPlacementInput, DeferredAction, ErrorCode, MediaKind, SimplePlan } from '../../../shared/websocket-types';
+import type { ClaudeUsage, DeferredAction, ErrorCode, MediaKind, SimplePlan } from '../../../shared/websocket-types';
 
 // Re-export plan types from shared module (single source of truth)
 export type { MediaKind, PlanStatus, PlanStepStatus } from '../../../shared/websocket-types';
@@ -220,90 +220,6 @@ export interface TilePosition {
   deleted_at: number | null;
 }
 
-/**
- * ProductionRecord - Timeline placement metadata for downstream production tools.
- */
-export interface ProductionRecord {
-  id: string;
-  production_id: string;
-  variant_id: string;
-  asset_id: string;
-  media_kind: MediaKind;
-  shot_id: string | null;
-  scene_label: string;
-  timeline_start_ms: number;
-  duration_ms: number | null;
-  motion_prompt: string | null;
-  source_refs: string; // JSON string[]
-  source_variant_ids: string; // JSON string[]
-  metadata: string; // JSON object
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-  deleted_at: number | null;
-}
-
-export interface Production {
-  id: string;
-  name: string;
-  description: string | null;
-  metadata: string; // JSON object
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-  deleted_at: number | null;
-}
-
-export interface ProductionShot {
-  id: string;
-  production_id: string;
-  shot_id: string | null;
-  label: string;
-  timeline_start_ms: number;
-  duration_ms: number | null;
-  metadata: string; // JSON object
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-  deleted_at: number | null;
-}
-
-export type ProductionCueType = 'music' | 'sfx' | 'dialogue' | 'ambience' | 'custom';
-
-export interface ProductionCue {
-  id: string;
-  production_id: string;
-  cue_type: ProductionCueType;
-  label: string;
-  timeline_start_ms: number;
-  duration_ms: number | null;
-  metadata: string; // JSON object
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-  deleted_at: number | null;
-}
-
-export type ProductionPlacementTargetKind = 'shot' | 'cue';
-
-export interface ProductionPlacement {
-  id: string;
-  production_id: string;
-  target_kind: ProductionPlacementTargetKind;
-  target_id: string;
-  variant_id: string;
-  asset_id: string;
-  media_kind: MediaKind;
-  role: string | null;
-  source_refs: string; // JSON string[]
-  source_variant_ids: string; // JSON string[]
-  metadata: string; // JSON object
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-  deleted_at: number | null;
-}
-
 export type SpaceSubjectType = 'asset' | 'variant';
 
 export type CollectionKind =
@@ -327,19 +243,6 @@ export type SpaceRelationType =
   | 'part_of'
   | 'reference_for'
   | 'custom';
-
-export type CompositionItemRole =
-  | 'output'
-  | 'background'
-  | 'character'
-  | 'prop'
-  | 'style_ref'
-  | 'overlay'
-  | 'map'
-  | 'thumbnail'
-  | 'custom';
-
-export type CompositionStatus = 'draft' | 'final';
 
 export interface SpaceCollection {
   id: string;
@@ -414,55 +317,12 @@ export interface SpaceRelation {
   deleted_at: number | null;
 }
 
-export interface Composition {
-  id: string;
-  name: string;
-  description: string | null;
-  status: CompositionStatus;
-  output_asset_id: string | null;
-  output_variant_id: string | null;
-  metadata: string;
-  sort_index: number;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-  deleted_at: number | null;
-}
-
-export interface CompositionItem {
-  id: string;
-  composition_id: string;
-  role: CompositionItemRole;
-  label: string | null;
-  asset_id: string | null;
-  variant_id: string;
-  metadata: string;
-  sort_index: number;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-  deleted_at: number | null;
-}
-
 export interface SpaceCollectionOverview {
   id: string;
   name: string;
   kind: CollectionKind;
   color: string | null;
   description: string | null;
-  sort_index: number;
-  item_count: number;
-  created_at: number;
-  updated_at: number;
-}
-
-export interface CompositionOverview {
-  id: string;
-  name: string;
-  description: string | null;
-  status: CompositionStatus;
-  output_asset_id: string | null;
-  output_variant_id: string | null;
   sort_index: number;
   item_count: number;
   created_at: number;
@@ -645,7 +505,7 @@ export type ClientMessage =
   | { type: 'asset:update'; assetId: string; changes: { name?: string; tags?: string[]; type?: string } }
   | { type: 'asset:delete'; assetId: string }
   | { type: 'asset:setActive'; assetId: string; variantId: string }
-  | { type: 'asset:fork'; sourceAssetId?: string; sourceVariantId?: string; name: string; assetType: string; mediaKind?: MediaKind; collectionPlacements?: CollectionPlacementInput[] }
+  | { type: 'asset:fork'; sourceAssetId?: string; sourceVariantId?: string; name: string; assetType: string; mediaKind?: MediaKind }
   // Manual organization operations
   | { type: 'collection:create'; id?: string; name: string; kind?: CollectionKind; color?: string | null; description?: string | null; sortIndex?: number }
   | { type: 'collection:update'; collectionId: string; changes: { name?: string; kind?: CollectionKind; color?: string | null; description?: string | null; sortIndex?: number } }
@@ -657,13 +517,6 @@ export type ClientMessage =
   | { type: 'relation:create'; id?: string; subject: { subjectType: SpaceSubjectType; assetId?: string; variantId?: string }; object: { subjectType: SpaceSubjectType; assetId?: string; variantId?: string }; relationType: SpaceRelationType; label?: string | null; context?: string | Record<string, unknown> | null; metadata?: Record<string, unknown>; sortIndex?: number }
   | { type: 'relation:update'; relationId: string; changes: { relationType?: SpaceRelationType; label?: string | null; context?: string | Record<string, unknown> | null; metadata?: Record<string, unknown>; sortIndex?: number } }
   | { type: 'relation:delete'; relationId: string }
-  | { type: 'composition:create'; id?: string; name: string; description?: string | null; status?: CompositionStatus; outputAssetId?: string | null; outputVariantId?: string | null; metadata?: Record<string, unknown>; sortIndex?: number }
-  | { type: 'composition:update'; compositionId: string; changes: { name?: string; description?: string | null; status?: CompositionStatus; outputAssetId?: string | null; outputVariantId?: string | null; metadata?: Record<string, unknown>; sortIndex?: number } }
-  | { type: 'composition:delete'; compositionId: string }
-  | { type: 'composition_item:create'; compositionId: string; id?: string; role: CompositionItemRole; label?: string | null; assetId?: string | null; variantId: string; metadata?: Record<string, unknown>; sortIndex?: number }
-  | { type: 'composition_item:update'; compositionId: string; itemId: string; changes: { role?: CompositionItemRole; label?: string | null; assetId?: string | null; variantId?: string; metadata?: Record<string, unknown>; sortIndex?: number } }
-  | { type: 'composition_items:reorder'; compositionId: string; itemIds: string[] }
-  | { type: 'composition_item:delete'; compositionId: string; itemId: string }
   // Variant operations
   | { type: 'variant:delete'; variantId: string }
   | { type: 'variant:star'; variantId: string; starred: boolean }
@@ -724,8 +577,8 @@ export type ClientMessage =
  */
 export type ServerMessage =
   // Sync (full state)
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; relations?: SpaceRelation[]; compositions?: Composition[]; compositionItems?: CompositionItem[] }
-  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollectionOverview[]; collectionItems?: CollectionItem[]; compositions?: CompositionOverview[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; relations?: SpaceRelation[] }
+  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollectionOverview[]; collectionItems?: CollectionItem[] }
   // TODO: sync:chat_state is currently unused - chat history is loaded via REST API instead.
   // Consider implementing for WebSocket reconnection state recovery.
   // | { type: 'sync:chat_state'; messages: ChatMessage[]; plan: Plan | null; planSteps: PlanStep[]; approvals: PendingApproval[]; autoExecuted: AutoExecuted[] }
@@ -745,13 +598,6 @@ export type ServerMessage =
   | { type: 'relation:created'; relation: SpaceRelation }
   | { type: 'relation:updated'; relation: SpaceRelation }
   | { type: 'relation:deleted'; relationId: string }
-  | { type: 'composition:created'; composition: Composition }
-  | { type: 'composition:updated'; composition: Composition }
-  | { type: 'composition:deleted'; compositionId: string }
-  | { type: 'composition_item:created'; item: CompositionItem }
-  | { type: 'composition_item:updated'; item: CompositionItem }
-  | { type: 'composition_items:reordered'; compositionId: string; items: CompositionItem[] }
-  | { type: 'composition_item:deleted'; compositionId: string; itemId: string }
   // Variant mutations
   | { type: 'variant:created'; variant: Variant }
   | { type: 'variant:updated'; variant: Variant }

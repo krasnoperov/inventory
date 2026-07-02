@@ -50,12 +50,12 @@ function getCliReadme(version) {
   return `# makefx
 
 Command-line interface for [Make Effects](https://makefx.app), an AI media
-production workspace for game assets, production references, and handoff files.
+workspace for game assets, variants, references, and lineage.
 
 \`makefx\` lets local developers, scripts, and coding agents create and manage
 website-backed assets from the terminal: generate images, audio, and video;
 upload local media; inspect variants; download outputs; watch real-time space
-events; and export production records.
+events; and curate selected variants.
 
 ## Install
 
@@ -152,12 +152,11 @@ makefx derive \\
   -o art/hero-market.png
 \`\`\`
 
-Create production helpers:
+Create game-ready helpers:
 
 \`\`\`bash
 makefx rotation --variant VARIANT_ID --config 8-directional
 makefx tileset "grass and stone path tiles" --type terrain --grid 3x3
-makefx productions export --production-id trailer-01 -o handoff/scenes.args
 \`\`\`
 
 Watch real-time space activity:
@@ -200,7 +199,6 @@ lineage, and stored media.
 | \`upload\` | Upload local media files and return Space IDs for chaining |
 | \`assets\`, \`variants\` | Inspect, download, curate, retry, or delete outputs |
 | \`rotation\`, \`tileset\` | Generate game-ready reference sets |
-| \`productions\` | Place and export production handoff records |
 | \`listen\` | Stream real-time space events |
 | \`runs\` | Inspect local debug manifests |
 | \`usage\` | Inspect platform storage and workflow consumption |

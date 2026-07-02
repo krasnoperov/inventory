@@ -129,78 +129,6 @@ const variant = {
   updated_at: 1_780_000_000_200,
 };
 
-const productionRecord = {
-  id: 'record-1',
-  production_id: 's01e01-a2',
-  variant_id: variant.id,
-  asset_id: asset.id,
-  media_kind: 'video' as const,
-  shot_id: 's01e01-a2-01',
-  scene_label: 'Cocina',
-  timeline_start_ms: 0,
-  duration_ms: 73_000,
-  motion_prompt: 'slow push in',
-  source_refs: '[]',
-  source_variant_ids: '[]',
-  metadata: '{}',
-  created_by: String(user.id),
-  created_at: 1_780_000_000_300,
-  updated_at: 1_780_000_000_300,
-};
-
-const production = {
-  id: 's01e01-a2',
-  name: 'S01E01 A2',
-  description: null,
-  metadata: '{}',
-  created_by: String(user.id),
-  created_at: 1_780_000_000_300,
-  updated_at: 1_780_000_000_300,
-};
-
-const productionShot = {
-  id: 'shot-row-1',
-  production_id: production.id,
-  shot_id: 's01e01-a2-01',
-  label: 'Cocina',
-  timeline_start_ms: 0,
-  duration_ms: 73_000,
-  metadata: '{}',
-  created_by: String(user.id),
-  created_at: 1_780_000_000_301,
-  updated_at: 1_780_000_000_301,
-};
-
-const productionCue = {
-  id: 'cue-row-1',
-  production_id: production.id,
-  cue_type: 'music' as const,
-  label: 'Intro bed',
-  timeline_start_ms: 0,
-  duration_ms: 73_000,
-  metadata: '{}',
-  created_by: String(user.id),
-  created_at: 1_780_000_000_302,
-  updated_at: 1_780_000_000_302,
-};
-
-const productionPlacement = {
-  id: 'placement-1',
-  production_id: production.id,
-  target_kind: 'shot' as const,
-  target_id: productionShot.id,
-  variant_id: variant.id,
-  asset_id: asset.id,
-  media_kind: 'video' as const,
-  role: 'primary',
-  source_refs: '[]',
-  source_variant_ids: '[]',
-  metadata: '{}',
-  created_by: String(user.id),
-  created_at: 1_780_000_000_303,
-  updated_at: 1_780_000_000_303,
-};
-
 const collection = {
   id: 'collection-1',
   name: 'Scene Kit',
@@ -266,34 +194,6 @@ const relation = {
   created_by: String(user.id),
   created_at: 1_780_000_000_402,
   updated_at: 1_780_000_000_402,
-};
-
-const composition = {
-  id: 'composition-1',
-  name: 'Opening Shot',
-  description: null,
-  status: 'draft' as const,
-  output_asset_id: asset.id,
-  output_variant_id: variant.id,
-  metadata: '{}',
-  sort_index: 0,
-  created_by: String(user.id),
-  created_at: 1_780_000_000_403,
-  updated_at: 1_780_000_000_403,
-};
-
-const compositionItem = {
-  id: 'composition-item-1',
-  composition_id: composition.id,
-  role: 'output' as const,
-  label: 'Final frame',
-  asset_id: asset.id,
-  variant_id: variant.id,
-  metadata: '{}',
-  sort_index: 0,
-  created_by: String(user.id),
-  created_at: 1_780_000_000_404,
-  updated_at: 1_780_000_000_404,
 };
 
 type FetchLike = NonNullable<ApiFetchOptions<ApiEndpointKey>['fetch']>;
@@ -1061,90 +961,6 @@ describe('API contracts', () => {
     ]);
   });
 
-  it('round-trips production placement routes through the shared client contract', async () => {
-    const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = [];
-    const fakeSpacesDO = {
-      idFromName: (id: string) => id,
-      get: () => ({
-        fetch: async (request: Request) => {
-          const path = new URL(request.url).pathname;
-          const method = request.method;
-          const body = method === 'POST' ? await request.json<Record<string, unknown>>() : undefined;
-          calls.push({ path, method, body });
-
-          if (path === '/internal/production/s01e01-a2/records') {
-            return Response.json({ success: true, records: [productionRecord] });
-          }
-          if (path === '/internal/production/placements') {
-            assert.equal(body?.createdBy, String(user.id));
-            assert.equal(body?.productionId, 's01e01-a2');
-            assert.equal(body?.variantId, variant.id);
-            return Response.json({ success: true, record: productionRecord });
-          }
-          if (path === '/internal/production/records/record-1') {
-            return Response.json({ success: true });
-          }
-
-          return Response.json({ error: 'Unexpected route' }, { status: 404 });
-        },
-      }),
-    };
-    const fakeAuthService = {
-      verifyJWT: async () => ({ userId: user.id }),
-    };
-    const fakeMemberDAO = {
-      getMember: async () => ({ space_id: space.id, user_id: String(user.id), role: 'editor', joined_at: Date.now() }),
-    };
-    const app = routeApp(spaceRoutes, new Map<unknown, unknown>([
-      [AuthService, fakeAuthService],
-      [MemberDAO, fakeMemberDAO],
-    ]), {
-      SPACES_DO: fakeSpacesDO as unknown as AppContext['Bindings']['SPACES_DO'],
-    });
-    const fetch = bindFetch(app);
-    const authHeaders = { Authorization: 'Bearer test-token' };
-
-    const listed = await apiFetch('GET /api/spaces/:id/productions/:productionId/records', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, productionId: 's01e01-a2' },
-    });
-    assert.equal(listed.records[0].scene_label, 'Cocina');
-
-    const placed = await apiFetch('POST /api/spaces/:id/production/placements', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id },
-      json: {
-        id: 'record-1',
-        productionId: 's01e01-a2',
-        variantId: variant.id,
-        shotId: 's01e01-a2-01',
-        sceneLabel: 'Cocina',
-        timelineStartMs: 0,
-        durationMs: 73_000,
-        motionPrompt: 'slow push in',
-      },
-    });
-    assert.equal(placed.record.id, 'record-1');
-
-    const deleted = await apiFetch('DELETE /api/spaces/:id/production/records/:recordId', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, recordId: 'record-1' },
-    });
-    assert.equal(deleted.success, true);
-
-    assert.deepEqual(calls.map((call) => `${call.method} ${call.path}`), [
-      'GET /internal/production/s01e01-a2/records',
-      'POST /internal/production/placements',
-      'DELETE /internal/production/records/record-1',
-    ]);
-  });
-
   it('round-trips style preset routes and preserves distinct API errors', async () => {
     const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = [];
     const fakeSpacesDO = {
@@ -1361,184 +1177,6 @@ describe('API contracts', () => {
     assert.equal(calledSpaceDo, false);
   });
 
-  it('round-trips normalized production model routes through the shared client contract', async () => {
-    const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = [];
-    const fakeSpacesDO = {
-      idFromName: (id: string) => id,
-      get: () => ({
-        fetch: async (request: Request) => {
-          const path = new URL(request.url).pathname;
-          const method = request.method;
-          const body = method === 'POST' ? await request.json<Record<string, unknown>>() : undefined;
-          calls.push({ path, method, body });
-
-          if (path === '/internal/productions' && method === 'GET') {
-            return Response.json({ success: true, productions: [production] });
-          }
-          if (path === '/internal/productions' && method === 'POST') {
-            assert.equal(body?.createdBy, String(user.id));
-            assert.equal(body?.name, production.name);
-            return Response.json({ success: true, production });
-          }
-          if (path === '/internal/productions/s01e01-a2' && method === 'GET') {
-            return Response.json({
-              success: true,
-              production,
-              shots: [productionShot],
-              cues: [productionCue],
-              placements: [productionPlacement],
-            });
-          }
-          if (path === '/internal/productions/s01e01-a2/shots' && method === 'POST') {
-            assert.equal(body?.createdBy, String(user.id));
-            return Response.json({ success: true, shot: productionShot });
-          }
-          if (path === '/internal/productions/s01e01-a2/cues' && method === 'POST') {
-            assert.equal(body?.cueType, 'music');
-            return Response.json({ success: true, cue: productionCue });
-          }
-          if (path === '/internal/productions/s01e01-a2/placements' && method === 'POST') {
-            assert.equal(body?.targetKind, 'shot');
-            assert.equal(body?.variantId, variant.id);
-            return Response.json({ success: true, placement: productionPlacement });
-          }
-          if (
-            path === '/internal/productions/s01e01-a2/placements/placement-1'
-            || path === '/internal/productions/s01e01-a2/cues/cue-row-1'
-            || path === '/internal/productions/s01e01-a2/shots/shot-row-1'
-            || path === '/internal/productions/s01e01-a2'
-          ) {
-            return Response.json({ success: true });
-          }
-
-          return Response.json({ error: 'Unexpected route' }, { status: 404 });
-        },
-      }),
-    };
-    const fakeAuthService = {
-      verifyJWT: async () => ({ userId: user.id }),
-    };
-    const fakeMemberDAO = {
-      getMember: async () => ({ space_id: space.id, user_id: String(user.id), role: 'editor', joined_at: Date.now() }),
-    };
-    const app = routeApp(spaceRoutes, new Map<unknown, unknown>([
-      [AuthService, fakeAuthService],
-      [MemberDAO, fakeMemberDAO],
-    ]), {
-      SPACES_DO: fakeSpacesDO as unknown as AppContext['Bindings']['SPACES_DO'],
-    });
-    const fetch = bindFetch(app);
-    const authHeaders = { Authorization: 'Bearer test-token' };
-
-    const listed = await apiFetch('GET /api/spaces/:id/productions', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id },
-    });
-    assert.equal(listed.productions[0].id, production.id);
-
-    const saved = await apiFetch('POST /api/spaces/:id/productions', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id },
-      json: { id: production.id, name: production.name },
-    });
-    assert.equal(saved.production.name, production.name);
-
-    const detail = await apiFetch('GET /api/spaces/:id/productions/:productionId', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, productionId: production.id },
-    });
-    assert.equal(detail.shots[0].label, 'Cocina');
-    assert.equal(detail.cues[0].cue_type, 'music');
-    assert.equal(detail.placements[0].variant_id, variant.id);
-
-    const shot = await apiFetch('POST /api/spaces/:id/productions/:productionId/shots', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, productionId: production.id },
-      json: {
-        id: productionShot.id,
-        shotId: productionShot.shot_id!,
-        label: productionShot.label,
-        timelineStartMs: productionShot.timeline_start_ms,
-        durationMs: productionShot.duration_ms!,
-      },
-    });
-    assert.equal(shot.shot.id, productionShot.id);
-
-    const cue = await apiFetch('POST /api/spaces/:id/productions/:productionId/cues', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, productionId: production.id },
-      json: {
-        id: productionCue.id,
-        cueType: 'music',
-        label: productionCue.label,
-        timelineStartMs: productionCue.timeline_start_ms,
-      },
-    });
-    assert.equal(cue.cue.cue_type, 'music');
-
-    const placement = await apiFetch('POST /api/spaces/:id/productions/:productionId/placements', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, productionId: production.id },
-      json: {
-        id: productionPlacement.id,
-        targetKind: 'shot',
-        targetId: productionShot.id,
-        variantId: variant.id,
-      },
-    });
-    assert.equal(placement.placement.target_id, productionShot.id);
-
-    await apiFetch('DELETE /api/spaces/:id/productions/:productionId/placements/:childId', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, productionId: production.id, childId: productionPlacement.id },
-    });
-    await apiFetch('DELETE /api/spaces/:id/productions/:productionId/cues/:childId', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, productionId: production.id, childId: productionCue.id },
-    });
-    await apiFetch('DELETE /api/spaces/:id/productions/:productionId/shots/:childId', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, productionId: production.id, childId: productionShot.id },
-    });
-    await apiFetch('DELETE /api/spaces/:id/productions/:productionId', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, productionId: production.id },
-    });
-
-    assert.deepEqual(calls.map((call) => `${call.method} ${call.path}`), [
-      'GET /internal/productions',
-      'POST /internal/productions',
-      'GET /internal/productions/s01e01-a2',
-      'POST /internal/productions/s01e01-a2/shots',
-      'POST /internal/productions/s01e01-a2/cues',
-      'POST /internal/productions/s01e01-a2/placements',
-      'DELETE /internal/productions/s01e01-a2/placements/placement-1',
-      'DELETE /internal/productions/s01e01-a2/cues/cue-row-1',
-      'DELETE /internal/productions/s01e01-a2/shots/shot-row-1',
-      'DELETE /internal/productions/s01e01-a2',
-    ]);
-  });
-
   it('round-trips organization routes through the shared client contract', async () => {
     const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = [];
     const fakeSpacesDO = {
@@ -1590,38 +1228,10 @@ describe('API contracts', () => {
             assert.equal(body?.relationType, 'reference_for');
             return Response.json({ success: true, relation: { ...relation, relation_type: 'reference_for' } });
           }
-          if (path === '/internal/compositions' && method === 'GET') {
-            return Response.json({ success: true, compositions: [composition] });
-          }
-          if (path === '/internal/compositions' && method === 'POST') {
-            assert.equal(body?.createdBy, String(user.id));
-            return Response.json({ success: true, composition });
-          }
-          if (path === '/internal/compositions/composition-1' && method === 'PATCH') {
-            assert.equal(body?.status, 'final');
-            return Response.json({ success: true, composition: { ...composition, status: 'final' } });
-          }
-          if (path === '/internal/compositions/composition-1/items' && method === 'GET') {
-            return Response.json({ success: true, items: [compositionItem] });
-          }
-          if (path === '/internal/compositions/composition-1/items' && method === 'POST') {
-            assert.equal(body?.role, 'output');
-            return Response.json({ success: true, item: compositionItem });
-          }
-          if (path === '/internal/compositions/composition-1/items/composition-item-1' && method === 'PATCH') {
-            assert.equal(body?.role, 'thumbnail');
-            return Response.json({ success: true, item: { ...compositionItem, role: 'thumbnail' } });
-          }
-          if (path === '/internal/compositions/composition-1/items/reorder' && method === 'POST') {
-            assert.deepEqual(body?.itemIds, ['composition-item-1']);
-            return Response.json({ success: true, items: [compositionItem] });
-          }
           if (
             (path === '/internal/collections/collection-1/items/collection-item-1' && method === 'DELETE')
             || (path === '/internal/collections/collection-1' && method === 'DELETE')
             || (path === '/internal/relations/relation-1' && method === 'DELETE')
-            || (path === '/internal/compositions/composition-1/items/composition-item-1' && method === 'DELETE')
-            || (path === '/internal/compositions/composition-1' && method === 'DELETE')
           ) {
             return Response.json({ success: true });
           }
@@ -1727,54 +1337,6 @@ describe('API contracts', () => {
       json: { itemIds: [collectionItem.id] },
     });
 
-    await apiFetch('GET /api/spaces/:id/compositions', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id },
-    });
-    await apiFetch('POST /api/spaces/:id/compositions', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id },
-      json: { id: composition.id, name: composition.name, outputVariantId: variant.id },
-    });
-    await apiFetch('PATCH /api/spaces/:id/compositions/:compositionId', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, compositionId: composition.id },
-      json: { status: 'final' },
-    });
-    await apiFetch('GET /api/spaces/:id/compositions/:compositionId/items', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, compositionId: composition.id },
-    });
-    await apiFetch('POST /api/spaces/:id/compositions/:compositionId/items', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, compositionId: composition.id },
-      json: { role: 'output', variantId: variant.id },
-    });
-    await apiFetch('PATCH /api/spaces/:id/compositions/:compositionId/items/:itemId', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, compositionId: composition.id, itemId: compositionItem.id },
-      json: { role: 'thumbnail' },
-    });
-    await apiFetch('POST /api/spaces/:id/compositions/:compositionId/items/reorder', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, compositionId: composition.id },
-      json: { itemIds: [compositionItem.id] },
-    });
-
     await apiFetch('POST /api/spaces/:id/relations', {
       fetch,
       baseUrl,
@@ -1812,21 +1374,7 @@ describe('API contracts', () => {
       headers: authHeaders,
       params: { id: space.id, relationId: relation.id },
     });
-    await apiFetch('DELETE /api/spaces/:id/compositions/:compositionId/items/:itemId', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, compositionId: composition.id, itemId: compositionItem.id },
-    });
-    await apiFetch('DELETE /api/spaces/:id/compositions/:compositionId', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, compositionId: composition.id },
-    });
-
     assert(calls.some((call) => call.path === '/internal/collections' && call.method === 'GET'));
-    assert(calls.some((call) => call.path === '/internal/compositions/composition-1/items/reorder'));
     assert(calls.some((call) => call.path === '/internal/relations/relation-1' && call.method === 'DELETE'));
   });
 

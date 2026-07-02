@@ -1,1 +1,0 @@
-export { CompositionPlacementControl } from './CompositionPlacementControl';

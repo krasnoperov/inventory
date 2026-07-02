@@ -351,33 +351,6 @@ export const SpaceInvitationResponseSchema = z
   })
   .openapi('SpaceInvitationResponse');
 
-export const ProductionIdParamsSchema = SpaceIdParamsSchema.extend({
-  productionId: z.string().openapi({
-    param: {
-      name: 'productionId',
-      in: 'path',
-    },
-  }),
-});
-
-export const ProductionRecordParamsSchema = SpaceIdParamsSchema.extend({
-  recordId: z.string().openapi({
-    param: {
-      name: 'recordId',
-      in: 'path',
-    },
-  }),
-});
-
-export const ProductionChildParamsSchema = ProductionIdParamsSchema.extend({
-  childId: z.string().openapi({
-    param: {
-      name: 'childId',
-      in: 'path',
-    },
-  }),
-});
-
 export const CreateSpaceRequestSchema = z
   .object({
     name: z.string(),
@@ -529,19 +502,6 @@ export const SpaceRelationTypeSchema = z.enum([
   'reference_for',
   'custom',
 ]);
-export const CompositionItemRoleSchema = z.enum([
-  'output',
-  'background',
-  'character',
-  'prop',
-  'style_ref',
-  'overlay',
-  'map',
-  'thumbnail',
-  'custom',
-]);
-export const CompositionStatusSchema = z.enum(['draft', 'final']);
-
 export const CollectionIdParamsSchema = SpaceIdParamsSchema.extend({
   collectionId: z.string().openapi({
     param: {
@@ -573,24 +533,6 @@ export const RelationParamsSchema = SpaceIdParamsSchema.extend({
   relationId: z.string().openapi({
     param: {
       name: 'relationId',
-      in: 'path',
-    },
-  }),
-});
-
-export const CompositionIdParamsSchema = SpaceIdParamsSchema.extend({
-  compositionId: z.string().openapi({
-    param: {
-      name: 'compositionId',
-      in: 'path',
-    },
-  }),
-});
-
-export const CompositionItemParamsSchema = CompositionIdParamsSchema.extend({
-  itemId: z.string().openapi({
-    param: {
-      name: 'itemId',
       in: 'path',
     },
   }),
@@ -678,38 +620,6 @@ export const SpaceRelationSchema = z
   })
   .openapi('SpaceRelation');
 
-export const CompositionSchema = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    description: z.string().nullable(),
-    status: CompositionStatusSchema,
-    output_asset_id: z.string().nullable(),
-    output_variant_id: z.string().nullable(),
-    metadata: z.string(),
-    sort_index: z.number().int(),
-    created_by: z.string(),
-    created_at: z.number(),
-    updated_at: z.number(),
-  })
-  .openapi('Composition');
-
-export const CompositionItemSchema = z
-  .object({
-    id: z.string(),
-    composition_id: z.string(),
-    role: CompositionItemRoleSchema,
-    label: z.string().nullable(),
-    asset_id: z.string().nullable(),
-    variant_id: z.string(),
-    metadata: z.string(),
-    sort_index: z.number().int(),
-    created_by: z.string(),
-    created_at: z.number(),
-    updated_at: z.number(),
-  })
-  .openapi('CompositionItem');
-
 export const UpsertCollectionRequestSchema = z
   .object({
     id: z.string().optional(),
@@ -788,46 +698,6 @@ export const UpdateRelationRequestSchema = z
   })
   .openapi('UpdateRelationRequest');
 
-export const UpsertCompositionRequestSchema = z
-  .object({
-    id: z.string().optional(),
-    name: z.string().min(1),
-    description: z.string().nullable().optional(),
-    status: CompositionStatusSchema.optional(),
-    outputAssetId: z.string().nullable().optional(),
-    outputVariantId: z.string().nullable().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-    sortIndex: z.number().int().optional(),
-  })
-  .openapi('UpsertCompositionRequest');
-
-export const UpdateCompositionRequestSchema = UpsertCompositionRequestSchema.omit({ id: true, name: true }).extend({
-  name: z.string().min(1).optional(),
-}).openapi('UpdateCompositionRequest');
-
-export const UpsertCompositionItemRequestSchema = z
-  .object({
-    id: z.string().optional(),
-    role: CompositionItemRoleSchema,
-    label: z.string().nullable().optional(),
-    assetId: z.string().nullable().optional(),
-    variantId: z.string().min(1),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-    sortIndex: z.number().int().optional(),
-  })
-  .openapi('UpsertCompositionItemRequest');
-
-export const UpdateCompositionItemRequestSchema = z
-  .object({
-    role: CompositionItemRoleSchema.optional(),
-    label: z.string().nullable().optional(),
-    assetId: z.string().nullable().optional(),
-    variantId: z.string().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-    sortIndex: z.number().int().optional(),
-  })
-  .openapi('UpdateCompositionItemRequest');
-
 export const ListCollectionsResponseSchema = z
   .object({
     success: z.literal(true),
@@ -890,34 +760,6 @@ export const RelationResponseSchema = z
     relation: SpaceRelationSchema,
   })
   .openapi('RelationResponse');
-
-export const ListCompositionsResponseSchema = z
-  .object({
-    success: z.literal(true),
-    compositions: z.array(CompositionSchema),
-  })
-  .openapi('ListCompositionsResponse');
-
-export const CompositionResponseSchema = z
-  .object({
-    success: z.literal(true),
-    composition: CompositionSchema,
-  })
-  .openapi('CompositionResponse');
-
-export const ListCompositionItemsResponseSchema = z
-  .object({
-    success: z.literal(true),
-    items: z.array(CompositionItemSchema),
-  })
-  .openapi('ListCompositionItemsResponse');
-
-export const CompositionItemResponseSchema = z
-  .object({
-    success: z.literal(true),
-    item: CompositionItemSchema,
-  })
-  .openapi('CompositionItemResponse');
 
 export const UsageSummaryQuerySchema = z.object({
   from: z.string().optional(),
@@ -1102,211 +944,6 @@ export const BillingUrlQuerySchema = z.object({
   success_url: z.string().optional(),
 });
 
-export const ProductionRecordSchema = z
-  .object({
-    id: z.string(),
-    production_id: z.string(),
-    variant_id: z.string(),
-    asset_id: z.string(),
-    media_kind: MediaKindSchema,
-    shot_id: z.string().nullable(),
-    scene_label: z.string(),
-    timeline_start_ms: z.number().int().nonnegative(),
-    duration_ms: z.number().int().nonnegative().nullable(),
-    motion_prompt: z.string().nullable(),
-    source_refs: z.string(),
-    source_variant_ids: z.string(),
-    metadata: z.string(),
-    created_by: z.string(),
-    created_at: z.number(),
-    updated_at: z.number(),
-  })
-  .openapi('ProductionRecord');
-
-export const PlaceProductionRecordRequestSchema = z
-  .object({
-    id: z.string().optional(),
-    productionId: z.string().min(1),
-    variantId: z.string().min(1),
-    shotId: z.string().optional(),
-    sceneLabel: z.string().min(1),
-    timelineStartMs: z.number().int().nonnegative(),
-    durationMs: z.number().int().nonnegative().optional(),
-    motionPrompt: z.string().optional(),
-    sourceRefs: z.array(z.string()).optional(),
-    sourceVariantIds: z.array(z.string()).optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-  })
-  .openapi('PlaceProductionRecordRequest');
-
-export const ProductionRecordResponseSchema = z
-  .object({
-    success: z.literal(true),
-    record: ProductionRecordSchema,
-  })
-  .openapi('ProductionRecordResponse');
-
-export const ListProductionRecordsResponseSchema = z
-  .object({
-    success: z.literal(true),
-    records: z.array(ProductionRecordSchema),
-  })
-  .openapi('ListProductionRecordsResponse');
-
-export const ProductionSchema = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    description: z.string().nullable(),
-    metadata: z.string(),
-    created_by: z.string(),
-    created_at: z.number(),
-    updated_at: z.number(),
-  })
-  .openapi('Production');
-
-export const ProductionShotSchema = z
-  .object({
-    id: z.string(),
-    production_id: z.string(),
-    shot_id: z.string().nullable(),
-    label: z.string(),
-    timeline_start_ms: z.number().int().nonnegative(),
-    duration_ms: z.number().int().nonnegative().nullable(),
-    metadata: z.string(),
-    created_by: z.string(),
-    created_at: z.number(),
-    updated_at: z.number(),
-  })
-  .openapi('ProductionShot');
-
-export const ProductionCueTypeSchema = z.enum(['music', 'sfx', 'dialogue', 'ambience', 'custom']);
-
-export const ProductionCueSchema = z
-  .object({
-    id: z.string(),
-    production_id: z.string(),
-    cue_type: ProductionCueTypeSchema,
-    label: z.string(),
-    timeline_start_ms: z.number().int().nonnegative(),
-    duration_ms: z.number().int().nonnegative().nullable(),
-    metadata: z.string(),
-    created_by: z.string(),
-    created_at: z.number(),
-    updated_at: z.number(),
-  })
-  .openapi('ProductionCue');
-
-export const ProductionPlacementTargetKindSchema = z.enum(['shot', 'cue']);
-
-export const ProductionPlacementSchema = z
-  .object({
-    id: z.string(),
-    production_id: z.string(),
-    target_kind: ProductionPlacementTargetKindSchema,
-    target_id: z.string(),
-    variant_id: z.string(),
-    asset_id: z.string(),
-    media_kind: MediaKindSchema,
-    role: z.string().nullable(),
-    source_refs: z.string(),
-    source_variant_ids: z.string(),
-    metadata: z.string(),
-    created_by: z.string(),
-    created_at: z.number(),
-    updated_at: z.number(),
-  })
-  .openapi('ProductionPlacement');
-
-export const UpsertProductionRequestSchema = z
-  .object({
-    id: z.string().optional(),
-    name: z.string().min(1),
-    description: z.string().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-  })
-  .openapi('UpsertProductionRequest');
-
-export const UpsertProductionShotRequestSchema = z
-  .object({
-    id: z.string().optional(),
-    shotId: z.string().optional(),
-    label: z.string().min(1),
-    timelineStartMs: z.number().int().nonnegative(),
-    durationMs: z.number().int().nonnegative().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-  })
-  .openapi('UpsertProductionShotRequest');
-
-export const UpsertProductionCueRequestSchema = z
-  .object({
-    id: z.string().optional(),
-    cueType: ProductionCueTypeSchema.optional(),
-    label: z.string().min(1),
-    timelineStartMs: z.number().int().nonnegative(),
-    durationMs: z.number().int().nonnegative().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-  })
-  .openapi('UpsertProductionCueRequest');
-
-export const UpsertProductionPlacementRequestSchema = z
-  .object({
-    id: z.string().optional(),
-    targetKind: ProductionPlacementTargetKindSchema,
-    targetId: z.string().min(1),
-    variantId: z.string().min(1),
-    role: z.string().optional(),
-    sourceRefs: z.array(z.string()).optional(),
-    sourceVariantIds: z.array(z.string()).optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-  })
-  .openapi('UpsertProductionPlacementRequest');
-
-export const ListProductionsResponseSchema = z
-  .object({
-    success: z.literal(true),
-    productions: z.array(ProductionSchema),
-  })
-  .openapi('ListProductionsResponse');
-
-export const ProductionResponseSchema = z
-  .object({
-    success: z.literal(true),
-    production: ProductionSchema,
-  })
-  .openapi('ProductionResponse');
-
-export const ProductionDetailResponseSchema = z
-  .object({
-    success: z.literal(true),
-    production: ProductionSchema,
-    shots: z.array(ProductionShotSchema),
-    cues: z.array(ProductionCueSchema),
-    placements: z.array(ProductionPlacementSchema),
-  })
-  .openapi('ProductionDetailResponse');
-
-export const ProductionShotResponseSchema = z
-  .object({
-    success: z.literal(true),
-    shot: ProductionShotSchema,
-  })
-  .openapi('ProductionShotResponse');
-
-export const ProductionCueResponseSchema = z
-  .object({
-    success: z.literal(true),
-    cue: ProductionCueSchema,
-  })
-  .openapi('ProductionCueResponse');
-
-export const ProductionPlacementResponseSchema = z
-  .object({
-    success: z.literal(true),
-    placement: ProductionPlacementSchema,
-  })
-  .openapi('ProductionPlacementResponse');
-
 export const DeleteSpaceResponseSchema = z
   .object({
     success: z.literal(true),
@@ -1418,14 +1055,10 @@ export type ListSpaceAssetsResponse = z.infer<typeof ListSpaceAssetsResponseSche
 export type SpaceSubjectType = z.infer<typeof SpaceSubjectTypeSchema>;
 export type CollectionKind = z.infer<typeof CollectionKindSchema>;
 export type SpaceRelationType = z.infer<typeof SpaceRelationTypeSchema>;
-export type CompositionItemRole = z.infer<typeof CompositionItemRoleSchema>;
-export type CompositionStatus = z.infer<typeof CompositionStatusSchema>;
 export type SpaceSubject = z.infer<typeof SpaceSubjectSchema>;
 export type SpaceCollection = z.infer<typeof SpaceCollectionSchema>;
 export type CollectionItem = z.infer<typeof CollectionItemSchema>;
 export type SpaceRelation = z.infer<typeof SpaceRelationSchema>;
-export type Composition = z.infer<typeof CompositionSchema>;
-export type CompositionItem = z.infer<typeof CompositionItemSchema>;
 export type UpsertCollectionRequest = z.infer<typeof UpsertCollectionRequestSchema>;
 export type UpdateCollectionRequest = z.infer<typeof UpdateCollectionRequestSchema>;
 export type UpsertCollectionItemRequest = z.infer<typeof UpsertCollectionItemRequestSchema>;
@@ -1433,20 +1066,12 @@ export type UpdateCollectionItemRequest = z.infer<typeof UpdateCollectionItemReq
 export type ReorderItemsRequest = z.infer<typeof ReorderItemsRequestSchema>;
 export type UpsertRelationRequest = z.infer<typeof UpsertRelationRequestSchema>;
 export type UpdateRelationRequest = z.infer<typeof UpdateRelationRequestSchema>;
-export type UpsertCompositionRequest = z.infer<typeof UpsertCompositionRequestSchema>;
-export type UpdateCompositionRequest = z.infer<typeof UpdateCompositionRequestSchema>;
-export type UpsertCompositionItemRequest = z.infer<typeof UpsertCompositionItemRequestSchema>;
-export type UpdateCompositionItemRequest = z.infer<typeof UpdateCompositionItemRequestSchema>;
 export type ListCollectionsResponse = z.infer<typeof ListCollectionsResponseSchema>;
 export type CollectionResponse = z.infer<typeof CollectionResponseSchema>;
 export type ListCollectionItemsResponse = z.infer<typeof ListCollectionItemsResponseSchema>;
 export type CollectionItemResponse = z.infer<typeof CollectionItemResponseSchema>;
 export type ListRelationsResponse = z.infer<typeof ListRelationsResponseSchema>;
 export type RelationResponse = z.infer<typeof RelationResponseSchema>;
-export type ListCompositionsResponse = z.infer<typeof ListCompositionsResponseSchema>;
-export type CompositionResponse = z.infer<typeof CompositionResponseSchema>;
-export type ListCompositionItemsResponse = z.infer<typeof ListCompositionItemsResponseSchema>;
-export type CompositionItemResponse = z.infer<typeof CompositionItemResponseSchema>;
 export type PlatformUsageTypeSummary = z.infer<typeof PlatformUsageTypeSummarySchema>;
 export type PlatformUsageMediaKindSummary = z.infer<typeof PlatformUsageMediaKindSummarySchema>;
 export type PlatformUsageSummaryResponse = z.infer<typeof PlatformUsageSummaryResponseSchema>;
@@ -1459,24 +1084,6 @@ export type BillingUrlResponse = z.infer<typeof BillingUrlResponseSchema>;
 export type BillingUsageMeter = z.infer<typeof BillingUsageMeterSchema>;
 export type BillingUsageResponse = z.infer<typeof BillingUsageResponseSchema>;
 export type DeleteSpaceResponse = z.infer<typeof DeleteSpaceResponseSchema>;
-export type ProductionRecord = z.infer<typeof ProductionRecordSchema>;
-export type PlaceProductionRecordRequest = z.infer<typeof PlaceProductionRecordRequestSchema>;
-export type ProductionRecordResponse = z.infer<typeof ProductionRecordResponseSchema>;
-export type ListProductionRecordsResponse = z.infer<typeof ListProductionRecordsResponseSchema>;
-export type Production = z.infer<typeof ProductionSchema>;
-export type ProductionShot = z.infer<typeof ProductionShotSchema>;
-export type ProductionCue = z.infer<typeof ProductionCueSchema>;
-export type ProductionPlacement = z.infer<typeof ProductionPlacementSchema>;
-export type UpsertProductionRequest = z.infer<typeof UpsertProductionRequestSchema>;
-export type UpsertProductionShotRequest = z.infer<typeof UpsertProductionShotRequestSchema>;
-export type UpsertProductionCueRequest = z.infer<typeof UpsertProductionCueRequestSchema>;
-export type UpsertProductionPlacementRequest = z.infer<typeof UpsertProductionPlacementRequestSchema>;
-export type ListProductionsResponse = z.infer<typeof ListProductionsResponseSchema>;
-export type ProductionResponse = z.infer<typeof ProductionResponseSchema>;
-export type ProductionDetailResponse = z.infer<typeof ProductionDetailResponseSchema>;
-export type ProductionShotResponse = z.infer<typeof ProductionShotResponseSchema>;
-export type ProductionCueResponse = z.infer<typeof ProductionCueResponseSchema>;
-export type ProductionPlacementResponse = z.infer<typeof ProductionPlacementResponseSchema>;
 export type Variant = z.infer<typeof VariantSchema>;
 export type Lineage = z.infer<typeof LineageSchema>;
 export type UploadMediaRequest = z.infer<typeof UploadMediaRequestSchema>;

@@ -23,7 +23,6 @@ import { Route as OauthApproveRouteImport } from './routes/oauth/approve'
 import { Route as DocsSlugRouteImport } from './routes/docs/$slug'
 import { Route as AdminSpendRouteImport } from './routes/admin/spend'
 import { Route as SpacesIdIndexRouteImport } from './routes/spaces/$id/index'
-import { Route as SpacesIdProductionRouteImport } from './routes/spaces/$id/production'
 import { Route as SpacesIdAssetsAssetIdRouteImport } from './routes/spaces/$id/assets/$assetId'
 
 const ProfileRoute = ProfileRouteImport.update({
@@ -96,11 +95,6 @@ const SpacesIdIndexRoute = SpacesIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => SpacesIdRoute,
 } as any)
-const SpacesIdProductionRoute = SpacesIdProductionRouteImport.update({
-  id: '/production',
-  path: '/production',
-  getParentRoute: () => SpacesIdRoute,
-} as any)
 const SpacesIdAssetsAssetIdRoute = SpacesIdAssetsAssetIdRouteImport.update({
   id: '/assets/$assetId',
   path: '/assets/$assetId',
@@ -121,7 +115,6 @@ export interface FileRoutesByFullPath {
   '/spaces/$id': typeof SpacesIdRouteWithChildren
   '/docs/': typeof DocsIndexRoute
   '/spaces/': typeof SpacesIndexRoute
-  '/spaces/$id/production': typeof SpacesIdProductionRoute
   '/spaces/$id/': typeof SpacesIdIndexRoute
   '/spaces/$id/assets/$assetId': typeof SpacesIdAssetsAssetIdRoute
 }
@@ -137,7 +130,6 @@ export interface FileRoutesByTo {
   '/oauth/approve': typeof OauthApproveRoute
   '/docs': typeof DocsIndexRoute
   '/spaces': typeof SpacesIndexRoute
-  '/spaces/$id/production': typeof SpacesIdProductionRoute
   '/spaces/$id': typeof SpacesIdIndexRoute
   '/spaces/$id/assets/$assetId': typeof SpacesIdAssetsAssetIdRoute
 }
@@ -156,7 +148,6 @@ export interface FileRoutesById {
   '/spaces/$id': typeof SpacesIdRouteWithChildren
   '/docs/': typeof DocsIndexRoute
   '/spaces/': typeof SpacesIndexRoute
-  '/spaces/$id/production': typeof SpacesIdProductionRoute
   '/spaces/$id/': typeof SpacesIdIndexRoute
   '/spaces/$id/assets/$assetId': typeof SpacesIdAssetsAssetIdRoute
 }
@@ -176,7 +167,6 @@ export interface FileRouteTypes {
     | '/spaces/$id'
     | '/docs/'
     | '/spaces/'
-    | '/spaces/$id/production'
     | '/spaces/$id/'
     | '/spaces/$id/assets/$assetId'
   fileRoutesByTo: FileRoutesByTo
@@ -192,7 +182,6 @@ export interface FileRouteTypes {
     | '/oauth/approve'
     | '/docs'
     | '/spaces'
-    | '/spaces/$id/production'
     | '/spaces/$id'
     | '/spaces/$id/assets/$assetId'
   id:
@@ -210,7 +199,6 @@ export interface FileRouteTypes {
     | '/spaces/$id'
     | '/docs/'
     | '/spaces/'
-    | '/spaces/$id/production'
     | '/spaces/$id/'
     | '/spaces/$id/assets/$assetId'
   fileRoutesById: FileRoutesById
@@ -329,13 +317,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SpacesIdIndexRouteImport
       parentRoute: typeof SpacesIdRoute
     }
-    '/spaces/$id/production': {
-      id: '/spaces/$id/production'
-      path: '/production'
-      fullPath: '/spaces/$id/production'
-      preLoaderRoute: typeof SpacesIdProductionRouteImport
-      parentRoute: typeof SpacesIdRoute
-    }
     '/spaces/$id/assets/$assetId': {
       id: '/spaces/$id/assets/$assetId'
       path: '/assets/$assetId'
@@ -359,13 +340,11 @@ const DocsRouteChildren: DocsRouteChildren = {
 const DocsRouteWithChildren = DocsRoute._addFileChildren(DocsRouteChildren)
 
 interface SpacesIdRouteChildren {
-  SpacesIdProductionRoute: typeof SpacesIdProductionRoute
   SpacesIdIndexRoute: typeof SpacesIdIndexRoute
   SpacesIdAssetsAssetIdRoute: typeof SpacesIdAssetsAssetIdRoute
 }
 
 const SpacesIdRouteChildren: SpacesIdRouteChildren = {
-  SpacesIdProductionRoute: SpacesIdProductionRoute,
   SpacesIdIndexRoute: SpacesIdIndexRoute,
   SpacesIdAssetsAssetIdRoute: SpacesIdAssetsAssetIdRoute,
 }

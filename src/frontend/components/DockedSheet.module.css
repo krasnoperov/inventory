@@ -1,4 +1,4 @@
-.host {
+.sheetHost {
   position: fixed;
   inset: 0;
   display: flex;
@@ -12,7 +12,7 @@
   animation: dockedSheetFadeIn 0.15s ease;
 }
 
-.panel {
+.sheetPanel {
   width: var(--docked-sheet-width, min(520px, calc(100vw - 2rem)));
   max-width: var(--docked-sheet-max-width, 520px);
   height: var(--docked-sheet-height, auto);
@@ -36,11 +36,11 @@
 }
 
 @media (max-width: 768px) {
-  .host {
+  .sheetHost {
     padding: var(--docked-sheet-mobile-padding, 0.5rem 0.5rem calc(var(--forge-sheet-bottom-offset, 10rem) + 0.5rem));
   }
 
-  .panel {
+  .sheetPanel {
     width: var(--docked-sheet-mobile-width, 100%);
     max-width: var(--docked-sheet-mobile-max-width, none);
     max-height: var(--docked-sheet-mobile-max-height, min(58vh, calc(100vh - var(--forge-sheet-bottom-offset, 10rem) - 1rem)));

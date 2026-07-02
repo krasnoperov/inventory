@@ -98,17 +98,8 @@ makefx derive \
   -o keyframes/lucia-market-001.png
 ```
 
-Reusable style libraries are managed with `styles`. Style references are normal
-Space assets or exact variants grouped in collections, and a named preset points
-to a collection plus a style prompt:
-
-```bash
-makefx styles collections create "Painterly refs" --refs asset_123,variant_456
-makefx styles presets create "Painterly" --collection collection_123 --prompt "Painterly adventure game" --default
-```
-
-Generation commands can select an enabled preset by ID or exact name, or opt out
-of style explicitly:
+Generation commands can select a simple style preset by ID or exact name when
+the Space exposes one, or opt out of style explicitly:
 
 ```bash
 makefx generate "A watercolor market background" \
@@ -120,10 +111,9 @@ makefx generate "A watercolor market background" \
 makefx generate "A neutral prop sheet" --no-style --name "Props" --type prop -o props.png
 ```
 
-When `--style-preset` is used, the CLI prints the resolved preset ID, collection,
-and reference count before creating the job. Uploaded references can be added to
-collections with `makefx upload --collection <id>` or explicit exact-name lookup
-with `--collection-name <name>`.
+When `--style-preset` is used, the CLI prints the resolved preset ID and
+reference count before creating the job. Style management is intentionally not a
+separate CLI workflow; keep style choices attached to the generation command.
 `--no-style` disables preset injection for that request without changing the
 Space default.
 
@@ -310,11 +300,6 @@ endpoint rather than by dereferencing raw R2 keys.
 | `--detach` | `rotation`, `tileset` | Return after the pipeline starts instead of waiting for completion |
 | `--grid <size>` | `tileset` | Square tile grid size or `WIDTHxHEIGHT`, each dimension 2-5 |
 | `--seed-variant <id>` | `tileset` | Optional completed image variant to place at the center of the tile set; sequential mode only |
-| `--scene-label <label>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional production scene label stored with production placement metadata |
-| `--timeline-start-ms <ms>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional production scene timeline start in milliseconds |
-| `--duration-ms <ms>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional intended production scene duration in milliseconds |
-| `--shot-id <id>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive` | Optional stable shot identifier |
-| `--production-id <id>` | `generate`, `refine`, `derive`, `video generate`, `video refine`, `video derive`, `productions list/export/place` | Stable grouping identifier for Space-backed production records |
 | `--env <env>` | all | `production`, `stage`, or `local`; overrides project binding |
 | `--local` | all | Shortcut for `--env local` |
 
@@ -350,22 +335,6 @@ makefx upload renders/cocina-scene.png \
   --source-variants variant_anna,variant_roman,variant_kitchen_bg
 ```
 
-The same direct upload can place the uploaded asset or exact variant into
-existing collections and create editable manual relations by ID:
-
-```bash
-makefx upload renders/hero-final.png \
-  --name "Hero Final" \
-  --collection collection_cast \
-  --collection-role character \
-  --manual-relation thumbnail_for:asset:asset_hero_sheet
-```
-
-Collection and manual relation targets are validated before media bytes are
-uploaded, so a mistyped organization ID does not create a duplicate asset on
-retry. Immutable upload lineage uses `--source-variant` or `--source-variants`;
-editable organization links use `--manual-relation`.
-
 For multi-step uploads, chain commands through IDs returned by `--json`. Local
 filenames are not durable identifiers after upload:
 
@@ -388,34 +357,17 @@ hero_json=$(makefx upload renders/hero-final.png \
   --generation-provenance '{"workflow":"character-sheet-v4"}' \
   --source-variant "$base_variant" \
   --relation-type derived \
-  --collection-name "Cast" \
-  --collection-role character \
   --json)
 hero_asset=$(printf '%s' "$hero_json" | jq -r '.variant.asset_id')
 ```
 
 Lineage created during upload is immutable provenance. It is not the Space
-organization model and should not be edited to arrange assets. Use
-`--manual-relation` for editable links and the `styles` commands for style
-collections and presets:
+organization model and should not be edited to arrange assets.
 
 ```bash
 makefx upload refs/painterly.png \
   --name "Painterly Reference" \
   --type reference \
-  --collection-name "Painterly refs" \
-  --json
-
-makefx styles presets create "Painterly" \
-  --collection collection_painterly_refs \
-  --prompt "Painterly adventure game" \
-  --default
-
-makefx upload renders/shot-final.png \
-  --name "Opening Shot Final" \
-  --type scene \
-  --manual-relation appears_in:asset:"$hero_asset" \
-  --manual-relation-label "Hero" \
   --json
 ```
 
@@ -437,8 +389,8 @@ variant IDs, media keys, media kind, prompt, refs, command options, timestamps,
 run success, and any failed variant errors. Image manifests also include an
 `images` array for older local keyframe tooling; all media kinds use the generic
 `media` array. Completed media files are still downloaded and recorded when
-another batch member fails. These files are troubleshooting traces, not
-production handoff state, not a local asset database, and not a source of truth.
+another batch member fails. These files are troubleshooting traces, not a local
+asset database, and not a source of truth.
 
 Inspect and export manifests only for debugging:
 
@@ -457,56 +409,14 @@ include the legacy ordered `images` keyframe array. The `remotion` format
 remains available for debugging existing keyframe tooling and emits the same
 media fields with the legacy `remotion-keyframes` format marker.
 
-## Production Records
-
-Production scene placement is Space-backed. When a single-output generation
-command includes `--production-id`, `--scene-label`, and
-`--timeline-start-ms`, the CLI places the completed variant into the Space
-production timeline after the website job completes. `--shot-id`,
-`--duration-ms`, motion prompt, and source refs are stored with the record.
-Use `productions place` for existing variants:
-
-```bash
-makefx productions place \
-  --production-id s01e01-a2 \
-  --variant VARIANT_ID \
-  --scene-label "Cocina" \
-  --timeline-start-ms 0
-```
-
-Inspect and export Space records:
-
-```bash
-makefx productions list --production-id s01e01-a2
-makefx productions export --production-id s01e01-a2 -o scenes.args
-makefx productions export --production-id s01e01-a2 --json -o scenes.json
-makefx productions export --production-id s01e01-a2 --media-dir handoff/media -o scenes.args
-```
-
-`productions export` downloads image and video media through the authenticated
-CLI session and writes deterministic shell-ready scene arguments sorted by
-timeline:
-
-```text
---scene '0|Cocina|/absolute/path/to/scenes.media/0001-cocina-variant-1.mp4'
---scene '72760|Escalera|/absolute/path/to/scenes.media/0002-escalera-variant-2.mp4'
-```
-
-Use `--json` when an external tool wants structured scene data instead of
-argument lines. The exported media URL is the authenticated variant media
-endpoint for the Space. `--duration-ms` is preserved as intended production
-timing; current video provider requests are not duration-controlled by this CLI
-flag.
-
 ## Russafa Remotion Handoff
 
 The Russafa workflow stays actor-driven. Make Effects CLI does not parse
 `S01E01-A2.shotlist.md`, call `../subtitles` scripts, or render Remotion. The
-external actor chooses prompts, refs, shot labels, and timeline starts from the
-shotlist, while the Make Effects website remains the source of truth for assets,
-variants, recipes, relations, and Space-backed production records. Downloaded
-local files are handoff artifacts; local run manifests are debug traces, not
-production handoff state.
+external actor chooses prompts and refs from the shotlist, while the Make
+Effects website remains the source of truth for assets, variants, and lineage.
+Downloaded local files are handoff artifacts; local run manifests are debug
+traces.
 
 Example command shape for Diario de Russafa S01E01 A2:
 
@@ -531,17 +441,8 @@ makefx derive \
 
 makefx video derive \
   --refs <shot01_keyframe_variant> \
-  --shot-id s01e01-a2-01 \
-  --production-id s01e01-a2 \
-  --scene-label "Cocina" \
-  --timeline-start-ms 0 \
-  --duration-ms 73000 \
   -o ../subtitles/art/social-video/russafa/clips/clip-s01e01-a2-01.mp4 \
   "medium shot; Anna moves toward the door; slow push-in"
-
-makefx productions export \
-  --production-id s01e01-a2 \
-  > ../subtitles/art/social-video/russafa/s01e01-a2.scenes.args
 ```
 
 `../subtitles` still owns `pnpm cli episodes download`, word timings,
@@ -561,7 +462,7 @@ downloads them through authenticated variant media routes, checks range support,
 triggers one WebSocket generation with the fake image provider, and verifies the
 generated media through the same authenticated media route.
 
-Run the CLI/worker media production loop without external provider calls:
+Run the CLI/worker media generation loop without external provider calls:
 
 ```bash
 pnpm run test:e2e:cli-forge
@@ -570,10 +471,6 @@ pnpm run test:e2e:cli-forge
 This starts a local Wrangler worker, applies local D1 migrations in an isolated
 temporary state directory, creates a dev-authenticated space, runs image
 `generate`/`refine`/`derive`/`batch`, audio SFX generation, podcast dialogue
-generation from `--input`, video `generate`/`derive`, generic media export, and
-Space-backed production scene export. It verifies downloaded image, audio, and
-video files and forces fake backend providers instead of calling Gemini,
-ElevenLabs, or Veo.
-
-See [cli-media-production-cookbook.md](./cli-media-production-cookbook.md) for
-operator-ready command sequences across images, audio, video, and podcasts.
+generation from `--input`, video `generate`/`derive`, and generic media export.
+It verifies downloaded image, audio, and video files and forces fake backend
+providers instead of calling Gemini, ElevenLabs, or Veo.

@@ -4,7 +4,6 @@ import type {
   Lineage,
   RotationSet,
   RotationView,
-  SpaceRelation,
   TilePosition,
   TileSet,
   UserPresence,
@@ -18,7 +17,6 @@ export interface SpaceStateSnapshot {
   assets: Asset[];
   variants: Variant[];
   lineage: Lineage[];
-  relations: SpaceRelation[];
   collections: SpaceCollection[];
   collectionItems: CollectionItem[];
   presence: UserPresence[];
@@ -39,7 +37,6 @@ function cloneSpaceStateSnapshot(snapshot: SpaceStateSnapshot): SpaceStateSnapsh
     assets: [...snapshot.assets],
     variants: [...snapshot.variants],
     lineage: [...snapshot.lineage],
-    relations: [...snapshot.relations],
     collections: [...snapshot.collections],
     collectionItems: [...snapshot.collectionItems],
     presence: [...snapshot.presence],
@@ -93,7 +90,6 @@ export function persistSpaceStateSnapshot(args: {
   assets: Asset[];
   variants: Variant[];
   lineage: Lineage[];
-  relations: SpaceRelation[];
   collections: SpaceCollection[];
   collectionItems: CollectionItem[];
   presence: UserPresence[];
@@ -110,7 +106,6 @@ export function persistSpaceStateSnapshot(args: {
     assets: [...args.assets],
     variants: [...args.variants],
     lineage: args.syncMode === 'overview' ? [...(existing?.lineage ?? args.lineage)] : [...args.lineage],
-    relations: args.syncMode === 'overview' ? [...(existing?.relations ?? args.relations)] : [...args.relations],
     collections: [...args.collections],
     collectionItems: [...args.collectionItems],
     presence: [...args.presence],

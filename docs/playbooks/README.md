@@ -20,7 +20,7 @@ need prior experience with diffusion models or prompt engineering.
 | Playbook | Covers |
 |-|-|
 | [Images](./images.md) | Personages, style references, scenes, multi-reference composition, editing, consistency |
-| [Video](./video.md) | Keyframes-first workflow, references ("ingredients"), cinematography prompts, productions export |
+| [Video](./video.md) | Keyframes-first workflow, references ("ingredients"), cinematography prompts, iteration |
 | [Audio](./audio.md) | Speech, dialogue, music, and SFX modes; the Gemini-native audio path |
 
 ## One Idea Behind All Three

@@ -28,5 +28,4 @@ export { VisionController } from './VisionController';
 export { StylePresetController } from './StylePresetController';
 export { RotationController } from './RotationController';
 export { TileController } from './TileController';
-export { ProductionController } from './ProductionController';
 export { OrganizationController } from './OrganizationController';

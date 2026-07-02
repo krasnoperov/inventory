@@ -433,19 +433,9 @@ try {
     '--refs',
     generatedVariantId,
     '--name',
-    'Production Clip 001',
+    'Intro Clip 001',
     '--type',
     'animation',
-    '--production-id',
-    'e2e-podcast-episode',
-    '--shot-id',
-    'shot-001',
-    '--scene-label',
-    'Intro',
-    '--timeline-start-ms',
-    '0',
-    '--duration-ms',
-    '8000',
     'Animate the generated keyframe into an intro clip',
     '-o',
     clipPath,
@@ -454,28 +444,7 @@ try {
   await assertFakeVideo(clipPath);
   console.log(`Video derive OK: ${clipVariantId}`);
 
-  const sceneArgsPath = path.join(outputDir, 'video', 'scenes.args');
-  await runCli([
-    'productions',
-    'export',
-    '--local',
-    '--production-id',
-    'e2e-podcast-episode',
-    '-o',
-    sceneArgsPath,
-  ]);
-  const sceneArgs = await readFile(sceneArgsPath, 'utf8');
-  if (!sceneArgs.includes('--scene') || !sceneArgs.includes('0|Intro|') || sceneArgs.includes(`/variants/${clipVariantId}/media`)) {
-    throw new Error(`Unexpected scene args export:\n${sceneArgs}`);
-  }
-  const exportedClipPath = path.join(outputDir, 'video', 'scenes.media', `0001-intro-${clipVariantId}.mp4`);
-  if (!sceneArgs.includes(exportedClipPath)) {
-    throw new Error(`Scene args did not point at downloaded production media:\n${sceneArgs}`);
-  }
-  await assertFakeVideo(exportedClipPath);
-  console.log(`Video scene export OK: ${sceneArgsPath}`);
-
-  console.log('\nCLI media production E2E passed without external generation providers.');
+  console.log('\nCLI media E2E passed without external generation providers.');
 } finally {
   await terminateChild(worker);
 }

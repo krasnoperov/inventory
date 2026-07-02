@@ -66,7 +66,7 @@ const imageAsset = {
 const longLabelAsset = {
   ...imageAsset,
   id: 'asset-long-label',
-  name: 'Crystal Gate With Readable Long Production Label',
+  name: 'Crystal Gate With Readable Long Asset Label',
   type: 'environment-reference-prop',
   active_variant_id: 'variant-long-label',
 };
@@ -212,7 +212,7 @@ test('asset canvas keeps long node labels readable without ellipsis', async ({ p
 
   await sizeCanvasHarness(page);
 
-  const name = page.getByText('Crystal Gate With Readable Long Production Label');
+  const name = page.getByText('Crystal Gate With Readable Long Asset Label');
   const type = page.getByText('environment-reference-prop / Image');
   const label = page.locator('[class*="label"]').first();
   const thumbnail = page.locator('[class*="thumbnail"]').first();

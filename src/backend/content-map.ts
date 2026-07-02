@@ -2,7 +2,6 @@ import home from '../shared/content/pages/home.md?raw';
 import quickstart from '../shared/content/docs/quickstart.md?raw';
 import concepts from '../shared/content/docs/concepts.md?raw';
 import cli from '../shared/content/docs/cli.md?raw';
-import productionHandoff from '../shared/content/docs/production-handoff.md?raw';
 import mediaPlaybooks from '../shared/content/docs/media-playbooks.md?raw';
 import imagePlaybook from '../shared/content/docs/image-playbook.md?raw';
 import videoPlaybook from '../shared/content/docs/video-playbook.md?raw';
@@ -24,7 +23,6 @@ const DOC_CONTENT: Record<DocPath, string> = {
   '/docs/quickstart': quickstart,
   '/docs/concepts': concepts,
   '/docs/cli': cli,
-  '/docs/production-handoff': productionHandoff,
   '/docs/media-playbooks': mediaPlaybooks,
   '/docs/image-playbook': imagePlaybook,
   '/docs/video-playbook': videoPlaybook,
@@ -44,11 +42,11 @@ export const CONTENT_MAP: Record<string, string> = {
 
 export const LLMS_TXT = `# Make Effects
 
-> Make Effects is the project layer for CLI-first media generation. Use a fast CLI loop to generate images, video, and audio, then keep the relationships, variants, prompts, collaborators, and production handoff organized.
+> Make Effects is the project layer for CLI-first media generation. Use a fast CLI loop to generate images, video, and audio, then keep variants, prompts, collaborators, and lineage organized.
 
 ## Product Promise
 
-Direct generator CLIs are great for making media quickly. Make Effects is for the moment a project gets big enough that you need to remember what worked, compare variants, refine prompts, follow lineage, explore broader ideas, and turn the chosen results into production files. Humans and agents can create spaces, generate or upload media, inspect assets, refine variants, derive new media from references, monitor jobs, and export handoff records for downstream tools.
+Direct generator CLIs are great for making media quickly. Make Effects is for the moment a project gets big enough that you need to remember what worked, compare variants, refine prompts, follow lineage, explore broader ideas, and keep chosen results moving. Humans and agents can create spaces, generate or upload media, inspect assets, refine variants, derive new media from references, and monitor jobs.
 
 ## Documentation
 
