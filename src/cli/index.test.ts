@@ -178,14 +178,11 @@ test('help is side-effect-free across command and subcommand levels', async () =
       ['usage', 'summary', '--help'],
       ['spend', '--help'],
       ['spend', 'summary', '--help'],
-      ['productions', '--help'],
-      ['productions', 'export', '--help'],
       ['help', 'audio', 'batch'],
       ['help', 'video', 'derive'],
       ['help', 'assets', 'show'],
       ['help', 'usage', 'summary'],
       ['help', 'spend', 'summary'],
-      ['help', 'productions', 'export'],
     ];
 
     for (const args of helpForms) {

@@ -28,27 +28,11 @@ import { recordMirrorForFile } from '../lib/mirror-store';
 
 type LineageRelationType = 'derived' | 'refined' | 'forked';
 type ActiveVariantBehavior = 'if-missing' | 'set-active' | 'keep';
-type SpaceSubjectType = 'asset' | 'variant';
-type SpaceRelationType =
-  | 'appears_in'
-  | 'background_for'
-  | 'style_reference_for'
-  | 'thumbnail_for'
-  | 'alternate_of'
-  | 'prop_in'
-  | 'map_for'
-  | 'part_of'
-  | 'reference_for'
-  | 'custom';
 
 interface UploadResult {
   asset?: UploadMediaResponse['asset'];
   variant: UploadMediaResponse['variant'];
   lineage?: UploadMediaResponse['lineage'];
-  organization?: {
-    collectionItemIds: string[];
-    relationIds: string[];
-  };
 }
 
 interface UploadContext {
@@ -57,42 +41,10 @@ interface UploadContext {
   accessToken: string;
 }
 
-interface CollectionPlacementOption {
-  collectionId?: string;
-  collectionName?: string;
-  role: string;
-  subjectType: SpaceSubjectType;
-  pinnedVariantId?: string | null;
-}
-
-interface ManualRelationOption {
-  relationType: SpaceRelationType;
-  object: {
-    subjectType: SpaceSubjectType;
-    assetId?: string;
-    variantId?: string;
-  };
-  subjectType: SpaceSubjectType;
-  label?: string;
-  context?: string | Record<string, unknown>;
-  metadata?: Record<string, unknown>;
-}
-
-interface AssetSummary {
-  id: string;
-  media_kind?: string | null;
-  active_variant_id?: string | null;
-}
-
 interface VariantSummary {
   id: string;
   asset_id: string;
   media_kind?: string | null;
-}
-
-interface SpaceCollectionSummary {
-  id: string;
-  name?: string | null;
 }
 
 interface UploadDeps {
@@ -119,6 +71,20 @@ const defaultDeps: UploadDeps = {
 
 class UploadUsageError extends Error {}
 
+const RETIRED_UPLOAD_ORGANIZATION_OPTIONS: Array<[string, string]> = [
+  ['collection', '--collection'],
+  ['collection-name', '--collection-name'],
+  ['collectionName', '--collection-name'],
+  ['collection-role', '--collection-role'],
+  ['collectionRole', '--collection-role'],
+  ['collection-subject', '--collection-subject'],
+  ['collectionSubject', '--collection-subject'],
+  ['manual-relation', '--manual-relation'],
+  ['manualRelation', '--manual-relation'],
+  ['manual-relation-context', '--manual-relation-context'],
+  ['manualRelationContext', '--manual-relation-context'],
+];
+
 export async function handleUpload(parsed: ParsedArgs): Promise<void> {
   try {
     await executeUpload(parsed);
@@ -139,6 +105,7 @@ export async function executeUpload(
   if (!filePath) {
     throw new UploadUsageError('File path is required');
   }
+  rejectRetiredUploadOrganizationOptions(parsed);
 
   const projectConfig = await deps.loadProjectConfig();
   const env = resolveCommandEnvironment(parsed, projectConfig);
@@ -160,16 +127,6 @@ export async function executeUpload(
     ?? parsed.options.parentVariantId;
   const rawRelationType = parsed.options['relation-type'] ?? parsed.options.relationType;
   const rawActiveVariantBehavior = parsed.options['active-variant-behavior'] ?? parsed.options.activeVariantBehavior;
-  const rawCollectionIds = parsed.options.collection ?? parsed.options.collections;
-  const rawCollectionNames = parsed.options['collection-name'] ?? parsed.options.collectionName;
-  const rawCollectionRole = parsed.options['collection-role'] ?? parsed.options.collectionRole;
-  const rawCollectionSubject = parsed.options['collection-subject'] ?? parsed.options.collectionSubject;
-  const rawCollectionPinnedVariant = parsed.options['collection-pinned-variant'] ?? parsed.options.collectionPinnedVariant;
-  const rawManualRelation = parsed.options['manual-relation'] ?? parsed.options.manualRelation;
-  const rawManualRelationSubject = parsed.options['manual-relation-subject'] ?? parsed.options.manualRelationSubject;
-  const rawManualRelationLabel = parsed.options['manual-relation-label'] ?? parsed.options.manualRelationLabel;
-  const rawManualRelationContext = parsed.options['manual-relation-context'] ?? parsed.options.manualRelationContext;
-  const rawManualRelationMetadata = parsed.options['manual-relation-metadata'] ?? parsed.options.manualRelationMetadata;
   const jsonOutput = parsed.options.json === 'true';
 
   if (parsed.options['dry-run'] === 'true' || parsed.options.dryRun === 'true') {
@@ -193,20 +150,6 @@ export async function executeUpload(
   if (sourceVariantIds.length === 0 && (parsed.options['relation-type'] || parsed.options.relationType)) {
     throw new UploadUsageError('--relation-type requires --source-variant or --source-variants');
   }
-  const collectionPlacements = parseCollectionPlacements({
-    collectionIds: rawCollectionIds,
-    collectionNames: rawCollectionNames,
-    role: rawCollectionRole,
-    subjectType: rawCollectionSubject,
-    pinnedVariant: rawCollectionPinnedVariant,
-  });
-  const manualRelations = parseManualRelations({
-    relations: rawManualRelation,
-    subjectType: rawManualRelationSubject,
-    label: rawManualRelationLabel,
-    context: rawManualRelationContext,
-    metadata: rawManualRelationMetadata,
-  });
 
   // Validate file extension
   const ext = path.extname(filePath).toLowerCase();
@@ -243,12 +186,7 @@ export async function executeUpload(
       throw new Error(`File too large (${(fileStat.size / 1024 / 1024).toFixed(2)}MB). Maximum size: ${MAX_FILE_SIZE_MB}MB`);
     }
 
-    await preflightUploadOrganization(ctx, deps, {
-      assetId,
-      sourceVariantIds,
-      collectionPlacements,
-      manualRelations,
-    });
+    await preflightSourceVariants(ctx, deps, sourceVariantIds);
 
     // Read file
     const fileBuffer = await deps.readFile(filePath);
@@ -309,27 +247,10 @@ export async function executeUpload(
     }
 
     const upload = data as UploadMediaResponse;
-    let organization: UploadResult['organization'] = {
-      collectionItemIds: [],
-      relationIds: [],
-    };
-    try {
-      organization = await applyUploadOrganization(ctx, deps, upload, {
-        collectionPlacements,
-        manualRelations,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(
-        `Upload created asset ${upload.variant.asset_id} and variant ${upload.variant.id}, but organization failed: ${message}`
-      );
-    }
-
     const result: UploadResult = {
       asset: upload.asset,
       variant: upload.variant,
       lineage: upload.lineage,
-      organization,
     };
 
     await recordUploadMirror({
@@ -369,15 +290,6 @@ export async function executeUpload(
     if (upload.variant.image_key) deps.print(`  Image:    ${upload.variant.image_key}`);
     if (upload.variant.thumb_key) deps.print(`  Thumb:    ${upload.variant.thumb_key}`);
     if (upload.variant.media_mime_type) deps.print(`  MIME:     ${upload.variant.media_mime_type}`);
-    if (organization.collectionItemIds.length > 0 || organization.relationIds.length > 0) {
-      deps.print('\nOrganization:');
-      if (organization.collectionItemIds.length > 0) {
-        deps.print(`  Collection items: ${organization.collectionItemIds.join(', ')}`);
-      }
-      if (organization.relationIds.length > 0) {
-        deps.print(`  Relations:        ${organization.relationIds.join(', ')}`);
-      }
-    }
 
     // Parse and show recipe
     if (upload.variant.recipe) {
@@ -449,13 +361,6 @@ function parseJsonObjectOption(value: string | undefined, optionName: string): R
   return parsed as Record<string, unknown>;
 }
 
-function parseJsonObjectOrStringOption(value: string | undefined, optionName: string): string | Record<string, unknown> | undefined {
-  if (value === undefined) return undefined;
-  const trimmed = value.trim();
-  if (!trimmed.startsWith('{')) return value;
-  return parseJsonObjectOption(value, optionName);
-}
-
 function normalizeRelationType(value: string | undefined): LineageRelationType {
   if (!value) return 'derived';
   if (value === 'derived' || value === 'refined' || value === 'forked') return value;
@@ -469,27 +374,19 @@ function normalizeActiveVariantBehavior(value: string | undefined): ActiveVarian
   throw new UploadUsageError('--active-variant-behavior must be if-missing, set-active, or keep');
 }
 
-function normalizeSpaceSubjectType(value: string | undefined, optionName: string, defaultValue: SpaceSubjectType): SpaceSubjectType {
-  if (!value) return defaultValue;
-  if (value === 'asset' || value === 'variant') return value;
-  throw new UploadUsageError(`${optionName} must be asset or variant`);
-}
+function rejectRetiredUploadOrganizationOptions(parsed: ParsedArgs): void {
+  const usedOptions = RETIRED_UPLOAD_ORGANIZATION_OPTIONS
+    .filter(([key]) => parsed.options[key] !== undefined)
+    .map(([, flag]) => flag);
 
-function normalizeManualRelationType(value: string, optionName: string): SpaceRelationType {
-  const valid: SpaceRelationType[] = [
-    'appears_in',
-    'background_for',
-    'style_reference_for',
-    'thumbnail_for',
-    'alternate_of',
-    'prop_in',
-    'map_for',
-    'part_of',
-    'reference_for',
-    'custom',
-  ];
-  if (valid.includes(value as SpaceRelationType)) return value as SpaceRelationType;
-  throw new UploadUsageError(`${optionName} relation type is invalid`);
+  if (usedOptions.length === 0) return;
+
+  const uniqueFlags = Array.from(new Set(usedOptions)).join(', ');
+  throw new UploadUsageError(
+    `${uniqueFlags} ${usedOptions.length === 1 ? 'was' : 'were'} removed. ` +
+    'Upload creates assets or variants only; organize the result visually on the Space canvas. ' +
+    'Use --source-variant for immutable lineage provenance.'
+  );
 }
 
 function parseCsvOption(value: string | undefined, optionName: string): string[] {
@@ -503,160 +400,25 @@ function parseCsvOption(value: string | undefined, optionName: string): string[]
     .filter(Boolean);
 }
 
-function parseCollectionPlacements(input: {
-  collectionIds?: string;
-  collectionNames?: string;
-  role?: string;
-  subjectType?: string;
-  pinnedVariant?: string;
-}): CollectionPlacementOption[] {
-  const collectionIds = parseCsvOption(input.collectionIds, '--collection');
-  const collectionNames = parseCsvOption(input.collectionNames, '--collection-name');
-  if (collectionIds.length === 0 && collectionNames.length === 0) return [];
-  const subjectType = normalizeSpaceSubjectType(input.subjectType, '--collection-subject', 'asset');
-  if (subjectType === 'variant' && input.pinnedVariant && input.pinnedVariant !== 'true') {
-    throw new UploadUsageError('--collection-pinned-variant can only be used when --collection-subject is asset');
-  }
-  const pinnedVariantId = normalizeCollectionPinnedVariant(input.pinnedVariant);
-  const placement = {
-    role: input.role && input.role !== 'true' ? input.role : 'member',
-    subjectType,
-    pinnedVariantId,
-  };
-  return [
-    ...collectionIds.map((collectionId) => ({
-      ...placement,
-      collectionId,
-    })),
-    ...collectionNames.map((collectionName) => ({
-      ...placement,
-      collectionName,
-    })),
-  ];
-}
-
-function normalizeCollectionPinnedVariant(value: string | undefined): string | null | undefined {
-  if (!value || value === 'true' || value === 'uploaded') return undefined;
-  if (value === 'none' || value === 'unpin') return null;
-  return value;
-}
-
-function parseManualRelations(input: {
-  relations?: string;
-  subjectType?: string;
-  label?: string;
-  context?: string;
-  metadata?: string;
-}): ManualRelationOption[] {
-  const relationSpecs = parseCsvOption(input.relations, '--manual-relation');
-  if (relationSpecs.length === 0) return [];
-  const subjectType = normalizeSpaceSubjectType(input.subjectType, '--manual-relation-subject', 'variant');
-  const context = parseJsonObjectOrStringOption(input.context, '--manual-relation-context');
-  const metadata = parseJsonObjectOption(input.metadata, '--manual-relation-metadata');
-
-  return relationSpecs.map((spec) => {
-    const parts = spec.split(':');
-    if (parts.length !== 3) {
-      throw new UploadUsageError('--manual-relation entries must use <relation-type>:asset:<asset-id> or <relation-type>:variant:<variant-id>');
-    }
-    const [relationTypeValue, objectTypeValue, objectId] = parts;
-    const objectType = normalizeSpaceSubjectType(objectTypeValue, '--manual-relation object type', 'asset');
-    if (!objectId) {
-      throw new UploadUsageError('--manual-relation object id is required');
-    }
-    return {
-      relationType: normalizeManualRelationType(relationTypeValue, '--manual-relation'),
-      object: objectType === 'asset'
-        ? { subjectType: 'asset', assetId: objectId }
-        : { subjectType: 'variant', variantId: objectId },
-      subjectType,
-      label: input.label && input.label !== 'true' ? input.label : undefined,
-      context,
-      metadata,
-    };
-  });
-}
-
-async function preflightUploadOrganization(
+async function preflightSourceVariants(
   ctx: UploadContext,
   deps: Pick<UploadDeps, 'fetch'>,
-  options: {
-    assetId?: string;
-    sourceVariantIds: string[];
-    collectionPlacements: CollectionPlacementOption[];
-    manualRelations: ManualRelationOption[];
-  }
+  sourceVariantIds: string[]
 ): Promise<void> {
-  const needsCollections = options.collectionPlacements.length > 0;
-  const needsAssetState =
-    options.sourceVariantIds.length > 0 ||
-    options.manualRelations.length > 0 ||
-    options.collectionPlacements.some((placement) => placement.pinnedVariantId);
-
-  const [collections, state] = await Promise.all([
-    needsCollections ? fetchJson<{ collections: SpaceCollectionSummary[] }>(ctx, deps, `/api/spaces/${ctx.spaceId}/collections`) : undefined,
-    needsAssetState ? fetchAssetState(ctx, deps) : undefined,
-  ]);
-
-  if (collections) {
-    const collectionList = collections.collections ?? [];
-    const collectionIds = new Set(collectionList.map((collection) => collection.id));
-    for (const placement of options.collectionPlacements) {
-      if (placement.collectionId && !collectionIds.has(placement.collectionId)) {
-        throw new Error(`Collection not found: ${placement.collectionId}`);
-      }
-      if (!placement.collectionName) continue;
-      const matches = collectionList.filter((collection) => collection.name === placement.collectionName);
-      if (matches.length === 0) {
-        throw new Error(`Collection not found by exact name: ${placement.collectionName}`);
-      }
-      if (matches.length > 1) {
-        throw new Error(`Collection name is ambiguous: ${placement.collectionName}; use --collection <id>`);
-      }
-      placement.collectionId = matches[0].id;
-    }
-  }
-
-  if (!state) return;
-
-  for (const sourceVariantId of options.sourceVariantIds) {
+  if (sourceVariantIds.length === 0) return;
+  const state = await fetchVariantState(ctx, deps);
+  for (const sourceVariantId of sourceVariantIds) {
     if (!state.variantsById.has(sourceVariantId)) {
       throw new Error(`Source variant not found in space: ${sourceVariantId}`);
     }
   }
-
-  for (const placement of options.collectionPlacements) {
-    if (!placement.pinnedVariantId) continue;
-    const pinned = state.variantsById.get(placement.pinnedVariantId);
-    if (!pinned) {
-      throw new Error(`Collection pinned variant not found: ${placement.pinnedVariantId}`);
-    }
-    if (placement.subjectType === 'asset') {
-      if (!options.assetId) {
-        throw new Error('--collection-pinned-variant cannot reference an existing variant when creating a new asset');
-      }
-      if (pinned.asset_id !== options.assetId) {
-        throw new Error('--collection-pinned-variant must reference a variant on the target asset');
-      }
-    }
-  }
-
-  for (const relation of options.manualRelations) {
-    if (relation.object.subjectType === 'asset') {
-      if (!relation.object.assetId || !state.assetsById.has(relation.object.assetId)) {
-        throw new Error(`Manual relation object asset not found: ${relation.object.assetId ?? ''}`);
-      }
-    } else if (!relation.object.variantId || !state.variantsById.has(relation.object.variantId)) {
-      throw new Error(`Manual relation object variant not found: ${relation.object.variantId ?? ''}`);
-    }
-  }
 }
 
-async function fetchAssetState(
+async function fetchVariantState(
   ctx: UploadContext,
   deps: Pick<UploadDeps, 'fetch'>
-): Promise<{ assetsById: Map<string, AssetSummary>; variantsById: Map<string, VariantSummary> }> {
-  const data = await fetchJson<{ assets: AssetSummary[] }>(ctx, deps, `/api/spaces/${ctx.spaceId}/assets`);
+): Promise<{ variantsById: Map<string, VariantSummary> }> {
+  const data = await fetchJson<{ assets: Array<{ id: string }> }>(ctx, deps, `/api/spaces/${ctx.spaceId}/assets`);
   const assets = data.assets ?? [];
   const variantsById = new Map<string, VariantSummary>();
   await Promise.all(assets.map(async (asset) => {
@@ -670,89 +432,8 @@ async function fetchAssetState(
     }
   }));
   return {
-    assetsById: new Map(assets.map((asset) => [asset.id, asset])),
     variantsById,
   };
-}
-
-async function applyUploadOrganization(
-  ctx: UploadContext,
-  deps: Pick<UploadDeps, 'fetch'>,
-  upload: UploadMediaResponse,
-  options: {
-    collectionPlacements: CollectionPlacementOption[];
-    manualRelations: ManualRelationOption[];
-  }
-): Promise<{ collectionItemIds: string[]; relationIds: string[] }> {
-  const collectionItemIds: string[] = [];
-  const relationIds: string[] = [];
-  const uploadedSubject = {
-    assetId: upload.variant.asset_id,
-    variantId: upload.variant.id,
-  };
-
-  for (const placement of options.collectionPlacements) {
-    if (!placement.collectionId) {
-      throw new Error(`Collection name was not resolved: ${placement.collectionName ?? ''}`);
-    }
-    const body = placement.subjectType === 'asset'
-      ? {
-        subjectType: 'asset',
-        assetId: uploadedSubject.assetId,
-        role: placement.role,
-        pinnedVariantId: placement.pinnedVariantId === undefined ? uploadedSubject.variantId : placement.pinnedVariantId,
-      }
-      : {
-        subjectType: 'variant',
-        variantId: uploadedSubject.variantId,
-        role: placement.role,
-      };
-    const created = await postJson<{ item: { id: string } }>(
-      ctx,
-      deps,
-      `/api/spaces/${ctx.spaceId}/collections/${encodeURIComponent(placement.collectionId)}/items`,
-      body
-    );
-    collectionItemIds.push(created.item.id);
-  }
-
-  for (const relation of options.manualRelations) {
-    const created = await postJson<{ relation: { id: string } }>(ctx, deps, `/api/spaces/${ctx.spaceId}/relations`, {
-      subject: relation.subjectType === 'asset'
-        ? { subjectType: 'asset', assetId: uploadedSubject.assetId }
-        : { subjectType: 'variant', variantId: uploadedSubject.variantId },
-      object: relation.object,
-      relationType: relation.relationType,
-      label: relation.label,
-      context: relation.context,
-      metadata: relation.metadata,
-    });
-    relationIds.push(created.relation.id);
-  }
-
-  return { collectionItemIds, relationIds };
-}
-
-async function postJson<T>(
-  ctx: UploadContext,
-  deps: Pick<UploadDeps, 'fetch'>,
-  requestPath: string,
-  json: Record<string, unknown>
-): Promise<T> {
-  const response = await deps.fetch(`${ctx.baseUrl}${requestPath}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${ctx.accessToken}`,
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(stripUndefined(json)),
-  });
-  const data = await response.json().catch(() => ({})) as T & ErrorResponse;
-  if (!response.ok) {
-    throw new Error('error' in data ? data.error : `Request failed: ${response.status}`);
-  }
-  return data as T;
 }
 
 async function fetchJson<T>(
@@ -771,10 +452,6 @@ async function fetchJson<T>(
     throw new Error('error' in data ? data.error : `Request failed: ${response.status}`);
   }
   return data as T;
-}
-
-function stripUndefined(value: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined));
 }
 
 function printUsage(): void {
@@ -798,20 +475,6 @@ Options:
   --source-variants <ids>        Alias for --source-variant
   --relation-type <type>         Lineage type: derived, refined, or forked (default: derived)
   --active-variant-behavior <b>  if-missing, set-active, or keep
-  --collection <ids>             Comma-separated collection IDs for the uploaded asset or variant
-  --collection-name <names>      Comma-separated exact collection names for lookup
-  --collection-role <role>       Collection item role (default: member)
-  --collection-subject <type>    Collection subject: asset or variant (default: asset)
-  --collection-pinned-variant <id|uploaded|none>
-                                 Pin an asset collection item to the uploaded variant by default
-  --manual-relation <spec>       Comma-separated <type>:asset:<id> or <type>:variant:<id>
-  --manual-relation-subject <type>
-                                 Relation subject: uploaded asset or variant (default: variant)
-  --manual-relation-label <text> Optional manual relation label
-  --manual-relation-context <json|string>
-                                 Optional manual relation context
-  --manual-relation-metadata <json>
-                                 Optional manual relation metadata object
   --json            Print machine-readable upload output with Space IDs
   --env <env>       Environment (production|stage|local)
   --local           Shortcut for --env local
@@ -821,9 +484,6 @@ Examples:
   makefx upload hero.png --space abc123 --name "Hero" --prompt "external render" --provider blender
   makefx upload paintover.png --space abc123 --asset def456 --source-variant var123 --relation-type refined
   makefx upload scene.png --space abc123 --name "Cocina" --type scene --source-variants anna,roman,bg
-  makefx upload hero.png --space abc123 --name "Hero" --collection collection_cast --collection-role character
-  makefx upload hero.png --space abc123 --name "Hero" --collection-name "Cast" --collection-role character
-  makefx upload thumbnail.png --space abc123 --asset asset_thumb --manual-relation thumbnail_for:asset:asset_target
   makefx upload theme.mp3 --space abc123 --name "Theme Music" --type audio
   makefx upload cutscene.mp4 --space abc123 --name "Opening Cutscene" --type video
   makefx upload variant.jpg --space abc123 --asset def456

@@ -176,7 +176,7 @@ test('asset card add action uses shared icon button outside media', async ({ pag
   await mountComponent(page, 'AssetCard', {
     asset: {
       ...imageAsset,
-      name: 'Crystal Gate With An Extremely Long Decorative Production Name',
+      name: 'Crystal Gate With An Extremely Long Decorative Asset Name',
     },
     variants: [imageVariant],
     spaceId: 'space-1',
@@ -185,11 +185,11 @@ test('asset card add action uses shared icon button outside media', async ({ pag
     onAddToTray: '__record__:tray',
   });
 
-  const addToTray = page.getByRole('button', { name: 'Add Crystal Gate With An Extremely Long Decorative Production Name to Forge Tray' });
+  const addToTray = page.getByRole('button', { name: 'Add Crystal Gate With An Extremely Long Decorative Asset Name to Forge Tray' });
   await expect(addToTray).toBeVisible();
   await expect(addToTray).toHaveCSS('box-shadow', 'none');
   const thumbnailButton = page.getByRole('button', {
-    name: 'Open Crystal Gate With An Extremely Long Decorative Production Name',
+    name: 'Open Crystal Gate With An Extremely Long Decorative Asset Name',
   });
   await expect(thumbnailButton).toBeVisible();
   await expect(thumbnailButton).toHaveClass(/thumbnailButton/);

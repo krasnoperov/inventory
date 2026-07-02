@@ -63,7 +63,7 @@ const FEATURES: FeatureCard[] = [
   {
     title: 'Work with someone',
     description:
-      'Collaborate with your agent or a colleague, then place chosen media into production records and export.',
+      'Collaborate with your agent or a colleague, choose the strongest variants, and keep going from the chosen asset.',
     icon: (
       <>
         <circle cx="8" cy="9" r="2.5" />

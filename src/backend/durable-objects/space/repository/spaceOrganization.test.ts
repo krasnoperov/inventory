@@ -77,7 +77,7 @@ describe('Space organization repository', () => {
     });
   }
 
-  test('backfills a simple parent tree into a collection and manual part_of relations', async () => {
+  test('backfills a simple parent tree into a collection', async () => {
     await createAssetWithVariant('parent', 'parent-v1', { name: 'Hero Kit' });
     await createAssetWithVariant('child-1', 'child-1-v1', { parentAssetId: 'parent' });
     await createAssetWithVariant('child-2', 'child-2-v1', { parentAssetId: 'parent' });
@@ -88,7 +88,7 @@ describe('Space organization repository', () => {
     assert.equal(result.parentClusters, 1);
     assert.equal(result.collectionsCreated, 1);
     assert.equal(result.collectionItemsCreated, 3);
-    assert.equal(result.relationsCreated, 2);
+    assert.equal(result.relationsCreated, 0);
     assert.equal((await repo.listCollections())[0].name, 'Hero Kit');
     assert.deepEqual(
       (await repo.listAllCollectionItems()).map((item) => [item.asset_id, item.role]),
@@ -96,20 +96,6 @@ describe('Space organization repository', () => {
         ['parent', 'parent'],
         ['child-1', 'child'],
         ['child-2', 'child'],
-      ]
-    );
-
-    const relations = await repo.listRelations();
-    assert.deepEqual(
-      relations.map((relation) => [
-        relation.subject_asset_id,
-        relation.object_asset_id,
-        relation.relation_type,
-        JSON.parse(relation.context ?? '{}').migrated_parent_asset_id,
-      ]),
-      [
-        ['child-1', 'parent', 'part_of', 'parent'],
-        ['child-2', 'parent', 'part_of', 'parent'],
       ]
     );
   });
@@ -220,15 +206,6 @@ describe('Space organization repository', () => {
     }
     assert.deepEqual(collectionItemsByName.get('Castle Crew'), ['root', 'middle']);
     assert.deepEqual(collectionItemsByName.get('Knight Squad'), ['middle', 'leaf']);
-    assert.deepEqual(
-      (await repo.listRelations())
-        .map((relation) => [relation.subject_asset_id, relation.object_asset_id])
-        .sort(([leftSubject], [rightSubject]) => String(leftSubject).localeCompare(String(rightSubject))),
-      [
-        ['leaf', 'middle'],
-        ['middle', 'root'],
-      ]
-    );
   });
 
   test('backfill is idempotent when repeated', async () => {
@@ -240,13 +217,12 @@ describe('Space organization repository', () => {
 
     assert.equal(first.collectionsCreated, 1);
     assert.equal(first.collectionItemsCreated, 2);
-    assert.equal(first.relationsCreated, 1);
+    assert.equal(first.relationsCreated, 0);
     assert.equal(second.collectionsCreated, 0);
     assert.equal(second.collectionItemsCreated, 0);
     assert.equal(second.relationsCreated, 0);
     assert.equal((await repo.listCollections()).length, 1);
     assert.equal((await repo.listAllCollectionItems()).length, 2);
-    assert.equal((await repo.listRelations()).length, 1);
   });
 
   test('classifies all-null Russafa-style assets into starter collections', async () => {
@@ -275,7 +251,6 @@ describe('Space organization repository', () => {
     assert.deepEqual(itemsByCollection.get('Scenes'), ['scene-gate']);
     assert.deepEqual(itemsByCollection.get('Thumbnails'), ['thumbnail-1']);
     assert.deepEqual(itemsByCollection.get('Map'), ['map-russafa']);
-    assert.deepEqual(await repo.listRelations(), []);
   });
 
   test('does not create starter collections when non-null parent references are orphaned', async () => {
@@ -295,7 +270,6 @@ describe('Space organization repository', () => {
     assert.equal(result.mode, 'empty');
     assert.deepEqual(await repo.listCollections(), []);
     assert.deepEqual(await repo.listAllCollectionItems(), []);
-    assert.deepEqual(await repo.listRelations(), []);
   });
 
   test('backfill does not create or change lineage records', async () => {
@@ -410,34 +384,28 @@ describe('Space organization repository', () => {
 
   test('creates organization and style preset tables with lookup indexes', () => {
     const tableNames = db
-      .prepare(`SELECT name FROM sqlite_schema WHERE type = 'table' AND name IN (?, ?, ?, ?, ?, ?) ORDER BY name`)
-      .all('collection_items', 'composition_items', 'compositions', 'space_collections', 'space_relations', 'style_presets')
+      .prepare(`SELECT name FROM sqlite_schema WHERE type = 'table' AND name IN (?, ?, ?, ?) ORDER BY name`)
+      .all('collection_items', 'space_collections', 'space_relations', 'style_presets')
       .map((row) => (row as { name: string }).name);
 
     assert.deepEqual(tableNames, [
       'collection_items',
-      'composition_items',
-      'compositions',
       'space_collections',
       'space_relations',
       'style_presets',
     ]);
 
     const indexNames = db
-      .prepare(`SELECT name FROM sqlite_schema WHERE type = 'index' AND name IN (?, ?, ?, ?, ?) ORDER BY name`)
+      .prepare(`SELECT name FROM sqlite_schema WHERE type = 'index' AND name IN (?, ?, ?) ORDER BY name`)
       .all(
         'idx_collection_items_collection',
         'idx_space_relations_subject_variant',
-        'idx_composition_items_variant',
-        'idx_compositions_output_variant',
         'idx_style_presets_default'
       )
       .map((row) => (row as { name: string }).name);
 
     assert.deepEqual(indexNames, [
       'idx_collection_items_collection',
-      'idx_composition_items_variant',
-      'idx_compositions_output_variant',
       'idx_space_relations_subject_variant',
       'idx_style_presets_default',
     ]);
@@ -448,12 +416,6 @@ describe('Space organization repository', () => {
       .map((row) => (row as { name: string }).name);
     assert.ok(relationColumns.includes('label'));
     assert.ok(relationColumns.includes('metadata'));
-
-    const compositionItemColumns = db
-      .prepare(`PRAGMA table_info(composition_items)`)
-      .all()
-      .map((row) => (row as { name: string }).name);
-    assert.ok(compositionItemColumns.includes('label'));
   });
 
   test('supports collection CRUD, item CRUD, and explicit sort ordering', async () => {
@@ -1073,181 +1035,6 @@ describe('Space organization repository', () => {
     assert.equal(recipe.stylePresetId, undefined);
   });
 
-  test('supports relation CRUD and lookup in both directions without lineage rows', async () => {
-    await createAssetWithVariant('character', 'character-v1');
-    await createAssetWithVariant('scene', 'scene-v1');
-
-    const relation = await repo.createRelation({
-      id: 'relation-1',
-      subject: { subjectType: 'variant', variantId: 'character-v1' },
-      object: { subjectType: 'asset', assetId: 'scene' },
-      relationType: 'appears_in',
-      label: 'Opening shot',
-      context: '{"shot":"opening"}',
-      metadata: { confidence: 'manual' },
-      sortIndex: 3,
-      createdBy: 'user-1',
-    });
-    assert.equal(relation.relation_type, 'appears_in');
-    assert.equal(relation.label, 'Opening shot');
-    assert.deepEqual(JSON.parse(relation.metadata), { confidence: 'manual' });
-
-    const updated = await repo.updateRelation('relation-1', {
-      relationType: 'prop_in',
-      label: 'Set dressing',
-      context: null,
-      metadata: { confidence: 'reviewed' },
-      sortIndex: 1,
-    });
-    assert.equal(updated?.relation_type, 'prop_in');
-    assert.equal(updated?.label, 'Set dressing');
-    assert.equal(updated?.context, null);
-    assert.deepEqual(JSON.parse(updated?.metadata ?? '{}'), { confidence: 'reviewed' });
-
-    assert.deepEqual(
-      (await repo.listRelationsForSubject('variant', 'character-v1')).map((row) => row.id),
-      ['relation-1']
-    );
-    assert.deepEqual(
-      (await repo.listRelationsForObject('asset', 'scene')).map((row) => row.id),
-      ['relation-1']
-    );
-    assert.deepEqual(
-      (await repo.listRelationsForEntity('variant', 'character-v1')).map((row) => row.id),
-      ['relation-1']
-    );
-    assert.deepEqual(await repo.getAllLineage(), []);
-
-    assert.equal(await repo.deleteRelation('relation-1'), true);
-    assert.deepEqual(await repo.listRelations(), []);
-  });
-
-  test('supports composition CRUD and exact variant membership', async () => {
-    await createAssetWithVariant('background', 'background-v1');
-    await createAssetWithVariant('character', 'character-v1');
-    await createAssetWithVariant('output', 'output-v1');
-
-    const composition = await repo.createComposition({
-      id: 'composition-1',
-      name: 'Final scene',
-      status: 'draft',
-      outputAssetId: 'output',
-      outputVariantId: 'output-v1',
-      metadata: { aspectRatio: '16:9' },
-      sortIndex: 4,
-      createdBy: 'user-1',
-    });
-    assert.equal(composition.output_variant_id, 'output-v1');
-
-    await repo.createCompositionItem({
-      id: 'composition-item-1',
-      compositionId: 'composition-1',
-      role: 'background',
-      label: 'Painted backing',
-      assetId: 'background',
-      variantId: 'background-v1',
-      metadata: { layer: 'back' },
-      sortIndex: 2,
-      createdBy: 'user-1',
-    });
-    await repo.createCompositionItem({
-      id: 'composition-item-2',
-      compositionId: 'composition-1',
-      role: 'character',
-      label: 'Hero plate',
-      assetId: 'character',
-      variantId: 'character-v1',
-      sortIndex: 1,
-      createdBy: 'user-1',
-    });
-    await repo.createCompositionItem({
-      id: 'composition-item-3',
-      compositionId: 'composition-1',
-      role: 'output',
-      label: 'Final frame',
-      assetId: 'output',
-      variantId: 'output-v1',
-      sortIndex: 3,
-      createdBy: 'user-1',
-    });
-
-    assert.deepEqual(
-      (await repo.listCompositionItems('composition-1')).map((item) => [item.role, item.label, item.variant_id]),
-      [
-        ['character', 'Hero plate', 'character-v1'],
-        ['background', 'Painted backing', 'background-v1'],
-        ['output', 'Final frame', 'output-v1'],
-      ]
-    );
-
-    const updated = await repo.updateComposition('composition-1', {
-      name: 'Locked final scene',
-      status: 'final',
-      metadata: { aspectRatio: '16:9', locked: true },
-    });
-    assert.equal(updated?.status, 'final');
-    assert.equal(JSON.parse(updated?.metadata ?? '{}').locked, true);
-
-    await repo.updateCompositionItem('composition-item-2', {
-      role: 'overlay',
-      label: 'Hero overlay',
-      metadata: { layer: 'front' },
-      sortIndex: 5,
-    });
-    const updatedItem = await repo.getCompositionItemById('composition-item-2');
-    assert.equal(updatedItem?.label, 'Hero overlay');
-    assert.deepEqual(JSON.parse(updatedItem?.metadata ?? '{}'), { layer: 'front' });
-    await repo.reorderCompositionItems('composition-1', [
-      'composition-item-3',
-      'composition-item-1',
-      'composition-item-2',
-    ]);
-    assert.deepEqual(
-      (await repo.listCompositionItems('composition-1')).map((item) => [item.id, item.sort_index]),
-      [
-        ['composition-item-3', 0],
-        ['composition-item-1', 1],
-        ['composition-item-2', 2],
-      ]
-    );
-
-    assert.equal(await repo.deleteCompositionItem('composition-item-2'), true);
-    assert.equal((await repo.listCompositionItems('composition-1')).length, 2);
-    assert.equal(await repo.deleteComposition('composition-1'), true);
-    assert.deepEqual(await repo.listCompositions(), []);
-  });
-
-  test('overview state includes composition output variants outside the display variant set', async () => {
-    await createAssetWithVariant('output', 'output-v1');
-    await repo.createVariant({
-      id: 'output-v2',
-      assetId: 'output',
-      imageKey: 'images/output-v2.png',
-      thumbKey: 'images/output-v2_thumb.webp',
-      recipe: '{}',
-      createdBy: 'user-1',
-    });
-    await repo.updateAsset('output', { active_variant_id: 'output-v2' });
-    await repo.createComposition({
-      id: 'composition-1',
-      name: 'Older approved output',
-      outputAssetId: 'output',
-      outputVariantId: 'output-v1',
-      createdBy: 'user-1',
-    });
-
-    const overview = await repo.getOverviewState();
-
-    assert.deepEqual(
-      overview.compositions.map((composition) => composition.output_variant_id),
-      ['output-v1']
-    );
-    assert.deepEqual(
-      overview.variants.map((variant) => variant.id).sort(),
-      ['output-v1', 'output-v2']
-    );
-  });
-
   test('overview state includes in-progress sibling variants outside the display variant set', async () => {
     await createAssetWithVariant('audio', 'audio-completed', { type: 'sfx', mediaKind: 'audio' });
     await repo.updateAsset('audio', { active_variant_id: 'audio-completed' });
@@ -1291,28 +1078,6 @@ describe('Space organization repository', () => {
       variantId: 'variant-2',
       createdBy: 'user-1',
     });
-    await repo.createRelation({
-      id: 'relation-1',
-      subject: { subjectType: 'asset', assetId: 'asset-1' },
-      object: { subjectType: 'variant', variantId: 'variant-2' },
-      relationType: 'reference_for',
-      createdBy: 'user-1',
-    });
-    await repo.createComposition({
-      id: 'composition-1',
-      name: 'Draft',
-      outputAssetId: 'asset-1',
-      outputVariantId: 'variant-1',
-      createdBy: 'user-1',
-    });
-    await repo.createCompositionItem({
-      id: 'composition-item-1',
-      compositionId: 'composition-1',
-      role: 'character',
-      assetId: 'asset-2',
-      variantId: 'variant-2',
-      createdBy: 'user-1',
-    });
     await repo.createStylePreset({
       id: 'preset-1',
       name: 'References',
@@ -1325,14 +1090,8 @@ describe('Space organization repository', () => {
       (await repo.listCollectionItems('collection-1')).map((item) => item.id),
       ['collection-item-1']
     );
-    assert.deepEqual(await repo.listRelations(), []);
-    assert.deepEqual(await repo.listCompositionItems('composition-1'), []);
-
     assert.deepEqual(await repo.deleteAsset('asset-1'), []);
     assert.deepEqual(await repo.listCollectionItems('collection-1'), []);
-    const composition = await repo.getCompositionById('composition-1');
-    assert.equal(composition?.output_asset_id, null);
-    assert.equal(composition?.output_variant_id, null);
 
     assert.equal((await repo.getStylePresetById('preset-1'))?.collection_id, 'collection-1');
     assert.equal(await repo.deleteCollection('collection-1'), true);

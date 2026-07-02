@@ -16,9 +16,9 @@ import '../styles/theme.css';
 import '../styles/global.css';
 
 const DESCRIPTION =
-  'Make Effects is the project layer for CLI-first media generation: track variants, prompts, lineage, collaborators, and production handoff after ideas outgrow one prompt.';
+  'Make Effects is the project layer for CLI-first media generation: track assets, variants, prompts, lineage, and collaborators after ideas outgrow one prompt.';
 const SOCIAL_DESCRIPTION =
-  'CLI-first media generation with project memory for variants, prompts, lineage, collaboration, and handoff.';
+  'CLI-first media generation with project memory for assets, variants, prompts, lineage, and collaboration.';
 
 function Document({ children }: { children: ReactNode }) {
   return (

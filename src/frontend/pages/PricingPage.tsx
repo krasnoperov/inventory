@@ -52,14 +52,14 @@ const PLANS: PricingPlan[] = [
     price: 'Your provider bill',
     cadence: 'Make Effects tracks platform guardrails separately',
     description:
-      'Connect supported provider keys and use Make Effects for storage, workflow orchestration, collaboration, and production handoff. Provider charges stay with your provider account.',
+      'Connect supported provider keys and use Make Effects for storage, workflow orchestration, collaboration, and asset iteration. Provider charges stay with your provider account.',
     cta: 'Set up BYOK',
     ctaTo: '/login',
     features: [
       'Stored provider keys are encrypted and preferred over hosted platform keys',
       'Generation can run without managed AI entitlement when a matching key is present',
       'Platform guardrails cover workflow runs, storage, delivery, and video runs',
-      'Spaces, variants, lineage, CLI access, and production records stay available',
+      'Spaces, variants, lineage, and CLI access stay available',
     ],
     meters: [
       'Platform workflow runs',

@@ -12,7 +12,6 @@ import type {
   UserProfile,
 } from '../api/types';
 import type { Asset, Lineage, Variant } from './hooks/useSpaceWebSocket';
-import type { ProductionRecord } from './productionHandoff';
 import type { StartSession } from './app-context';
 
 export interface Member {
@@ -297,25 +296,6 @@ export function updateSpaceMemberRole(spaceId: string, userId: string, role: Spa
 export function revokeSpaceMember(spaceId: string, userId: string) {
   return fetchJson<{ success: boolean }>(`/api/spaces/${spaceId}/members/${userId}`, undefined, undefined, undefined, {
     method: 'DELETE',
-  });
-}
-
-export function productionRecordsQueryOptions(
-  spaceId: string,
-  productionId: string,
-  baseUrl?: string,
-  headers?: HeadersInit,
-) {
-  return queryOptions({
-    queryKey: ['spaces', spaceId, 'productions', productionId, 'records'],
-    queryFn: async (): Promise<ProductionRecord[]> => {
-      const data = await apiFetch('GET /api/spaces/:id/productions/:productionId/records', {
-        params: { id: spaceId, productionId },
-        baseUrl,
-        headers,
-      });
-      return data.records || [];
-    },
   });
 }
 

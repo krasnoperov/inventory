@@ -4,7 +4,6 @@ import {
   ReactFlowProvider,
   Background,
   Controls,
-  MiniMap,
   useNodesState,
   useEdgesState,
   useReactFlow,
@@ -14,8 +13,7 @@ import {
   BackgroundVariant,
 } from '@xyflow/react';
 import dagre from 'dagre';
-import { type Asset, type Variant, type Lineage, type SpaceSubject, type Composition, type CompositionItem, type CompositionOverview, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
-import type { CompositionShortcut } from '../../productionShortcuts';
+import { type Asset, type Variant, type Lineage, getVariantThumbnailUrl, isVariantVideoReady } from '../../hooks/useSpaceWebSocket';
 import { VariantNode, type VariantNodeType } from './VariantNode';
 import { VariantDetailsPanel } from './VariantDetailsPanel';
 import { computeNativeMaxZoom } from './canvasZoom';
@@ -87,15 +85,6 @@ export interface VariantCanvasProps {
   onStarVariant?: (variantId: string, starred: boolean) => void;
   /** Handler for deleting a variant */
   onDeleteVariant?: (variant: Variant) => void;
-  /** Handler for creating a manual relation from a variant */
-  onCreateRelation?: (subject: SpaceSubject) => void;
-  /** Handler for adding an exact variant to the current collection target */
-  onAddVariantToCollection?: (variant: Variant) => void;
-  /** Compositions available as post-generation placement targets */
-  compositions?: Array<Composition | CompositionOverview>;
-  compositionItems?: CompositionItem[];
-  /** Place a finished variant into a composition as a chosen role */
-  onPlaceInComposition?: (variant: Variant, shortcut: CompositionShortcut) => void;
 }
 
 /** Calculate node bounding width from image dimensions (height fixed, width follows aspect ratio) */
@@ -262,11 +251,6 @@ function VariantCanvasInner({
   layoutDirection = 'LR',
   onStarVariant,
   onDeleteVariant,
-  onCreateRelation,
-  onAddVariantToCollection,
-  compositions,
-  compositionItems,
-  onPlaceInComposition,
   dimensionsReady,
   imageDimensions,
 }: VariantCanvasProps & {
@@ -686,16 +670,6 @@ function VariantCanvasInner({
         >
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border)" />
           <Controls className={styles.controls} position="bottom-left" />
-          {scope !== 'asset-details' && !expandedVariant && (
-            <MiniMap
-              className={styles.minimap}
-              position="bottom-right"
-              pannable
-              zoomable
-              nodeColor="var(--color-accent)"
-              maskColor="var(--canvas-minimap-mask)"
-            />
-          )}
         </ReactFlow>
       </div>
 
@@ -721,13 +695,8 @@ function VariantCanvasInner({
             onClose={closeExpanded}
             onStarVariant={onStarVariant}
             onDeleteVariant={onDeleteVariant}
-            onCreateRelation={onCreateRelation}
-            onAddVariantToCollection={onAddVariantToCollection}
             onAddToTray={onAddToTray}
             onSetActive={onSetActive}
-            compositions={compositions}
-            compositionItems={compositionItems}
-            onPlaceInComposition={onPlaceInComposition}
           />
         </div>
       )}
@@ -756,11 +725,6 @@ export function VariantCanvas({
   layoutDirection = 'LR',
   onStarVariant,
   onDeleteVariant,
-  onCreateRelation,
-  onAddVariantToCollection,
-  compositions,
-  compositionItems,
-  onPlaceInComposition,
 }: VariantCanvasProps) {
   // Track loaded image dimensions
   const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
@@ -863,11 +827,6 @@ export function VariantCanvas({
         layoutDirection={layoutDirection}
         onStarVariant={onStarVariant}
         onDeleteVariant={onDeleteVariant}
-        onCreateRelation={onCreateRelation}
-        onAddVariantToCollection={onAddVariantToCollection}
-        compositions={compositions}
-        compositionItems={compositionItems}
-        onPlaceInComposition={onPlaceInComposition}
         dimensionsReady={dimensionsReady}
         imageDimensions={imageDimensions}
       />

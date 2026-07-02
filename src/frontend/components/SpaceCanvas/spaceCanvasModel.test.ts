@@ -9,7 +9,7 @@ import {
   getVisibleCollectionKindLabel,
   moveId,
   sortCollections,
-} from './spaceBoardModel';
+} from './spaceCanvasModel';
 
 function asset(overrides: Partial<Asset> = {}): Asset {
   return {
@@ -70,7 +70,7 @@ function item(overrides: Partial<CollectionItem> = {}): CollectionItem {
   };
 }
 
-describe('space board model', () => {
+describe('space canvas model', () => {
   test('sorts collections and moves ids for reorder commands', () => {
     const collections: SpaceCollection[] = [
       { id: 'b', name: 'Scenes', kind: 'scenes', color: null, description: null, sort_index: 2, created_at: 2, updated_at: 2 },

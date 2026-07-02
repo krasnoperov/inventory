@@ -1,44 +1,11 @@
 import type {
   CollectionItem,
   CollectionKind,
-  Composition,
-  CompositionItem,
-  CompositionItemRole,
-  CompositionStatus,
   SpaceCollection,
-  SpaceRelation,
-  SpaceRelationType,
   SpaceSubjectType,
   WebSocketMeta,
 } from '../types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
-
-const RELATION_TYPES = new Set<SpaceRelationType>([
-  'appears_in',
-  'background_for',
-  'style_reference_for',
-  'thumbnail_for',
-  'alternate_of',
-  'prop_in',
-  'map_for',
-  'part_of',
-  'reference_for',
-  'custom',
-]);
-
-const COMPOSITION_ROLES = new Set<CompositionItemRole>([
-  'output',
-  'background',
-  'character',
-  'prop',
-  'style_ref',
-  'overlay',
-  'map',
-  'thumbnail',
-  'custom',
-]);
-
-const COMPOSITION_STATUSES = new Set<CompositionStatus>(['draft', 'final']);
 
 const COLLECTION_KINDS = new Set<CollectionKind>([
   'cast',
@@ -89,70 +56,7 @@ interface CollectionItemUpdateInput {
   sortIndex?: unknown;
 }
 
-interface RelationInput {
-  id?: unknown;
-  subject?: SubjectInput;
-  object?: SubjectInput;
-  relationType?: unknown;
-  label?: unknown;
-  context?: unknown;
-  metadata?: unknown;
-  sortIndex?: unknown;
-  createdBy?: unknown;
-}
-
-interface RelationUpdateInput {
-  relationType?: unknown;
-  label?: unknown;
-  context?: unknown;
-  metadata?: unknown;
-  sortIndex?: unknown;
-}
-
-interface CompositionInput {
-  id?: unknown;
-  name?: unknown;
-  description?: unknown;
-  status?: unknown;
-  outputAssetId?: unknown;
-  outputVariantId?: unknown;
-  metadata?: unknown;
-  sortIndex?: unknown;
-  createdBy?: unknown;
-}
-
-interface CompositionUpdateInput {
-  name?: unknown;
-  description?: unknown;
-  status?: unknown;
-  outputAssetId?: unknown;
-  outputVariantId?: unknown;
-  metadata?: unknown;
-  sortIndex?: unknown;
-}
-
-interface CompositionItemInput {
-  id?: unknown;
-  role?: unknown;
-  label?: unknown;
-  assetId?: unknown;
-  variantId?: unknown;
-  metadata?: unknown;
-  sortIndex?: unknown;
-  createdBy?: unknown;
-}
-
-interface CompositionItemUpdateInput {
-  role?: unknown;
-  label?: unknown;
-  assetId?: unknown;
-  variantId?: unknown;
-  metadata?: unknown;
-  sortIndex?: unknown;
-}
-
 interface ParentHierarchyBackfillInput {
-  createManualRelations?: unknown;
   createStarterCollectionsForAllNullParents?: unknown;
   createdBy?: unknown;
 }
@@ -218,36 +122,13 @@ export class OrganizationController extends BaseController {
     await this.broadcastStylePresetPreviewsForCollections([collectionId]);
   }
 
-  async httpListRelations(): Promise<SpaceRelation[]> {
-    return this.repo.listRelations();
-  }
-
-  async httpCreateRelation(data: RelationInput): Promise<SpaceRelation> {
-    const relation = await this.createRelation(data);
-    this.broadcast({ type: 'relation:created', relation });
-    return relation;
-  }
-
-  async httpUpdateRelation(relationId: string, data: RelationUpdateInput): Promise<SpaceRelation> {
-    const relation = await this.updateRelation(relationId, data);
-    this.broadcast({ type: 'relation:updated', relation });
-    return relation;
-  }
-
-  async httpDeleteRelation(relationId: string): Promise<void> {
-    await this.deleteRelation(relationId);
-    this.broadcast({ type: 'relation:deleted', relationId });
-  }
-
   async httpBackfillParentHierarchy(input: unknown = {}) {
     const data = normalizeBackfillInput(input);
-    const [beforeCollections, beforeItems, beforeRelations] = await Promise.all([
+    const [beforeCollections, beforeItems] = await Promise.all([
       this.repo.listCollections(),
       this.repo.listAllCollectionItems(),
-      this.repo.listRelations(),
     ]);
     const result = await this.repo.backfillParentHierarchyToOrganization({
-      createManualRelations: normalizeOptionalBoolean(data.createManualRelations),
       createStarterCollectionsForAllNullParents: normalizeOptionalBoolean(data.createStarterCollectionsForAllNullParents),
       createdBy: normalizeOptionalString(data.createdBy) ?? undefined,
     });
@@ -262,11 +143,9 @@ export class OrganizationController extends BaseController {
 
     const beforeCollectionIds = new Set(beforeCollections.map((collection) => collection.id));
     const beforeItemIds = new Set(beforeItems.map((item) => item.id));
-    const beforeRelationIds = new Set(beforeRelations.map((relation) => relation.id));
-    const [afterCollections, afterItems, afterRelations] = await Promise.all([
+    const [afterCollections, afterItems] = await Promise.all([
       this.repo.listCollections(),
       this.repo.listAllCollectionItems(),
-      this.repo.listRelations(),
     ]);
 
     for (const collection of afterCollections) {
@@ -279,62 +158,8 @@ export class OrganizationController extends BaseController {
         this.broadcast({ type: 'collection_item:created', item });
       }
     }
-    for (const relation of afterRelations) {
-      if (!beforeRelationIds.has(relation.id)) {
-        this.broadcast({ type: 'relation:created', relation });
-      }
-    }
 
     return result;
-  }
-
-  async httpListCompositions(): Promise<Composition[]> {
-    return this.repo.listCompositions();
-  }
-
-  async httpCreateComposition(data: CompositionInput): Promise<Composition> {
-    const composition = await this.createComposition(data);
-    this.broadcast({ type: 'composition:created', composition });
-    return composition;
-  }
-
-  async httpUpdateComposition(compositionId: string, data: CompositionUpdateInput): Promise<Composition> {
-    const composition = await this.updateComposition(compositionId, data);
-    this.broadcast({ type: 'composition:updated', composition });
-    return composition;
-  }
-
-  async httpDeleteComposition(compositionId: string): Promise<void> {
-    await this.deleteComposition(compositionId);
-    this.broadcast({ type: 'composition:deleted', compositionId });
-  }
-
-  async httpListCompositionItems(compositionId: string): Promise<CompositionItem[]> {
-    await this.getExistingComposition(compositionId);
-    return this.repo.listCompositionItems(compositionId);
-  }
-
-  async httpCreateCompositionItem(compositionId: string, data: CompositionItemInput): Promise<CompositionItem> {
-    const item = await this.createCompositionItem(compositionId, data);
-    this.broadcast({ type: 'composition_item:created', item });
-    return item;
-  }
-
-  async httpUpdateCompositionItem(compositionId: string, itemId: string, data: CompositionItemUpdateInput): Promise<CompositionItem> {
-    const item = await this.updateCompositionItem(compositionId, itemId, data);
-    this.broadcast({ type: 'composition_item:updated', item });
-    return item;
-  }
-
-  async httpReorderCompositionItems(compositionId: string, itemIds: unknown): Promise<CompositionItem[]> {
-    const items = await this.reorderCompositionItems(compositionId, itemIds);
-    this.broadcast({ type: 'composition_items:reordered', compositionId, items });
-    return items;
-  }
-
-  async httpDeleteCompositionItem(compositionId: string, itemId: string): Promise<void> {
-    await this.deleteCompositionItem(compositionId, itemId);
-    this.broadcast({ type: 'composition_item:deleted', compositionId, itemId });
   }
 
   async handleCreateCollection(_ws: WebSocket, meta: WebSocketMeta, data: CollectionInput): Promise<void> {
@@ -384,66 +209,6 @@ export class OrganizationController extends BaseController {
     await this.deleteCollectionItem(collectionId, itemId);
     this.broadcast({ type: 'collection_item:deleted', collectionId, itemId });
     await this.broadcastStylePresetPreviewsForCollections([collectionId]);
-  }
-
-  async handleCreateRelation(_ws: WebSocket, meta: WebSocketMeta, data: RelationInput): Promise<void> {
-    this.requireEditor(meta);
-    const relation = await this.createRelation({ ...data, createdBy: meta.userId });
-    this.broadcast({ type: 'relation:created', relation });
-  }
-
-  async handleUpdateRelation(_ws: WebSocket, meta: WebSocketMeta, relationId: string, data: RelationUpdateInput): Promise<void> {
-    this.requireEditor(meta);
-    const relation = await this.updateRelation(relationId, data);
-    this.broadcast({ type: 'relation:updated', relation });
-  }
-
-  async handleDeleteRelation(_ws: WebSocket, meta: WebSocketMeta, relationId: string): Promise<void> {
-    this.requireEditor(meta);
-    await this.deleteRelation(relationId);
-    this.broadcast({ type: 'relation:deleted', relationId });
-  }
-
-  async handleCreateComposition(_ws: WebSocket, meta: WebSocketMeta, data: CompositionInput): Promise<void> {
-    this.requireEditor(meta);
-    const composition = await this.createComposition({ ...data, createdBy: meta.userId });
-    this.broadcast({ type: 'composition:created', composition });
-  }
-
-  async handleUpdateComposition(_ws: WebSocket, meta: WebSocketMeta, compositionId: string, data: CompositionUpdateInput): Promise<void> {
-    this.requireEditor(meta);
-    const composition = await this.updateComposition(compositionId, data);
-    this.broadcast({ type: 'composition:updated', composition });
-  }
-
-  async handleDeleteComposition(_ws: WebSocket, meta: WebSocketMeta, compositionId: string): Promise<void> {
-    this.requireEditor(meta);
-    await this.deleteComposition(compositionId);
-    this.broadcast({ type: 'composition:deleted', compositionId });
-  }
-
-  async handleCreateCompositionItem(_ws: WebSocket, meta: WebSocketMeta, compositionId: string, data: CompositionItemInput): Promise<void> {
-    this.requireEditor(meta);
-    const item = await this.createCompositionItem(compositionId, { ...data, createdBy: meta.userId });
-    this.broadcast({ type: 'composition_item:created', item });
-  }
-
-  async handleUpdateCompositionItem(_ws: WebSocket, meta: WebSocketMeta, compositionId: string, itemId: string, data: CompositionItemUpdateInput): Promise<void> {
-    this.requireEditor(meta);
-    const item = await this.updateCompositionItem(compositionId, itemId, data);
-    this.broadcast({ type: 'composition_item:updated', item });
-  }
-
-  async handleReorderCompositionItems(_ws: WebSocket, meta: WebSocketMeta, compositionId: string, itemIds: unknown): Promise<void> {
-    this.requireEditor(meta);
-    const items = await this.reorderCompositionItems(compositionId, itemIds);
-    this.broadcast({ type: 'composition_items:reordered', compositionId, items });
-  }
-
-  async handleDeleteCompositionItem(_ws: WebSocket, meta: WebSocketMeta, compositionId: string, itemId: string): Promise<void> {
-    this.requireEditor(meta);
-    await this.deleteCompositionItem(compositionId, itemId);
-    this.broadcast({ type: 'composition_item:deleted', compositionId, itemId });
   }
 
   private async createCollection(data: CollectionInput): Promise<SpaceCollection> {
@@ -535,145 +300,6 @@ export class OrganizationController extends BaseController {
     }
   }
 
-  private async createRelation(data: RelationInput): Promise<SpaceRelation> {
-    const subject = await this.normalizeAndValidateSubject(data.subject);
-    const object = await this.normalizeAndValidateSubject(data.object);
-    return this.repo.createRelation({
-      id: normalizeOptionalString(data.id) ?? crypto.randomUUID(),
-      subject,
-      object,
-      relationType: normalizeRelationType(data.relationType),
-      label: normalizeOptionalString(data.label),
-      context: data.context === undefined ? null : normalizeNullableStringOrJson(data.context, 'context'),
-      metadata: normalizeMetadata(data.metadata),
-      sortIndex: normalizeOptionalInteger(data.sortIndex, 'sortIndex') ?? 0,
-      createdBy: normalizeRequiredString(data.createdBy, 'createdBy'),
-    });
-  }
-
-  private async updateRelation(relationId: string, data: RelationUpdateInput): Promise<SpaceRelation> {
-    const relation = await this.repo.updateRelation(normalizeRequiredString(relationId, 'relationId'), {
-      relationType: data.relationType === undefined ? undefined : normalizeRelationType(data.relationType),
-      label: data.label === undefined ? undefined : normalizeOptionalString(data.label),
-      context: data.context === undefined ? undefined : normalizeNullableStringOrJson(data.context, 'context'),
-      metadata: data.metadata === undefined ? undefined : normalizeMetadata(data.metadata),
-      sortIndex: data.sortIndex === undefined ? undefined : normalizeInteger(data.sortIndex, 'sortIndex'),
-    });
-    if (!relation) {
-      throw new NotFoundError('Relation not found');
-    }
-    return relation;
-  }
-
-  private async deleteRelation(relationId: string): Promise<void> {
-    const deleted = await this.repo.deleteRelation(normalizeRequiredString(relationId, 'relationId'));
-    if (!deleted) {
-      throw new NotFoundError('Relation not found');
-    }
-  }
-
-  private async createComposition(data: CompositionInput): Promise<Composition> {
-    const output = await this.normalizeCompositionOutput(data.outputAssetId, data.outputVariantId);
-    return this.repo.createComposition({
-      id: normalizeOptionalString(data.id) ?? crypto.randomUUID(),
-      name: normalizeRequiredString(data.name, 'name'),
-      description: normalizeOptionalString(data.description),
-      status: data.status === undefined ? 'draft' : normalizeCompositionStatus(data.status),
-      outputAssetId: output.outputAssetId,
-      outputVariantId: output.outputVariantId,
-      metadata: normalizeMetadata(data.metadata),
-      sortIndex: normalizeOptionalInteger(data.sortIndex, 'sortIndex') ?? 0,
-      createdBy: normalizeRequiredString(data.createdBy, 'createdBy'),
-    });
-  }
-
-  private async updateComposition(compositionId: string, data: CompositionUpdateInput): Promise<Composition> {
-    await this.getExistingComposition(compositionId);
-    const output: { outputAssetId?: string | null; outputVariantId?: string | null } =
-      data.outputAssetId === undefined && data.outputVariantId === undefined
-      ? {}
-      : await this.normalizeCompositionOutput(data.outputAssetId, data.outputVariantId);
-    const composition = await this.repo.updateComposition(compositionId, {
-      name: data.name === undefined ? undefined : normalizeRequiredString(data.name, 'name'),
-      description: data.description === undefined ? undefined : normalizeOptionalString(data.description),
-      status: data.status === undefined ? undefined : normalizeCompositionStatus(data.status),
-      outputAssetId: data.outputAssetId === undefined && data.outputVariantId === undefined ? undefined : output.outputAssetId,
-      outputVariantId: data.outputAssetId === undefined && data.outputVariantId === undefined ? undefined : output.outputVariantId,
-      metadata: data.metadata === undefined ? undefined : normalizeMetadata(data.metadata),
-      sortIndex: data.sortIndex === undefined ? undefined : normalizeInteger(data.sortIndex, 'sortIndex'),
-    });
-    if (!composition) {
-      throw new NotFoundError('Composition not found');
-    }
-    return composition;
-  }
-
-  private async deleteComposition(compositionId: string): Promise<void> {
-    const deleted = await this.repo.deleteComposition(normalizeRequiredString(compositionId, 'compositionId'));
-    if (!deleted) {
-      throw new NotFoundError('Composition not found');
-    }
-  }
-
-  private async createCompositionItem(compositionId: string, data: CompositionItemInput): Promise<CompositionItem> {
-    await this.getExistingComposition(compositionId);
-    const variant = await this.getExistingVariant(normalizeRequiredString(data.variantId, 'variantId'));
-    const assetId = await this.normalizeCompositionItemAsset(data.assetId, variant.asset_id);
-    return this.repo.createCompositionItem({
-      id: normalizeOptionalString(data.id) ?? crypto.randomUUID(),
-      compositionId,
-      role: normalizeCompositionRole(data.role),
-      label: normalizeOptionalString(data.label),
-      variantId: variant.id,
-      assetId,
-      metadata: normalizeMetadata(data.metadata),
-      sortIndex: normalizeOptionalInteger(data.sortIndex, 'sortIndex') ?? 0,
-      createdBy: normalizeRequiredString(data.createdBy, 'createdBy'),
-    });
-  }
-
-  private async updateCompositionItem(compositionId: string, itemId: string, data: CompositionItemUpdateInput): Promise<CompositionItem> {
-    const existing = await this.getExistingCompositionItem(compositionId, itemId);
-    const variant = data.variantId === undefined
-      ? null
-      : await this.getExistingVariant(normalizeRequiredString(data.variantId, 'variantId'));
-    const referenceAssetId = variant?.asset_id ?? existing.asset_id ?? undefined;
-    const assetId = data.assetId === undefined
-      ? variant?.asset_id
-      : await this.normalizeCompositionItemAsset(data.assetId, referenceAssetId);
-    const item = await this.repo.updateCompositionItem(existing.id, {
-      role: data.role === undefined ? undefined : normalizeCompositionRole(data.role),
-      label: data.label === undefined ? undefined : normalizeOptionalString(data.label),
-      variantId: variant?.id,
-      assetId,
-      metadata: data.metadata === undefined ? undefined : normalizeMetadata(data.metadata),
-      sortIndex: data.sortIndex === undefined ? undefined : normalizeInteger(data.sortIndex, 'sortIndex'),
-    });
-    if (!item) {
-      throw new NotFoundError('Composition item not found');
-    }
-    return item;
-  }
-
-  private async reorderCompositionItems(compositionId: string, itemIdsValue: unknown): Promise<CompositionItem[]> {
-    await this.getExistingComposition(compositionId);
-    const itemIds = normalizeIdArray(itemIdsValue, 'itemIds');
-    const existing = await this.repo.listCompositionItems(compositionId);
-    const existingIds = new Set(existing.map((item) => item.id));
-    if (itemIds.some((itemId) => !existingIds.has(itemId))) {
-      throw new NotFoundError('Composition item not found');
-    }
-    return this.repo.reorderCompositionItems(compositionId, itemIds);
-  }
-
-  private async deleteCompositionItem(compositionId: string, itemId: string): Promise<void> {
-    const existing = await this.getExistingCompositionItem(compositionId, itemId);
-    const deleted = await this.repo.deleteCompositionItem(existing.id);
-    if (!deleted) {
-      throw new NotFoundError('Composition item not found');
-    }
-  }
-
   private async normalizeAndValidateSubject(value: SubjectInput | undefined): Promise<{
     subjectType: SpaceSubjectType;
     assetId?: string;
@@ -717,44 +343,6 @@ export class OrganizationController extends BaseController {
     return variant.id;
   }
 
-  private async normalizeCompositionOutput(outputAssetValue: unknown, outputVariantValue: unknown): Promise<{
-    outputAssetId: string | null;
-    outputVariantId: string | null;
-  }> {
-    const outputAssetId = normalizeOptionalString(outputAssetValue);
-    const outputVariantId = normalizeOptionalString(outputVariantValue);
-    if (outputAssetId) {
-      const asset = await this.repo.getAssetById(outputAssetId);
-      if (!asset) {
-        throw new NotFoundError('Subject not found');
-      }
-    }
-    if (outputVariantId) {
-      const variant = await this.repo.getVariantById(outputVariantId);
-      if (!variant) {
-        throw new NotFoundError('Subject not found');
-      }
-      if (outputAssetId && variant.asset_id !== outputAssetId) {
-        throw new ValidationError('outputVariantId must belong to outputAssetId');
-      }
-      return { outputAssetId: outputAssetId ?? variant.asset_id, outputVariantId };
-    }
-    return { outputAssetId: outputAssetId ?? null, outputVariantId: null };
-  }
-
-  private async normalizeCompositionItemAsset(value: unknown, variantAssetId?: string): Promise<string | null> {
-    const assetId = normalizeOptionalString(value) ?? variantAssetId ?? null;
-    if (!assetId) return null;
-    const asset = await this.repo.getAssetById(assetId);
-    if (!asset) {
-      throw new NotFoundError('Subject not found');
-    }
-    if (variantAssetId && assetId !== variantAssetId) {
-      throw new ValidationError('assetId must match the variant asset');
-    }
-    return assetId;
-  }
-
   private async getExistingCollection(collectionId: string): Promise<SpaceCollection> {
     const collection = await this.repo.getCollectionById(normalizeRequiredString(collectionId, 'collectionId'));
     if (!collection) {
@@ -768,23 +356,6 @@ export class OrganizationController extends BaseController {
     const item = await this.repo.getCollectionItemById(normalizeRequiredString(itemId, 'itemId'));
     if (!item || item.collection_id !== collectionId) {
       throw new NotFoundError('Collection item not found');
-    }
-    return item;
-  }
-
-  private async getExistingComposition(compositionId: string): Promise<Composition> {
-    const composition = await this.repo.getCompositionById(normalizeRequiredString(compositionId, 'compositionId'));
-    if (!composition) {
-      throw new NotFoundError('Composition not found');
-    }
-    return composition;
-  }
-
-  private async getExistingCompositionItem(compositionId: string, itemId: string): Promise<CompositionItem> {
-    await this.getExistingComposition(compositionId);
-    const item = await this.repo.getCompositionItemById(normalizeRequiredString(itemId, 'itemId'));
-    if (!item || item.composition_id !== compositionId) {
-      throw new NotFoundError('Composition item not found');
     }
     return item;
   }
@@ -823,21 +394,6 @@ function normalizeOptionalString(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed || null;
-}
-
-function normalizeNullableStringOrJson(value: unknown, field: string): string | null {
-  if (value === undefined || value === null) return null;
-  if (typeof value === 'string') return value;
-  if (typeof value === 'object') return JSON.stringify(value);
-  throw new ValidationError(`${field} must be a string, object, or null`);
-}
-
-function normalizeMetadata(value: unknown): Record<string, unknown> {
-  if (value === undefined || value === null) return {};
-  if (typeof value !== 'object' || Array.isArray(value)) {
-    throw new ValidationError('metadata must be an object');
-  }
-  return value as Record<string, unknown>;
 }
 
 function normalizeInteger(value: unknown, field: string): number {
@@ -900,25 +456,4 @@ function normalizeCollectionColor(value: unknown): string | null {
     throw new ValidationError('color must be a hex color');
   }
   return color.toLowerCase();
-}
-
-function normalizeRelationType(value: unknown): SpaceRelationType {
-  if (RELATION_TYPES.has(value as SpaceRelationType)) {
-    return value as SpaceRelationType;
-  }
-  throw new ValidationError('Invalid relation type');
-}
-
-function normalizeCompositionRole(value: unknown): CompositionItemRole {
-  if (COMPOSITION_ROLES.has(value as CompositionItemRole)) {
-    return value as CompositionItemRole;
-  }
-  throw new ValidationError('Invalid role');
-}
-
-function normalizeCompositionStatus(value: unknown): CompositionStatus {
-  if (COMPOSITION_STATUSES.has(value as CompositionStatus)) {
-    return value as CompositionStatus;
-  }
-  throw new ValidationError('status must be draft or final');
 }

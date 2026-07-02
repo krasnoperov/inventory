@@ -5,7 +5,6 @@ import os from 'node:os';
 import path from 'node:path';
 import type { StoredConfig } from '../lib/types';
 import type { BatchResult, GenerateResult, Variant } from '../lib/websocket-client';
-import type { ProductionRecord } from '../../shared/api/schemas';
 import {
   executeAudioCommand,
   executeForgeCommand,
@@ -278,7 +277,6 @@ function depsFor(client: FakeClient) {
   const mediaDownloads: unknown[] = [];
   const manifests: unknown[] = [];
   const manifestRoots: Array<string | undefined> = [];
-  const productionRecords: unknown[] = [];
 
   return {
     deps: {
@@ -302,35 +300,12 @@ function depsFor(client: FakeClient) {
         manifestRoots.push(cwd);
         return '.inventory/runs/run-test.json';
       },
-      placeProductionRecord: async (input: unknown) => {
-        productionRecords.push(input);
-        const record: ProductionRecord = {
-          id: 'production-record-1',
-          production_id: (input as { record: { productionId: string } }).record.productionId,
-          variant_id: (input as { record: { variantId: string } }).record.variantId,
-          asset_id: 'asset-out',
-          media_kind: 'video',
-          shot_id: (input as { record: { shotId?: string } }).record.shotId ?? null,
-          scene_label: (input as { record: { sceneLabel: string } }).record.sceneLabel,
-          timeline_start_ms: (input as { record: { timelineStartMs: number } }).record.timelineStartMs,
-          duration_ms: (input as { record: { durationMs?: number } }).record.durationMs ?? null,
-          motion_prompt: (input as { record: { motionPrompt?: string } }).record.motionPrompt ?? null,
-          source_refs: JSON.stringify((input as { record: { sourceRefs?: string[] } }).record.sourceRefs ?? []),
-          source_variant_ids: JSON.stringify((input as { record: { sourceVariantIds?: string[] } }).record.sourceVariantIds ?? []),
-          metadata: JSON.stringify((input as { record: { metadata?: Record<string, unknown> } }).record.metadata ?? {}),
-          created_by: 'user-1',
-          created_at: 1,
-          updated_at: 2,
-        };
-        return record;
-      },
       createRunId: () => 'run-test',
     },
     downloads,
     mediaDownloads,
     manifests,
     manifestRoots,
-    productionRecords,
   };
 }
 
@@ -2591,173 +2566,6 @@ test('image commands reject video generation flags before opening a website job'
       },
     }, deps),
     /--resolution, --duration, and --tier are only supported for video generation/
-  );
-
-  assert.equal(client.connected, false);
-});
-
-test('video derive stores shot scene metadata in run manifest and Space production record', async () => {
-  const imageVariant = completedVariant({
-    id: 'variant-keyframe',
-    image_key: 'images/space/variant-keyframe.png',
-    media_key: 'images/space/variant-keyframe.png',
-  });
-  const client = new FakeClient({ assets: [], variants: [imageVariant], lineage: [] });
-  const { deps, manifests, productionRecords } = depsFor(client);
-
-  await executeVideoCommand('derive', {
-    positionals: ['slow', 'push-in'],
-    options: {
-      space: 'space-1',
-      refs: 'variant-keyframe',
-      name: 'S01E01 A2 shot 01',
-      type: 'animation',
-      o: 'clips/clip-s01e01-a2-01.mp4',
-      'scene-label': 'Cocina',
-      'timeline-start-ms': '0',
-      'duration-ms': '73000',
-      'shot-id': 's01e01-a2-01',
-      'production-id': 's01e01-a2',
-    },
-  }, deps);
-
-  assert.equal(manifests.length, 1);
-  assert.deepEqual((manifests[0] as { scene: unknown }).scene, {
-    productionId: 's01e01-a2',
-    shotId: 's01e01-a2-01',
-    sceneLabel: 'Cocina',
-    timelineStartMs: 0,
-    durationMs: 73000,
-    motionPrompt: 'slow push-in',
-    sourceRefs: ['variant-keyframe'],
-    sourceVariantIds: ['variant-keyframe'],
-  });
-  assert.equal(productionRecords.length, 1);
-  assert.deepEqual((productionRecords[0] as { record: unknown }).record, {
-    productionId: 's01e01-a2',
-    variantId: 'variant-out',
-    shotId: 's01e01-a2-01',
-    sceneLabel: 'Cocina',
-    timelineStartMs: 0,
-    durationMs: 73000,
-    motionPrompt: 'slow push-in',
-    sourceRefs: ['variant-keyframe'],
-    sourceVariantIds: ['variant-keyframe'],
-    metadata: {
-      command: 'derive',
-      localPath: 'clips/clip-s01e01-a2-01.mp4',
-    },
-  });
-});
-
-test('production record is placed even when local run manifest persistence fails', async () => {
-  const client = new FakeClient();
-  const { deps, productionRecords } = depsFor(client);
-
-  await assert.rejects(
-    () => executeVideoCommand('generate', {
-      positionals: ['slow', 'push-in'],
-      options: {
-        space: 'space-1',
-        name: 'S01E01 A2 shot 01',
-        type: 'animation',
-        o: 'clips/clip.mp4',
-        'scene-label': 'Cocina',
-        'timeline-start-ms': '0',
-        'duration-ms': '73000',
-        'shot-id': 's01e01-a2-01',
-        'production-id': 's01e01-a2',
-      },
-    }, {
-      ...deps,
-      saveRunManifest: async () => {
-        throw new Error('manifest write failed');
-      },
-    }),
-    /manifest write failed/
-  );
-
-  assert.equal(productionRecords.length, 1);
-  assert.deepEqual((productionRecords[0] as { record: { productionId: string; variantId: string } }).record, {
-    productionId: 's01e01-a2',
-    variantId: 'variant-out',
-    shotId: 's01e01-a2-01',
-    sceneLabel: 'Cocina',
-    timelineStartMs: 0,
-    durationMs: 73000,
-    motionPrompt: 'slow push-in',
-    sourceRefs: [],
-    sourceVariantIds: [],
-    metadata: {
-      command: 'generate',
-      localPath: 'clips/clip.mp4',
-    },
-  });
-  assert.equal(client.disconnected, true);
-});
-
-test('production record is placed even when local output download is blocked', async () => {
-  const client = new FakeClient();
-  const { deps, productionRecords } = depsFor(client);
-
-  await assert.rejects(
-    () => executeVideoCommand('generate', {
-      positionals: ['slow', 'push-in'],
-      options: {
-        space: 'space-1',
-        name: 'S01E01 A2 shot 01',
-        type: 'animation',
-        o: 'clips/existing.mp4',
-        'scene-label': 'Cocina',
-        'timeline-start-ms': '0',
-        'duration-ms': '73000',
-        'shot-id': 's01e01-a2-01',
-        'production-id': 's01e01-a2',
-      },
-    }, {
-      ...deps,
-      downloadFile: async () => {
-        throw new Error('Output file already exists: clips/existing.mp4. Pass --force to overwrite.');
-      },
-    }),
-    /Output file already exists/
-  );
-
-  assert.equal(productionRecords.length, 1);
-  assert.deepEqual((productionRecords[0] as { record: { productionId: string; variantId: string } }).record, {
-    productionId: 's01e01-a2',
-    variantId: 'variant-out',
-    shotId: 's01e01-a2-01',
-    sceneLabel: 'Cocina',
-    timelineStartMs: 0,
-    durationMs: 73000,
-    motionPrompt: 'slow push-in',
-    sourceRefs: [],
-    sourceVariantIds: [],
-    metadata: {
-      command: 'generate',
-      localPath: 'clips/existing.mp4',
-    },
-  });
-  assert.equal(client.disconnected, true);
-});
-
-test('production metadata requires production id, scene label, and timeline before generation starts', async () => {
-  const client = new FakeClient();
-  const { deps } = depsFor(client);
-
-  await assert.rejects(
-    () => executeVideoCommand('generate', {
-      positionals: ['slow', 'push-in'],
-      options: {
-        space: 'space-1',
-        name: 'Incomplete Production Shot',
-        type: 'animation',
-        o: 'clip.mp4',
-        'production-id': 's01e01-a2',
-      },
-    }, deps),
-    /Production metadata requires --production-id, --scene-label, and --timeline-start-ms/
   );
 
   assert.equal(client.connected, false);

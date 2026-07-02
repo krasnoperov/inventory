@@ -92,8 +92,6 @@ function createMockRepo(): SpaceRepository {
     deleteAsset: mock.fn(async () => {}),
     listAllCollectionItems: mock.fn(async () => []),
     listRelations: mock.fn(async () => []),
-    listCompositions: mock.fn(async () => []),
-    listAllCompositionItems: mock.fn(async () => []),
     listStylePresetPreviewsByCollection: mock.fn(async () => []),
     createLineage: mock.fn(async (input) =>
       createMockLineage({
@@ -215,37 +213,6 @@ describe('AssetController', () => {
         created_at: 1,
         updated_at: 1,
       };
-      const compositionBefore = {
-        id: 'composition-1',
-        name: 'Opening',
-        description: null,
-        status: 'draft',
-        output_asset_id: 'asset-1',
-        output_variant_id: 'variant-1',
-        metadata: '{}',
-        sort_index: 0,
-        created_by: 'user-1',
-        created_at: 1,
-        updated_at: 1,
-      };
-      const compositionAfter = {
-        ...compositionBefore,
-        output_asset_id: null,
-        output_variant_id: null,
-        updated_at: 2,
-      };
-      const compositionItem = {
-        id: 'composition-item-1',
-        composition_id: 'composition-1',
-        role: 'output',
-        asset_id: 'asset-1',
-        variant_id: 'variant-1',
-        metadata: '{}',
-        sort_index: 0,
-        created_by: 'user-1',
-        created_at: 1,
-        updated_at: 1,
-      };
       const { ctx, broadcasts } = createMockContext({
         getVariantsByAsset: mock.fn(async () => [createMockVariant({ id: 'variant-1', asset_id: 'asset-1' })]),
         deleteAsset: mock.fn(async () => {
@@ -254,8 +221,6 @@ describe('AssetController', () => {
         }),
         listAllCollectionItems: mock.fn(async () => deleted ? [] : [collectionItem]),
         listRelations: mock.fn(async () => deleted ? [] : [relation]),
-        listCompositions: mock.fn(async () => deleted ? [compositionAfter] : [compositionBefore]),
-        listAllCompositionItems: mock.fn(async () => deleted ? [] : [compositionItem]),
         listStylePresetPreviewsByCollection: mock.fn(async () => [{
           id: 'preset-1',
           name: 'Painterly',
@@ -271,9 +236,6 @@ describe('AssetController', () => {
       await controller.handleDelete({} as WebSocket, createOwnerMeta(), 'asset-1');
 
       assert.ok(broadcasts.some((b) => b.type === 'collection_item:deleted' && b.itemId === 'collection-item-1'));
-      assert.ok(broadcasts.some((b) => b.type === 'relation:deleted' && b.relationId === 'relation-1'));
-      assert.ok(broadcasts.some((b) => b.type === 'composition:updated' && b.composition.output_asset_id === null));
-      assert.ok(broadcasts.some((b) => b.type === 'composition_item:deleted' && b.itemId === 'composition-item-1'));
       assert.ok(broadcasts.some((b) => b.type === 'style_preset:updated' && b.preset.reference_count === 0));
     });
 

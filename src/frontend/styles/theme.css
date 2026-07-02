@@ -117,8 +117,7 @@
   --color-star-border: var(--palette-amber-border);
   --color-danger: var(--palette-red);
   --color-danger-bg: var(--palette-red-bg);
-  /* Sky-blue node accent for the canvas/graph views (AssetCanvas, VariantCanvas,
-     HyperbolicCanvas). Light branch matches the prior #6ea8fe fallback exactly. */
+  /* Sky-blue node accent for canvas graph views. */
   --color-accent: light-dark(oklch(72.9% 0.14 258), oklch(78% 0.13 258));
 
   /* ---- Semantic: job/process status colors ---- */
@@ -267,14 +266,10 @@
   /* Seam pill between web app + agent shell. */
   --landing-seam-bg: light-dark(oklch(96% 0.004 264), oklch(13% 0.012 264));
 
-  /* ---- Component: relations canvas (asset graph) ---- */
+  /* ---- Component: asset and variant canvas ---- */
   --canvas-minimap-mask: light-dark(oklch(20% 0.015 264 / 0.12), oklch(0% 0 0 / 0.35));
-  /* Edge "threads" carry meaning by hue: lineage = brand provenance purple
-     (matches the landing lineage metaphor), authored relations = warm "human
-     note" amber, compositions = green assembly. */
+  /* Edge "threads" carry lineage meaning with brand provenance purple. */
   --canvas-thread-lineage: light-dark(oklch(52% 0.20 276), oklch(72% 0.16 276));
-  --canvas-thread-relation: light-dark(oklch(66% 0.15 66), oklch(80% 0.14 72));
-  --canvas-thread-composition: light-dark(oklch(55% 0.15 145), oklch(70% 0.13 145));
   /* Dark ink for the amber star flag pinned on a media plate (both themes). */
   --canvas-star-ink: light-dark(oklch(28% 0.06 75), oklch(24% 0.06 75));
 

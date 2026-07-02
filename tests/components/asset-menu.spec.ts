@@ -30,7 +30,6 @@ test('asset context menu actions use shared button styling', async ({ page }) =>
     position: { x: 24, y: 24 },
     onClose: '__record__:close',
     onRename: '__record__:rename',
-    onCreateRelation: '__record__:relation',
     onDelete: '__record__:delete',
   });
 
@@ -39,7 +38,7 @@ test('asset context menu actions use shared button styling', async ({ page }) =>
   await expect(page.getByText('prop · Image')).toBeVisible();
   await expect(page.locator('[class*="assetType"]')).toHaveCount(0);
   await expect(page.getByRole('menuitem', { name: 'Rename' })).toBeVisible();
-  await expect(page.getByRole('menuitem', { name: 'Create relation' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Create relation' })).toHaveCount(0);
   const deleteAction = page.getByRole('menuitem', { name: 'Delete asset' });
   await expect(deleteAction).toBeVisible();
   await deleteAction.hover();
@@ -61,7 +60,7 @@ test('asset context menu keeps long identity text readable without ellipsis', as
   await mountComponent(page, 'AssetMenu', {
     asset: {
       id: 'asset-1',
-      name: 'Crystal Gate With A Very Long Production Name For Review',
+      name: 'Crystal Gate With A Very Long Asset Name For Review',
       type: 'environment-prop',
       media_kind: 'image',
       tags: '',
@@ -74,12 +73,11 @@ test('asset context menu keeps long identity text readable without ellipsis', as
     position: { x: 24, y: 24 },
     onClose: '__record__:close',
     onRename: '__record__:rename',
-    onCreateRelation: '__record__:relation',
     onDelete: '__record__:delete',
   });
 
-  await expect(page.getByRole('menu', { name: /Crystal Gate With A Very Long Production Name/ })).toBeVisible();
-  const menuBox = await page.getByRole('menu', { name: /Crystal Gate With A Very Long Production Name/ }).boundingBox();
+  await expect(page.getByRole('menu', { name: /Crystal Gate With A Very Long Asset Name/ })).toBeVisible();
+  const menuBox = await page.getByRole('menu', { name: /Crystal Gate With A Very Long Asset Name/ }).boundingBox();
   expect(menuBox).not.toBeNull();
   expect(menuBox!.x).toBeGreaterThanOrEqual(8);
   expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(352);

@@ -392,7 +392,6 @@ export class TileController extends BaseController {
       createdBy: userId,
     });
     this.broadcast({ type: 'variant:created', variant });
-    await this.createStyleReferenceRelations(style, variantId, userId);
 
     if (existingPositionId) {
       await this.sql.exec(
@@ -626,7 +625,6 @@ export class TileController extends BaseController {
       createdBy: meta.userId,
     });
     this.broadcast({ type: 'variant:created', variant });
-    await this.createStyleReferenceRelations(style, variantId, meta.userId);
 
     // Trigger workflow for the single grid image
     if (this.env.GENERATION_WORKFLOW) {
@@ -793,7 +791,6 @@ export class TileController extends BaseController {
       createdBy: userId,
     });
     this.broadcast({ type: 'variant:created', variant });
-    await this.createStyleReferenceRelations(style, variantId, userId);
 
     // Update tile position to point to new variant
     await this.sql.exec(
@@ -1018,26 +1015,4 @@ export class TileController extends BaseController {
     };
   }
 
-  private async createStyleReferenceRelations(
-    style: ResolvedStyleReferences,
-    childVariantId: string,
-    createdBy: string
-  ): Promise<void> {
-    for (let index = 0; index < style.styleReferenceVariantIds.length; index++) {
-      await this.repo.createRelation({
-        id: crypto.randomUUID(),
-        subject: { subjectType: 'variant', variantId: style.styleReferenceVariantIds[index] },
-        object: { subjectType: 'variant', variantId: childVariantId },
-        relationType: 'style_reference_for',
-        context: JSON.stringify({
-          role: 'style_reference',
-          stylePresetId: style.stylePresetId,
-          styleCollectionId: style.styleCollectionId,
-          styleImageKey: style.styleReferenceImageKeys[index],
-        }),
-        sortIndex: index,
-        createdBy,
-      });
-    }
-  }
 }

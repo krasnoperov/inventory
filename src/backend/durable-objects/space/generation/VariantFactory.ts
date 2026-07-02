@@ -344,7 +344,6 @@ export class VariantFactory {
 
     // Create lineage records
     await this.createLineageRecords(resolved.parentVariantIds, variantId, 'derived');
-    await this.createStyleReferenceRelations(styleResult.styleReferenceVariantIds, variantId, meta.userId, recipe);
 
     return {
       asset,
@@ -453,7 +452,6 @@ export class VariantFactory {
 
     // Create lineage records
     await this.createLineageRecords(resolved.parentVariantIds, variantId, 'refined');
-    await this.createStyleReferenceRelations(styleResult.styleReferenceVariantIds, variantId, meta.userId, recipe);
 
     return {
       asset,
@@ -750,7 +748,6 @@ export class VariantFactory {
 
         // Create lineage records
         await this.createLineageRecords(resolved.parentVariantIds, variantId, 'derived');
-        await this.createStyleReferenceRelations(styleResult.styleReferenceVariantIds, variantId, meta.userId, recipe);
 
         results.push({
           asset,
@@ -798,7 +795,6 @@ export class VariantFactory {
 
         // Create lineage records
         await this.createLineageRecords(resolved.parentVariantIds, variantId, 'derived');
-        await this.createStyleReferenceRelations(styleResult.styleReferenceVariantIds, variantId, meta.userId, recipe);
 
         results.push({
           asset,
@@ -1217,30 +1213,4 @@ export class VariantFactory {
     }
   }
 
-  private async createStyleReferenceRelations(
-    styleReferenceVariantIds: string[] | undefined,
-    childVariantId: string,
-    createdBy: string,
-    recipe: GenerationRecipe
-  ): Promise<void> {
-    if (!styleReferenceVariantIds?.length) return;
-
-    for (let index = 0; index < styleReferenceVariantIds.length; index++) {
-      const styleVariantId = styleReferenceVariantIds[index];
-      await this.repo.createRelation({
-        id: crypto.randomUUID(),
-        subject: { subjectType: 'variant', variantId: styleVariantId },
-        object: { subjectType: 'variant', variantId: childVariantId },
-        relationType: 'style_reference_for',
-        context: JSON.stringify({
-          role: 'style_reference',
-          stylePresetId: recipe.stylePresetId,
-          styleCollectionId: recipe.styleCollectionId,
-          styleImageKey: recipe.styleReferenceImageKeys?.[index],
-        }),
-        sortIndex: index,
-        createdBy,
-      });
-    }
-  }
 }

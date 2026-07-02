@@ -4,7 +4,6 @@ import process from 'node:process';
 import type { ParsedArgs, StoredConfig } from '../lib/types';
 import { loadStoredConfig, resolveBaseUrl } from '../lib/config';
 import { loadProjectConfig, type ProjectConfig } from '../lib/project-config';
-import { placeProductionRecordForCli } from './productions';
 import {
   loginCommandForEnvironment,
   resolveCommandEnvironment,
@@ -17,7 +16,6 @@ import {
   type RunManifest,
   type RunManifestMedia,
   type RunManifestImage,
-  type RunManifestScene,
 } from '../lib/run-manifest';
 import {
   downloadFile,
@@ -79,7 +77,6 @@ import {
   type MediaGenerationCommand,
 } from '../../shared/mediaOperationMatrix';
 import { apiFetch } from '../../shared/api/client';
-import type { PlaceProductionRecordRequest, ProductionRecord } from '../../shared/api/schemas';
 
 export type ForgeCommand = MediaGenerationCommand;
 export type AudioForgeCommand = Extract<MediaGenerationCommand, 'generate' | 'batch'>;
@@ -206,13 +203,6 @@ interface CommandDeps {
   downloadFile?: typeof downloadFile;
   fileExists: (filePath: string) => Promise<boolean>;
   saveRunManifest: (manifest: RunManifest, cwd?: string) => Promise<string>;
-  placeProductionRecord?: (input: {
-    baseUrl: string;
-    accessToken: string;
-    spaceId: string;
-    fetch?: typeof fetch;
-    record: PlaceProductionRecordRequest;
-  }) => Promise<ProductionRecord>;
   fetch?: typeof fetch;
   createRunId: () => string;
   getWorkingDir?: () => string;
@@ -229,7 +219,6 @@ const defaultDeps: CommandDeps = {
   downloadImage,
   downloadFile,
   saveRunManifest,
-  placeProductionRecord: placeProductionRecordForCli,
   fetch,
   createRunId,
   getWorkingDir: () => process.cwd(),
@@ -415,9 +404,6 @@ export async function executeForgeCommand(
   validateVideoAudioOptions(parsed, mediaKind);
   parseVideoGenerationOptions(parsed, mediaKind);
   validateVideoFrameReferenceOptions(command, parsed, mediaKind);
-  if (command !== 'batch') {
-    validateProductionMetadataOptions(parsed);
-  }
   const ctx = await buildContext(parsed, deps);
   const client = await deps.createClient(ctx.env, ctx.spaceId);
 
@@ -557,12 +543,6 @@ async function executeGenerate(
       CLI_GENERATION_MEDIA_KIND
     )
     : [];
-  const scene = parseSceneMetadata(parsed, {
-    prompt,
-    refs: videoFrameRefs,
-    referenceVariantIds,
-    mediaKind,
-  });
   const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
   const audioModelOptions = parseAudioGenerationOptions(parsed, mediaKind);
   const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
@@ -604,14 +584,6 @@ async function executeGenerate(
     onStarted: (started) => printFollowHint(started, ctx, outputPath, 'generate', mediaKind, followOptions),
   });
 
-  const productionRecord = await placeProductionRecordFromScene({
-    command: 'generate',
-    result,
-    outputPath,
-    ctx,
-    deps,
-    scene,
-  });
   const manifestPath = await saveGenerationManifest({
     command: 'generate',
     result,
@@ -625,10 +597,9 @@ async function executeGenerate(
     startedAt,
     refs: videoFrameRefs,
     referenceVariantIds,
-    scene,
   });
   await downloadResult(result, outputPath, ctx, deps);
-  printResult(result, outputPath, ctx, manifestPath, productionRecord);
+  printResult(result, outputPath, ctx, manifestPath);
   return result;
 }
 
@@ -691,12 +662,6 @@ async function executeRefine(
   }
   const sourceAsset = (state.assets as SpaceAsset[]).find((asset) => asset.id === sourceVariant.asset_id);
   const startedAt = new Date().toISOString();
-  const scene = parseSceneMetadata(parsed, {
-    prompt,
-    refs: [sourceVariantId],
-    referenceVariantIds: [sourceVariantId],
-    mediaKind,
-  });
   const imageOptions = parseImageGenerationOptions(parsed, mediaKind);
   const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
   const videoOptions = parseVideoGenerationOptions(parsed, mediaKind);
@@ -731,14 +696,6 @@ async function executeRefine(
     onStarted: (started) => printFollowHint(started, ctx, outputPath, 'refine', mediaKind),
   });
 
-  const productionRecord = await placeProductionRecordFromScene({
-    command: 'refine',
-    result,
-    outputPath,
-    ctx,
-    deps,
-    scene,
-  });
   const manifestPath = await saveGenerationManifest({
     command: 'refine',
     result,
@@ -752,10 +709,9 @@ async function executeRefine(
     startedAt,
     refs: [sourceVariantId],
     referenceVariantIds: [sourceVariantId],
-    scene,
   });
   await downloadResult(result, outputPath, ctx, deps);
-  printResult(result, outputPath, ctx, manifestPath, productionRecord);
+  printResult(result, outputPath, ctx, manifestPath);
   return result;
 }
 
@@ -790,12 +746,6 @@ async function executeDerive(
     videoFrameRefs.length > 0 ? CLI_GENERATION_MEDIA_KIND : mediaKind
   );
   const startedAt = new Date().toISOString();
-  const scene = parseSceneMetadata(parsed, {
-    prompt,
-    refs: referenceRefs,
-    referenceVariantIds,
-    mediaKind,
-  });
   const videoAudioOptions = parseVideoAudioOptions(parsed, mediaKind);
   const videoOptions = parseVideoGenerationOptions(parsed, mediaKind);
   const styleSelection = await resolveStyleSelection(parsed, ctx, deps);
@@ -830,14 +780,6 @@ async function executeDerive(
     onStarted: (started) => printFollowHint(started, ctx, outputPath, 'derive', mediaKind, followOptions),
   });
 
-  const productionRecord = await placeProductionRecordFromScene({
-    command: 'derive',
-    result,
-    outputPath,
-    ctx,
-    deps,
-    scene,
-  });
   const manifestPath = await saveGenerationManifest({
     command: 'derive',
     result,
@@ -851,10 +793,9 @@ async function executeDerive(
     startedAt,
     refs: referenceRefs,
     referenceVariantIds,
-    scene,
   });
   await downloadResult(result, outputPath, ctx, deps);
-  printResult(result, outputPath, ctx, manifestPath, productionRecord);
+  printResult(result, outputPath, ctx, manifestPath);
   return result;
 }
 
@@ -919,21 +860,7 @@ async function executeFollow(
   const followMediaKind = completedVariant.media_kind || recipe.mediaKind || mediaKind;
   const referenceVariantIds = recipe.parentVariantIds || [];
   const prompt = recipe.prompt || '';
-  const scene = parseSceneMetadata(parsed, {
-    prompt,
-    refs: referenceVariantIds,
-    referenceVariantIds,
-    mediaKind: followMediaKind,
-  });
 
-  const productionRecord = await placeProductionRecordFromScene({
-    command,
-    result,
-    outputPath,
-    ctx,
-    deps,
-    scene,
-  });
   const manifestPath = await saveFollowManifest({
     command,
     variant: completedVariant,
@@ -945,11 +872,10 @@ async function executeFollow(
     mediaKind: followMediaKind,
     prompt,
     referenceVariantIds,
-    scene,
   });
 
   await downloadResult(result, outputPath, ctx, deps);
-  printResult(result, outputPath, ctx, manifestPath, productionRecord);
+  printResult(result, outputPath, ctx, manifestPath);
   return result;
 }
 
@@ -964,7 +890,6 @@ async function saveFollowManifest(input: {
   mediaKind: GenerationMediaKind;
   prompt: string;
   referenceVariantIds: string[];
-  scene?: RunManifestScene;
 }): Promise<string> {
   const completedAt = new Date().toISOString();
   const media = [manifestMediaFromVariant({
@@ -995,7 +920,6 @@ async function saveFollowManifest(input: {
     workingDir: input.ctx.workingDir,
     createdAt: timestampToIso(input.variant.created_at) || completedAt,
     completedAt,
-    scene: input.scene,
     media,
     images: media.filter(isImageManifestMedia),
     failed: [],
@@ -1187,7 +1111,6 @@ async function saveGenerationManifest(input: {
   startedAt: string;
   refs: string[];
   referenceVariantIds: string[];
-  scene?: RunManifestScene;
 }): Promise<string | undefined> {
   const { result, ctx, deps } = input;
   if (!result.success || !result.variant) return undefined;
@@ -1220,47 +1143,10 @@ async function saveGenerationManifest(input: {
     workingDir: ctx.workingDir,
     createdAt: input.startedAt,
     completedAt,
-    scene: input.scene,
     media,
     images: media.filter(isImageManifestMedia),
     failed: [],
   }, ctx.projectRoot);
-}
-
-async function placeProductionRecordFromScene(input: {
-  command: Exclude<ForgeCommand, 'batch'>;
-  result: GenerateResult;
-  outputPath: string;
-  ctx: CommandContext;
-  deps: CommandDeps;
-  scene?: RunManifestScene;
-}): Promise<ProductionRecord | undefined> {
-  const { scene, result, ctx, deps } = input;
-  if (!scene || !result.success || !result.variant) return undefined;
-  if (!deps.placeProductionRecord) return undefined;
-
-  const record: PlaceProductionRecordRequest = {
-    productionId: scene.productionId!,
-    variantId: result.variant.id,
-    shotId: scene.shotId,
-    sceneLabel: scene.sceneLabel!,
-    timelineStartMs: scene.timelineStartMs!,
-    durationMs: scene.durationMs,
-    motionPrompt: scene.motionPrompt,
-    sourceRefs: scene.sourceRefs,
-    sourceVariantIds: scene.sourceVariantIds,
-    metadata: {
-      command: input.command,
-      localPath: input.outputPath,
-    },
-  };
-
-  return deps.placeProductionRecord({
-    baseUrl: ctx.baseUrl,
-    accessToken: ctx.accessToken,
-    spaceId: ctx.spaceId,
-    record,
-  });
 }
 
 async function buildContext(parsed: ParsedArgs, deps: CommandDeps): Promise<CommandContext> {
@@ -1572,8 +1458,7 @@ function printResult(
   result: GenerateResult,
   outputPath: string,
   ctx: CommandContext,
-  manifestPath?: string,
-  productionRecord?: ProductionRecord
+  manifestPath?: string
 ): void {
   const variant = result.variant;
   if (!variant) return;
@@ -1588,9 +1473,6 @@ function printResult(
   console.log(`  Local:   ${outputPath}`);
   if (manifestPath) {
     console.log(`  Debug manifest: ${manifestPath}`);
-  }
-  if (productionRecord) {
-    console.log(`  Production: ${productionRecord.production_id} (${productionRecord.id})`);
   }
   console.log(`  Web:     ${ctx.baseUrl}/spaces/${ctx.spaceId}/assets/${variant.asset_id}`);
 }
@@ -1972,69 +1854,10 @@ function validateImageCommandReferenceCount(
   validateImageReferenceCount(model, parseRefs(parsed.options.refs).length);
 }
 
-function parseSceneMetadata(
-  parsed: ParsedArgs,
-  input: {
-    prompt: string;
-    refs: string[];
-    referenceVariantIds: string[];
-    mediaKind: GenerationMediaKind;
-  }
-): RunManifestScene | undefined {
-  const productionId = readOptionalOption(parsed, 'production-id', 'productionId');
-  const shotId = readOptionalOption(parsed, 'shot-id', 'shotId');
-  const sceneLabel = readOptionalOption(parsed, 'scene-label', 'sceneLabel');
-  const timelineStartValue = readOptionalOption(parsed, 'timeline-start-ms', 'timelineStartMs');
-  const durationValue = readOptionalOption(parsed, 'duration-ms', 'durationMs');
-
-  if (!productionId && !shotId && !sceneLabel && timelineStartValue === undefined && durationValue === undefined) {
-    return undefined;
-  }
-
-  if (!productionId || !sceneLabel || timelineStartValue === undefined) {
-    throw new Error('Production metadata requires --production-id, --scene-label, and --timeline-start-ms');
-  }
-
-  return {
-    productionId,
-    shotId,
-    sceneLabel,
-    timelineStartMs: timelineStartValue === undefined ? undefined : parseNonNegativeInteger(timelineStartValue, '--timeline-start-ms'),
-    durationMs: durationValue === undefined ? undefined : parseNonNegativeInteger(durationValue, '--duration-ms'),
-    motionPrompt: input.mediaKind === 'video' ? input.prompt : undefined,
-    sourceRefs: input.refs,
-    sourceVariantIds: input.referenceVariantIds,
-  };
-}
-
-function validateProductionMetadataOptions(parsed: ParsedArgs): void {
-  const productionId = readOptionalOption(parsed, 'production-id', 'productionId');
-  const shotId = readOptionalOption(parsed, 'shot-id', 'shotId');
-  const sceneLabel = readOptionalOption(parsed, 'scene-label', 'sceneLabel');
-  const timelineStartValue = readOptionalOption(parsed, 'timeline-start-ms', 'timelineStartMs');
-  const durationValue = readOptionalOption(parsed, 'duration-ms', 'durationMs');
-
-  if (!productionId && !shotId && !sceneLabel && timelineStartValue === undefined && durationValue === undefined) {
-    return;
-  }
-
-  if (!productionId || !sceneLabel || timelineStartValue === undefined) {
-    throw new Error('Production metadata requires --production-id, --scene-label, and --timeline-start-ms');
-  }
-}
-
 function readOptionalOption(parsed: ParsedArgs, kebabName: string, camelName: string): string | undefined {
   const value = parsed.options[kebabName] ?? parsed.options[camelName];
   if (value === undefined || value === 'true') return undefined;
   return value;
-}
-
-function parseNonNegativeInteger(value: string, flag: string): number {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    throw new Error(`${flag} must be a non-negative integer`);
-  }
-  return parsed;
 }
 
 function slugify(value: string): string {
@@ -2098,10 +1921,6 @@ function printUsage(command: ForgeCommand): void {
 Usage:
   makefx generate "prompt" --name <name> --type <type> -o <file> [--model pro|flash] [--size ${cliImageSizeValues()}] [--aspect ${cliImageAspectValues()}] [--space <id>]
   makefx generate --follow <variant_id> -o <file> [--space <id>]
-
-Production metadata:
-  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
-  --shot-id <id> --production-id <id>
 `);
     return;
   }
@@ -2111,10 +1930,6 @@ Production metadata:
 Usage:
   makefx refine --variant <variant_id> "prompt" -o <file> [--model pro|flash] [--size ${cliImageSizeValues()}] [--aspect ${cliImageAspectValues()}] [--space <id>]
   makefx refine --follow <variant_id> -o <file> [--space <id>]
-
-Production metadata:
-  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
-  --shot-id <id> --production-id <id>
 `);
     return;
   }
@@ -2131,10 +1946,6 @@ Usage:
 Usage:
   makefx derive --refs <variant_or_file,variant_or_file> --name <name> --type <type> "prompt" -o <file> [--model pro|flash] [--size ${cliImageSizeValues()}] [--aspect ${cliImageAspectValues()}] [--space <id>]
   makefx derive --follow <variant_id> -o <file> [--space <id>]
-
-Production metadata:
-  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
-  --shot-id <id> --production-id <id>
 `);
 }
 

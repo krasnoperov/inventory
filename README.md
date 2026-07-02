@@ -1,32 +1,28 @@
 # Make Effects
 
-Make Effects is an AI media production workspace at
+Make Effects is an AI media creation workspace at
 [makefx.app](https://makefx.app) where people and agents can generate, refine,
-track, and hand off production assets across images, audio, and video.
+track, compare, and continue assets across images, audio, and video.
 
 The hosted app is the source of truth for spaces, assets, variants, prompts,
-recipes, collections, relations, compositions, immutable lineage, collaboration
-state, and stored media. The `makefx` CLI lets local agents, scripts, and
-developers drive that same production graph from the command line: start
-generation jobs, watch progress, download outputs, inspect results, curate
-variants, and export production handoff data.
+recipes, immutable lineage, lightweight space organization, collaboration state,
+and stored media. The `makefx` CLI lets local agents, scripts, and developers
+drive that same asset loop from the command line: start generation jobs, watch
+progress, download outputs, inspect results, upload media, and curate variants.
 
 ## What You Can Build With It
 
 - Generate images, audio, and video through website-backed jobs.
 - Track every result as an asset variant with prompt, provider metadata, and
   lineage.
-- Organize Space assets with collections and manual relations instead of parent
-  hierarchy.
-- Bind exact variants into compositions for final mixes and production handoff.
-- Manage style presets that point to normal style reference assets grouped in
-  collections.
+- Organize Space assets visually while keeping variants tucked into asset
+  details.
+- Reuse simple style presets without managing a separate style reference surface.
 - Refine an existing variant or derive new assets from references.
 - Upload local media into a collaborative space so generated and hand-made
   assets live together.
 - Let automation agents use the CLI as a stable control surface instead of
   touching database or storage internals.
-- Export production records for downstream render, game, or editorial tools.
 
 ## Features
 
@@ -123,13 +119,11 @@ staging or `--local` for a local development server.
 | `makefx upload` | Upload local media files and return Space IDs for chaining |
 | `makefx assets` | List, show, download, rename, delete, and set active assets |
 | `makefx variants` | Retry, star, rate, or delete variants |
-| `makefx styles` | List style references, manage style reference collections, and manage style presets |
 | `makefx usage` | Show platform storage and workflow consumption for a space |
 | `makefx spend` | Show admin provider cost summaries |
 | `makefx rotation` | Experimental rotation views from a completed image variant; hidden unless rotation flags are enabled |
 | `makefx tileset` | Generate and monitor consistent tile sets |
 | `makefx listen` | Stream real-time space events |
-| `makefx productions` | Place, list, and export production records |
 | `makefx runs` | Inspect debug-only local generation manifests |
 
 See [docs/cli.md](./docs/cli.md) and

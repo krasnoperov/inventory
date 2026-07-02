@@ -3,8 +3,7 @@ import type { Asset, CollectionItem, SpaceCollection, Variant } from '../../spac
 // Justified-rows packing: each card's width is proportional to its true aspect
 // ratio so a row shares one height and fills the available width without
 // cropping. Extreme panoramas/strips are clamped so a single asset can't blow
-// out a row. Missing dimensions fall back to a square. Shared by the scrolling
-// wall (SpaceBoard) and the canvas frames (SpaceCanvas).
+// out a row. Missing dimensions fall back to a square.
 export const MIN_CARD_ASPECT = 0.6;
 export const MAX_CARD_ASPECT = 2.1;
 

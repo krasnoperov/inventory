@@ -1,5 +1,4 @@
-import { IconButton } from '../ui';
-import styles from './ForgeTrayActionButton.module.css';
+import { CanvasActionButton } from './CanvasActionButton';
 
 type ForgeTrayActionButtonSize = 'compact' | 'card' | 'panel';
 
@@ -10,8 +9,6 @@ interface ForgeTrayActionButtonProps {
   size?: ForgeTrayActionButtonSize;
   subjectName?: string;
 }
-
-const cx = (...values: Array<string | false | undefined>) => values.filter(Boolean).join(' ');
 
 function getLabel(added: boolean, subjectName?: string) {
   if (subjectName) {
@@ -28,16 +25,16 @@ export function ForgeTrayActionButton({
   subjectName,
 }: ForgeTrayActionButtonProps) {
   const label = getLabel(added, subjectName);
+  const chromeSize = size === 'card' ? 'mediaOverlay' : size;
 
   return (
-    <IconButton
-      className={cx(styles.button, styles[size], added && styles.added, className)}
+    <CanvasActionButton
+      active={added}
+      className={className}
       disabled={added}
+      label={label}
       onClick={onClick}
-      title={label}
-      aria-label={label}
-      variant="ghost"
-      size="sm"
+      size={chromeSize}
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
         {added ? (
@@ -49,7 +46,7 @@ export function ForgeTrayActionButton({
           </>
         )}
       </svg>
-    </IconButton>
+    </CanvasActionButton>
   );
 }
 

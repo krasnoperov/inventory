@@ -103,13 +103,13 @@ export async function executeRuns(
 
 function requireDebugAcknowledgement(parsed: ParsedArgs): void {
   if (parsed.options.debug === 'true') return;
-  throw new Error('Local run manifests are debug-only artifacts and are not a production source of truth. Pass --debug to inspect them, or use website-backed assets and productions commands.');
+  throw new Error('Local run manifests are debug-only artifacts and are not a source of truth. Pass --debug to inspect them, or use website-backed assets.');
 }
 
 function parseRunExportFormat(value: string): RunExportFormat {
   if (value === 'media' || value === 'remotion') return value;
   if (value === 'remotion-scenes') {
-    throw new Error('Local run manifests are not production scene state. Use: makefx productions export --production-id <id>');
+    throw new Error('Local run manifests are debug-only artifacts. Export media or JSON from the asset/variant workflow instead.');
   }
   throw new Error(`Unsupported run export format: ${value}`);
 }
@@ -221,8 +221,5 @@ Usage:
   makefx runs export --latest --debug --format remotion -o keyframes.json
 
 Local run manifests are debug-only artifacts, not a source of truth.
-
-For timed scene assembly, use:
-  makefx productions export --production-id <id> [-o scenes.args]
 `);
 }

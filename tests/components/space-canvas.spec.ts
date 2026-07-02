@@ -306,7 +306,7 @@ test('space canvas collection zone titles wrap without ellipsis', async ({ page 
 
 test('space canvas asset card captions wrap without ellipsis', async ({ page }) => {
   await page.setViewportSize({ width: 760, height: 560 });
-  const longName = 'Storyboard hero sprite with readable production handoff title';
+  const longName = 'Storyboard hero sprite with readable selected asset title';
   const longAsset = asset('long-card', longName);
   const longVariant = variant('long-card', 512, 512);
   const longCollection = collection('cast-long', 'Cast', 'cast', '#5a8fca', 0);

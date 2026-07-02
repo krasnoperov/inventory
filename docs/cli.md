@@ -59,8 +59,6 @@ makefx assets download VARIANT_ID -o references/variant.png
 | `spaces` | List, view, or create spaces |
 | `assets` | List/show/download assets; delete, rename, set-active |
 | `variants` | Delete, retry, star/unstar, and rate variants |
-| `collections` | Manage normal Space collections and group existing assets or variants |
-| `styles` | List style references, manage style reference collections, and manage style presets |
 | `usage` | Show platform storage and workflow consumption for a space |
 | `spend` | Show admin provider cost summaries |
 | `rotation` | Experimental rotation views from a completed image variant; hidden unless rotation flags are enabled |
@@ -74,7 +72,6 @@ makefx assets download VARIANT_ID -o references/variant.png
 | `audio` | Generate audio assets through website jobs |
 | `video` | Generate and refine video assets through website jobs |
 | `runs` | Debug-only local run manifest inspection and export |
-| `productions` | List, place, delete, and export Space-backed production records |
 | `billing` | Billing sync status and management |
 
 ---
@@ -201,30 +198,13 @@ The command calls `GET /api/billing/spend/summary` and requires an authenticated
 admin session. Human-readable output includes total provider cost, entry counts,
 unpriced entry counts, and breakdowns by provider, model, media kind, and meter.
 
-## Style Libraries
+## Style Presets
 
-Manage Space style references for the initialized project space:
+Generation can select a simple style preset by ID or exact name when the Space
+exposes one. Style management is intentionally not a separate CLI workflow; keep
+style choices close to the generation command that uses them.
 
-```bash
-makefx styles references
-makefx styles collections list
-makefx styles collections create "Painterly refs" --refs asset_123,variant_456
-makefx styles collections update collection_123 --refs asset_789,variant_999
-makefx styles presets list
-makefx styles presets create "Painterly" --collection collection_123 --prompt "Painterly adventure game" --default
-makefx styles presets update preset_123 --prompt "Painterly adventure game, crisp ink"
-makefx styles presets disable preset_123
-makefx styles presets enable preset_123
-makefx styles presets delete preset_123
-```
-
-Style reference collections are normal Space collections whose items use the
-`style_ref` role. Passing asset IDs pins each asset's active variant; passing
-variant IDs references those variants directly. Style references stay visible as
-ordinary Space assets and variants; presets only select collections plus a style
-prompt.
-
-Generation can select an enabled style preset by ID or exact name:
+Examples:
 
 ```bash
 makefx generate "A market background" --style-preset Painterly --name "Market" --type scene -o market.png
@@ -235,27 +215,6 @@ makefx generate "A neutral prop sheet" --no-style --name "Props" --type prop -o 
 When a preset is selected, generation output prints the resolved preset ID,
 collection, and reference count before the job starts. `--style-preset` is
 mutually exclusive with `--no-style`.
-
-## Collections
-
-Collections are the normal editable way to organize existing Space assets or
-exact variants after upload:
-
-```bash
-makefx collections list
-makefx collections create "Cast" --kind cast --description "Main characters"
-makefx collections add collection_cast --asset asset_anna,asset_roman --role character
-makefx collections add collection_scene --variant variant_cocina --role final_render
-makefx collections items collection_cast
-makefx collections update-item collection_cast item_123 --role lead --pinned-variant variant_anna_v2
-makefx collections reorder collection_cast --items item_roman,item_anna
-makefx collections remove collection_cast item_123
-makefx collections delete collection_cast
-```
-
-Use `--json` on collection commands for automation. Collection membership does
-not affect immutable lineage; use upload lineage flags for provenance and
-collections for editable grouping.
 
 ### Managing Assets and Variants
 
@@ -394,11 +353,10 @@ Press Ctrl+C to exit
 ## Upload
 
 Upload one image, audio, or video file to create a new asset or add a variant to
-an existing asset. Upload can also attach external provenance, immutable lineage
-from existing variants, collection placement, and manual relations in the same
-file-oriented command. Local filenames are only local paths; after upload, use
-the Space asset IDs, variant IDs, collection item IDs, and relation IDs returned
-by `--json` for scripts and follow-up commands.
+an existing asset. Upload can also attach external provenance and immutable
+lineage from existing variants in the same file-oriented command. Local
+filenames are only local paths; after upload, use the Space asset IDs and
+variant IDs returned by `--json` for scripts and follow-up commands.
 
 ### Create New Asset
 
@@ -430,16 +388,6 @@ makefx upload <file> --asset <id> [--space <id>]
 | `--source-variants <ids>` | No | Alias for `--source-variant` |
 | `--relation-type <type>` | No | Lineage type: `derived`, `refined`, or `forked` (default: `derived`) |
 | `--active-variant-behavior <behavior>` | No | `if-missing`, `set-active`, or `keep` |
-| `--collection <ids>` | No | Comma-separated collection IDs for the uploaded asset or variant |
-| `--collection-name <names>` | No | Comma-separated exact collection names to resolve before upload |
-| `--collection-role <role>` | No | Collection item role (default: `member`) |
-| `--collection-subject <type>` | No | `asset` or `variant` (default: `asset`) |
-| `--collection-pinned-variant <id\|uploaded\|none>` | No | Pin asset collection placement to the uploaded variant by default |
-| `--manual-relation <spec>` | No | Comma-separated `<type>:asset:<id>` or `<type>:variant:<id>` relation targets |
-| `--manual-relation-subject <type>` | No | Uploaded relation subject: `asset` or `variant` (default: `variant`) |
-| `--manual-relation-label <text>` | No | Manual relation label |
-| `--manual-relation-context <json\|text>` | No | Manual relation context |
-| `--manual-relation-metadata <json>` | No | Manual relation metadata object |
 | `--json` | No | Print machine-readable upload output with returned Space IDs |
 | `--env <env>` | No | `production`, `stage`, or `local` (default: `production`) |
 | `--local` | No | Shortcut for `--env local` |
@@ -482,30 +430,6 @@ makefx upload cocina.png --space abc123 --name "Cocina" --type scene \
 # Upload against local dev server
 makefx upload hero.png --space abc123 --name "Hero" --local
 
-# Place the uploaded asset in a collection and pin the uploaded variant
-makefx upload hero.png --space abc123 --name "Hero" \
-  --collection collection_cast \
-  --collection-role character
-
-# Resolve a collection by exact name before upload
-makefx upload hero.png --space abc123 --name "Hero" \
-  --collection-name "Cast" \
-  --collection-role character
-
-# Place the exact uploaded variant in a collection
-makefx upload hero-pose.png --space abc123 --asset asset_hero \
-  --collection collection_poses \
-  --collection-subject variant
-
-# Create a manual relation from the uploaded variant to an existing asset
-makefx upload thumbnail.png --space abc123 --asset asset_thumb \
-  --manual-relation thumbnail_for:asset:asset_target
-
-# Add relation metadata
-makefx upload prop.png --space abc123 --name "Market Prop" \
-  --manual-relation appears_in:variant:variant_scene \
-  --manual-relation-context '{"scene":"market"}'
-
 # Capture returned Space IDs for follow-up commands
 base_json=$(makefx upload base.png --space abc123 --name "Hero Base" --json)
 base_asset=$(printf '%s' "$base_json" | jq -r '.variant.asset_id')
@@ -516,13 +440,9 @@ makefx upload paintover.png --space abc123 --asset "$base_asset" \
   --json
 ```
 
-Manual relation types include `appears_in`, `background_for`,
-`thumbnail_for`, `map_for`, `style_reference_for`, and `reference_for`.
-Collection and manual relation targets are existing Space IDs and are checked
-before the media upload starts. Use `--collection-name` only when an exact
-collection name is intentional; if more than one collection has that name, use
-`--collection <id>`. Use `--source-variant` or `--source-variants` only for immutable upload lineage;
-use `--manual-relation` for editable organization links.
+Upload no longer accepts collection or manual relation flags. It creates an
+asset or variant, records immutable lineage with `--source-variant`, and leaves
+visual organization to the Space canvas.
 
 ---
 
@@ -572,9 +492,9 @@ Generation commands download completed media and write debug-only
 `.inventory/runs/<run-id>.json` at the initialized project root, with local
 paths, website asset/variant IDs, media keys, media kind, prompt, refs, command
 options, timestamps, run success, and failed variant errors. These manifests are
-not a source of truth and must not drive production assembly. Image manifests
-also retain the legacy `images` keyframe array for troubleshooting older local
-handoff tooling.
+not a source of truth and must not drive asset selection or assembly. Image
+manifests also retain the legacy `images` keyframe array for troubleshooting
+older local tooling.
 
 Single-output generation commands also print the created variant ID as soon as
 the Space accepts the request. If the CLI process exits or times out before the
@@ -729,40 +649,13 @@ makefx runs export --latest --debug --format remotion -o keyframes.json
 
 `runs` reads local `.inventory/runs` manifests from the initialized project root
 and does not call generation APIs. It requires `--debug` because local manifests
-are troubleshooting traces, not production state. The default `media` export is
-a compact JSON debug view with ordered media paths, absolute paths resolved from
+are troubleshooting traces, not product state. The default `media` export is a
+compact JSON debug view with ordered media paths, absolute paths resolved from
 the original command working directory, website IDs/URLs, prompt, refs, and
 failed variant errors. Image runs also include an ordered `images` keyframe
 array for existing local tools. Use `--format remotion` only when debugging an
 older keyframe pipeline that expects the legacy `remotion-keyframes` format
 marker.
-
-## Production Records
-
-Production scene placement is stored in the Space, not inferred from local run
-manifests. When `generate`, `refine`, `derive`, or the matching `video`
-commands include `--production-id`, `--scene-label`, and
-`--timeline-start-ms`, the completed variant is placed into the Space-backed
-production timeline. Use `productions place` to place an existing variant.
-
-```bash
-makefx productions list --production-id s01e01-a2
-makefx productions place \
-  --production-id s01e01-a2 \
-  --variant VARIANT_ID \
-  --scene-label "Cocina" \
-  --timeline-start-ms 0
-makefx productions export --production-id s01e01-a2 -o scenes.args
-makefx productions export --production-id s01e01-a2 --json -o scenes.json
-makefx productions export --production-id s01e01-a2 --media-dir handoff/media -o scenes.args
-makefx productions delete RECORD_ID
-```
-
-`productions export` reads the Space records, downloads image and video media
-through the authenticated CLI session, and emits sorted shell-ready
-`--scene '<startMs>|<label>|<absolute-media-path>'` lines. By default the media
-is written beside `-o` in a `<name>.media/` directory; pass `--media-dir` to
-choose a different download directory.
 
 See [cli-generation.md](./cli-generation.md) for the full command reference.
 

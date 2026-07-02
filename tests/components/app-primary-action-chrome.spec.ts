@@ -5,7 +5,7 @@ test('app page primary actions stay flat', async ({ page }) => {
   await page.setViewportSize({ width: 520, height: 360 });
   await mountComponent(page, 'AppPrimaryActionChrome', {});
 
-  for (const name of ['Dashboard primary', 'Space primary', 'Production primary', 'Asset primary']) {
+  for (const name of ['Dashboard primary', 'Space primary', 'Details primary', 'Asset primary']) {
     const action = page.getByRole('link', { name });
     await expect(action).toBeVisible();
     await expect(action).toHaveCSS('box-shadow', 'none');

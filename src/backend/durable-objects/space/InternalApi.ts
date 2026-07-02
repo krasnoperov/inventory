@@ -19,20 +19,10 @@ import type {
   PendingApproval,
   AutoExecuted,
   UserSession,
-  ProductionRecord,
-  Production,
-  ProductionShot,
-  ProductionCue,
-  ProductionCueType,
-  ProductionPlacement,
-  ProductionPlacementTargetKind,
   SpaceCollection,
   CollectionItem,
   StylePresetPreview,
   StyleReferenceCollectionPreview,
-  SpaceRelation,
-  Composition,
-  CompositionItem,
 } from './types';
 import type { ParentHierarchyBackfillResult } from './repository/SpaceRepository';
 import { ConflictError, NotFoundError, ValidationError } from './controllers/types';
@@ -234,20 +224,7 @@ export interface InternalApiControllers {
     httpUpdateCollectionItem(collectionId: string, itemId: string, data: unknown): Promise<CollectionItem>;
     httpReorderCollectionItems(collectionId: string, itemIds: unknown): Promise<CollectionItem[]>;
     httpDeleteCollectionItem(collectionId: string, itemId: string): Promise<void>;
-    httpListRelations(): Promise<SpaceRelation[]>;
-    httpCreateRelation(data: unknown): Promise<SpaceRelation>;
-    httpUpdateRelation(relationId: string, data: unknown): Promise<SpaceRelation>;
-    httpDeleteRelation(relationId: string): Promise<void>;
     httpBackfillParentHierarchy(data?: unknown): Promise<ParentHierarchyBackfillResult>;
-    httpListCompositions(): Promise<Composition[]>;
-    httpCreateComposition(data: unknown): Promise<Composition>;
-    httpUpdateComposition(compositionId: string, data: unknown): Promise<Composition>;
-    httpDeleteComposition(compositionId: string): Promise<void>;
-    httpListCompositionItems(compositionId: string): Promise<CompositionItem[]>;
-    httpCreateCompositionItem(compositionId: string, data: unknown): Promise<CompositionItem>;
-    httpUpdateCompositionItem(compositionId: string, itemId: string, data: unknown): Promise<CompositionItem>;
-    httpReorderCompositionItems(compositionId: string, itemIds: unknown): Promise<CompositionItem[]>;
-    httpDeleteCompositionItem(compositionId: string, itemId: string): Promise<void>;
   };
   stylePreset: {
     httpListStyleReferenceCollections(): Promise<StyleReferenceCollectionPreview[]>;
@@ -255,71 +232,6 @@ export interface InternalApiControllers {
     httpCreateStylePreset(data: unknown): Promise<StylePresetPreview>;
     httpUpdateStylePreset(presetId: string, data: unknown): Promise<StylePresetPreview>;
     httpDeleteStylePreset(presetId: string): Promise<void>;
-  };
-  production: {
-    httpListProductions(): Promise<Production[]>;
-    httpGetProduction(productionId: string): Promise<{
-      production: Production;
-      shots: ProductionShot[];
-      cues: ProductionCue[];
-      placements: ProductionPlacement[];
-    }>;
-    httpUpsertProduction(data: {
-      id?: string;
-      name: string;
-      description?: string;
-      metadata?: Record<string, unknown>;
-      createdBy: string;
-    }): Promise<Production>;
-    httpDeleteProduction(productionId: string): Promise<void>;
-    httpUpsertShot(productionId: string, data: {
-      id?: string;
-      shotId?: string;
-      label: string;
-      timelineStartMs: number;
-      durationMs?: number;
-      metadata?: Record<string, unknown>;
-      createdBy: string;
-    }): Promise<ProductionShot>;
-    httpDeleteShot(productionId: string, shotId: string): Promise<void>;
-    httpUpsertCue(productionId: string, data: {
-      id?: string;
-      cueType?: ProductionCueType;
-      label: string;
-      timelineStartMs: number;
-      durationMs?: number;
-      metadata?: Record<string, unknown>;
-      createdBy: string;
-    }): Promise<ProductionCue>;
-    httpDeleteCue(productionId: string, cueId: string): Promise<void>;
-    httpUpsertPlacement(productionId: string, data: {
-      id?: string;
-      targetKind: ProductionPlacementTargetKind;
-      targetId: string;
-      variantId: string;
-      role?: string;
-      sourceRefs?: string[];
-      sourceVariantIds?: string[];
-      metadata?: Record<string, unknown>;
-      createdBy: string;
-    }): Promise<ProductionPlacement>;
-    httpDeletePlacement(productionId: string, placementId: string): Promise<void>;
-    httpListRecords(productionId: string): Promise<ProductionRecord[]>;
-    httpPlaceRecord(data: {
-      id?: string;
-      productionId: string;
-      variantId: string;
-      shotId?: string;
-      sceneLabel: string;
-      timelineStartMs: number;
-      durationMs?: number;
-      motionPrompt?: string;
-      sourceRefs?: string[];
-      sourceVariantIds?: string[];
-      metadata?: Record<string, unknown>;
-      createdBy: string;
-    }): Promise<ProductionRecord>;
-    httpDeleteRecord(recordId: string): Promise<void>;
   };
 }
 
@@ -677,91 +589,6 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
     return c.json({ success: true });
   });
 
-  app.get('/internal/relations', async (c) => {
-    const relations = await controllers.organization.httpListRelations();
-    return c.json({ success: true, relations });
-  });
-
-  app.post('/internal/relations', async (c) => {
-    const relation = await controllers.organization.httpCreateRelation(await c.req.json());
-    return c.json({ success: true, relation });
-  });
-
-  app.patch('/internal/relations/:relationId', async (c) => {
-    const relation = await controllers.organization.httpUpdateRelation(
-      c.req.param('relationId'),
-      await c.req.json()
-    );
-    return c.json({ success: true, relation });
-  });
-
-  app.delete('/internal/relations/:relationId', async (c) => {
-    await controllers.organization.httpDeleteRelation(c.req.param('relationId'));
-    return c.json({ success: true });
-  });
-
-  app.get('/internal/compositions', async (c) => {
-    const compositions = await controllers.organization.httpListCompositions();
-    return c.json({ success: true, compositions });
-  });
-
-  app.post('/internal/compositions', async (c) => {
-    const composition = await controllers.organization.httpCreateComposition(await c.req.json());
-    return c.json({ success: true, composition });
-  });
-
-  app.patch('/internal/compositions/:compositionId', async (c) => {
-    const composition = await controllers.organization.httpUpdateComposition(
-      c.req.param('compositionId'),
-      await c.req.json()
-    );
-    return c.json({ success: true, composition });
-  });
-
-  app.delete('/internal/compositions/:compositionId', async (c) => {
-    await controllers.organization.httpDeleteComposition(c.req.param('compositionId'));
-    return c.json({ success: true });
-  });
-
-  app.get('/internal/compositions/:compositionId/items', async (c) => {
-    const items = await controllers.organization.httpListCompositionItems(c.req.param('compositionId'));
-    return c.json({ success: true, items });
-  });
-
-  app.post('/internal/compositions/:compositionId/items', async (c) => {
-    const item = await controllers.organization.httpCreateCompositionItem(
-      c.req.param('compositionId'),
-      await c.req.json()
-    );
-    return c.json({ success: true, item });
-  });
-
-  app.patch('/internal/compositions/:compositionId/items/:itemId', async (c) => {
-    const item = await controllers.organization.httpUpdateCompositionItem(
-      c.req.param('compositionId'),
-      c.req.param('itemId'),
-      await c.req.json()
-    );
-    return c.json({ success: true, item });
-  });
-
-  app.post('/internal/compositions/:compositionId/items/reorder', async (c) => {
-    const data = (await c.req.json()) as { itemIds?: unknown };
-    const items = await controllers.organization.httpReorderCompositionItems(
-      c.req.param('compositionId'),
-      data.itemIds
-    );
-    return c.json({ success: true, items });
-  });
-
-  app.delete('/internal/compositions/:compositionId/items/:itemId', async (c) => {
-    await controllers.organization.httpDeleteCompositionItem(
-      c.req.param('compositionId'),
-      c.req.param('itemId')
-    );
-    return c.json({ success: true });
-  });
-
   // ==========================================================================
   // Style Preset Routes
   // ==========================================================================
@@ -791,93 +618,6 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
 
   app.delete('/internal/style-presets/:presetId', async (c) => {
     await controllers.stylePreset.httpDeleteStylePreset(c.req.param('presetId'));
-    return c.json({ success: true });
-  });
-
-  // ==========================================================================
-  // Production Routes
-  // ==========================================================================
-
-  app.get('/internal/productions', async (c) => {
-    const productions = await controllers.production.httpListProductions();
-    return c.json({ success: true, productions });
-  });
-
-  app.post('/internal/productions', async (c) => {
-    const data = await c.req.json();
-    const production = await controllers.production.httpUpsertProduction(data);
-    return c.json({ success: true, production });
-  });
-
-  app.get('/internal/productions/:productionId', async (c) => {
-    const productionId = c.req.param('productionId');
-    const detail = await controllers.production.httpGetProduction(productionId);
-    return c.json({ success: true, ...detail });
-  });
-
-  app.delete('/internal/productions/:productionId', async (c) => {
-    const productionId = c.req.param('productionId');
-    await controllers.production.httpDeleteProduction(productionId);
-    return c.json({ success: true });
-  });
-
-  app.post('/internal/productions/:productionId/shots', async (c) => {
-    const productionId = c.req.param('productionId');
-    const data = await c.req.json();
-    const shot = await controllers.production.httpUpsertShot(productionId, data);
-    return c.json({ success: true, shot });
-  });
-
-  app.delete('/internal/productions/:productionId/shots/:shotId', async (c) => {
-    const productionId = c.req.param('productionId');
-    const shotId = c.req.param('shotId');
-    await controllers.production.httpDeleteShot(productionId, shotId);
-    return c.json({ success: true });
-  });
-
-  app.post('/internal/productions/:productionId/cues', async (c) => {
-    const productionId = c.req.param('productionId');
-    const data = await c.req.json();
-    const cue = await controllers.production.httpUpsertCue(productionId, data);
-    return c.json({ success: true, cue });
-  });
-
-  app.delete('/internal/productions/:productionId/cues/:cueId', async (c) => {
-    const productionId = c.req.param('productionId');
-    const cueId = c.req.param('cueId');
-    await controllers.production.httpDeleteCue(productionId, cueId);
-    return c.json({ success: true });
-  });
-
-  app.post('/internal/productions/:productionId/placements', async (c) => {
-    const productionId = c.req.param('productionId');
-    const data = await c.req.json();
-    const placement = await controllers.production.httpUpsertPlacement(productionId, data);
-    return c.json({ success: true, placement });
-  });
-
-  app.delete('/internal/productions/:productionId/placements/:placementId', async (c) => {
-    const productionId = c.req.param('productionId');
-    const placementId = c.req.param('placementId');
-    await controllers.production.httpDeletePlacement(productionId, placementId);
-    return c.json({ success: true });
-  });
-
-  app.get('/internal/production/:productionId/records', async (c) => {
-    const productionId = c.req.param('productionId');
-    const records = await controllers.production.httpListRecords(productionId);
-    return c.json({ success: true, records });
-  });
-
-  app.post('/internal/production/placements', async (c) => {
-    const data = await c.req.json();
-    const record = await controllers.production.httpPlaceRecord(data);
-    return c.json({ success: true, record });
-  });
-
-  app.delete('/internal/production/records/:recordId', async (c) => {
-    const recordId = c.req.param('recordId');
-    await controllers.production.httpDeleteRecord(recordId);
     return c.json({ success: true });
   });
 

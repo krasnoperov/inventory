@@ -19,10 +19,6 @@
   isolation: isolate;
 }
 
-.canvasContainerWithInspector {
-  grid-template-columns: minmax(0, 1fr) clamp(320px, 32vw, 420px);
-}
-
 .canvasStage {
   --variant-details-generation-dock-clearance: min(17rem, 38vh);
 
@@ -355,264 +351,6 @@
   --ui-select-max-width: 7rem;
 }
 
-.assetDetailsInspector {
-  --inspector-section-gap: 0.35rem;
-  --inspector-section-padding-block: 0.55rem;
-  --inspector-section-border: 1px solid var(--color-border);
-  --inspector-section-title-size: var(--font-size-small-sm);
-  --inspector-section-meta-size: var(--font-size-micro);
-  --inspector-section-row-padding: 0.35rem 0;
-  --inspector-section-row-gap: 0.35rem;
-
-  align-self: stretch;
-  z-index: 14;
-  display: grid;
-  grid-auto-rows: max-content;
-  gap: 0.65rem;
-  min-width: 0;
-  max-height: none;
-  overflow: auto;
-  overscroll-behavior: contain;
-  margin: 0;
-  padding: 0.75rem 0.75rem 0.75rem 0.875rem;
-  border-left: 1px solid var(--color-border);
-  background: transparent;
-  box-shadow: none;
-  pointer-events: auto;
-}
-
-.canvasContainerWithInspector .assetDetailsInspector {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-}
-
-.collectionPanel {
-  display: grid;
-  gap: var(--inspector-section-gap, 0.45rem);
-  max-width: min(760px, 100%);
-  padding: var(--inspector-section-padding-block, 0.55rem) 0 0;
-  background: transparent;
-  border: 0;
-  border-top: var(--inspector-section-border, 1px solid var(--color-border));
-  border-radius: 0;
-}
-
-.collectionPanelCompact {
-  align-items: start;
-  gap: var(--inspector-section-gap, 0.35rem);
-  padding: 0;
-  background: transparent;
-  border: 0;
-}
-
-.collectionPanelHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  color: var(--color-text-muted);
-  font-size: var(--inspector-section-meta-size, var(--font-size-micro));
-  font-weight: 650;
-}
-
-.collectionPanelCompact .collectionPanelHeader {
-  justify-content: start;
-}
-
-.collectionPanelHeaderText {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-width: 0;
-}
-
-.collectionPanelHeaderActions {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  min-width: 0;
-}
-
-.collectionPanelCompact .collectionPanelHeaderText span:last-child {
-  min-width: 0;
-  min-height: 0;
-  display: inline;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.collectionPanelIconAction {
-  --ui-button-height: 1.75rem;
-  flex: none;
-  margin-left: 0.15rem;
-  color: var(--color-text-muted);
-}
-
-.collectionPanelIconAction:hover:not(:disabled) {
-  color: var(--color-text);
-}
-
-.collectionPanelIconAction svg {
-  width: 1rem;
-  height: 1rem;
-}
-
-.collectionMembershipRow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.4rem;
-  align-items: center;
-  min-height: 1.875rem;
-  padding: 0.2rem 0;
-  border-top: 1px solid var(--color-border);
-  --ui-button-height: 1.875rem;
-  --ui-select-height: 1.875rem;
-  --ui-select-font-size: var(--font-size-small-sm);
-  --ui-text-input-height: 1.875rem;
-  --ui-text-field-font-size: var(--font-size-small-sm);
-}
-
-.collectionMembershipRowEditing {
-  align-items: start;
-}
-
-.collectionMembershipSummary {
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.25rem 0.35rem;
-}
-
-.collectionMembershipActions {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.125rem;
-}
-
-.collectionMembershipControls {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: minmax(7rem, 0.7fr) minmax(8rem, 1fr);
-  gap: 0.35rem;
-  padding: 0.15rem 0 0.25rem;
-}
-
-.collectionMembershipName {
-  min-width: 0;
-  color: var(--color-text);
-  font-size: var(--font-size-small-sm);
-  font-weight: 600;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.collectionSummaryList {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.collectionPanelCompact .collectionSummaryList {
-  display: grid;
-  gap: 0.2rem;
-}
-
-.collectionSummaryRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.3rem;
-  min-width: 0;
-  padding: 0.3rem 0;
-  border-top: 1px solid var(--color-border);
-}
-
-.collectionPanelCompact .collectionSummaryRow {
-  min-height: 1.35rem;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-.collectionSummaryName {
-  min-width: 0;
-  color: var(--color-text);
-  font-size: var(--inspector-section-title-size, var(--font-size-small-sm));
-  font-weight: 650;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.collectionSummaryMeta {
-  max-width: 12rem;
-  padding: 0;
-  border: 0;
-  color: var(--color-text-muted);
-  background: transparent;
-  font-size: var(--inspector-section-meta-size, var(--font-size-micro));
-  font-weight: 560;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-}
-
-.collectionPanelCompact .collectionSummaryMeta {
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-.collectionSummaryEmpty {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-small-sm);
-}
-
-.collectionPanelAction {
-  justify-self: start;
-  --ui-button-height: 1.875rem;
-  --ui-button-font-size: var(--font-size-small-sm);
-  color: var(--color-text-muted);
-}
-
-.collectionPanelAction:hover:not(:disabled),
-.collectionPanelAction:focus-visible {
-  color: var(--color-text);
-}
-
-.collectionPlacementControls {
-  display: grid;
-  gap: 0.4rem;
-  padding: 0.25rem 0 0.35rem;
-  border-top: 1px solid var(--color-border);
-}
-
-.collectionPanelActions {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 0.125rem;
-  justify-self: start;
-  padding: 0.125rem;
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-}
-
-.collectionRemoveAction {
-  justify-self: end;
-  color: var(--color-text-muted);
-}
-
-.collectionRemoveAction:hover:not(:disabled),
-.collectionRemoveAction:focus-visible {
-  color: var(--color-error);
-}
-
-.variantCollectionRemoveButton {
-  grid-column: auto;
-}
-
 /* Tile Grid overlay - top right */
 .tileGridOverlay {
   position: absolute;
@@ -624,14 +362,6 @@
   border-radius: var(--radius-lg);
   box-shadow: none;
   max-width: 320px;
-}
-
-.compositionPanelContainer {
-  min-width: 0;
-  min-height: 24rem;
-  display: grid;
-  max-height: min(52vh, 42rem);
-  overflow: hidden;
 }
 
 /* Jobs overlay - bottom left */
@@ -796,32 +526,6 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-  .canvasContainerWithInspector {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
-  }
-
-  .canvasContainerWithInspector .canvasStage {
-    grid-row: 1 / span 3;
-  }
-
-  .canvasContainerWithInspector .assetGenerationDock {
-    grid-row: 3;
-  }
-
-  .canvasContainerWithInspector .assetDetailsInspector {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .assetDetailsInspector {
-    margin: 0;
-    padding: 0.75rem 0.5rem 0.5rem;
-    border-bottom: 1px solid var(--color-border);
-    border-left: 0;
-    max-height: min(34vh, 280px);
-  }
-
   .assetOverlay {
     top: 0.5rem;
     left: 0.5rem;
@@ -830,13 +534,6 @@
 
   .title {
     font-size: 1rem;
-  }
-
-  .detailsPanel {
-    right: 0.5rem;
-    bottom: 0.5rem;
-    width: calc(100% - 1rem);
-    max-height: 50%;
   }
 
   .jobsOverlay {
@@ -866,18 +563,6 @@
     width: auto;
     margin: 0 0.5rem 0.5rem;
   }
-
-  .collectionMembershipRow {
-    grid-template-columns: 1fr;
-  }
-
-  .collectionMembershipActions {
-    justify-self: start;
-  }
-
-  .collectionMembershipControls {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 @media (max-width: 480px) {
@@ -887,7 +572,4 @@
     margin: 0;
   }
 
-  .assetDetailsInspector {
-    max-height: min(30vh, 240px);
-  }
 }

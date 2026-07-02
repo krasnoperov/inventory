@@ -275,7 +275,7 @@ test('runs export defaults to generic ordered media handoff data', async () => {
   }
 });
 
-test('runs export rejects retired production scene format with Space-backed guidance', async () => {
+test('runs export rejects retired scene export format', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-runs-'));
   try {
     await saveRunManifest(manifest(), dir);
@@ -286,11 +286,10 @@ test('runs export rejects retired production scene format with Space-backed guid
         options: {
           debug: 'true',
           format: 'remotion-scenes',
-          'production-id': 's01e01-a2',
           o: path.join(dir, 'scenes.args'),
         },
       }, depsFor(dir, [])),
-      /Use: makefx productions export --production-id <id>/
+      /debug-only artifacts/
     );
   } finally {
     await rm(dir, { recursive: true, force: true });

@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useForgeTrayStore } from '../../stores/forgeTrayStore';
 import { type Asset, type Variant, isVariantForgeTrayReady } from '../../hooks/useSpaceWebSocket';
 import { Thumbnail } from '../Thumbnail';
+import { DockedSheet } from '../DockedSheet';
 import {
   canUseSlotMediaKindForForgeMode,
   type ForgeMediaMode,
@@ -123,8 +124,11 @@ export function AssetPickerModal({
   }, [getPrimaryVariant, hasVariant, mediaMode, slots, addSlot, removeSlot]);
 
   return (
-    <div className={styles.sheetHost}>
-      <div className={styles.sheetPanel} role="region" aria-label="Add references to Forge Tray">
+    <DockedSheet
+      className={styles.sheetHost}
+      panelClassName={styles.sheetPanel}
+      panelProps={{ role: 'region', 'aria-label': 'Add references to Forge Tray' }}
+    >
         <div className={styles.header}>
           <h2 className={styles.title}>Add to Forge Tray</h2>
           <span className={styles.modeHint}>{mediaModeConfig.label} references</span>
@@ -279,8 +283,7 @@ export function AssetPickerModal({
             Done
           </Button>
         </div>
-      </div>
-    </div>
+    </DockedSheet>
   );
 }
 

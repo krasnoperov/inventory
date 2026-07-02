@@ -1,6 +1,6 @@
 # Media Playbooks
 
-Use these notes when a project has crossed the messy middle: a dozen promising outputs, three styles that almost match, and no clear handoff path.
+Use these notes when a project has crossed the messy middle: a dozen promising outputs, three styles that almost match, and no clear chosen direction.
 
 Write prompts the way you would brief a freelancer: show the references, name the job, and say what must not change. The exact reference type changes by medium:
 
@@ -9,7 +9,7 @@ Write prompts the way you would brief a freelancer: show the references, name th
 3. For audio, reuse stable voices, speaker names, and sound briefs. Audio generation does not accept reference assets today.
 4. Change one variable per turn.
 5. Keep variants and prompt history attached to the project.
-6. Move only the chosen result into production handoff.
+6. Keep only the chosen result as the main variant or next reference.
 
 ## Image work
 
@@ -30,8 +30,7 @@ Make keyframes first, then animate them.
 - Generate or derive a locked image keyframe before asking Veo for motion.
 - Use image references to preserve character, setting, and composition.
 - Prompt with camera movement, subject, action, context, style, and sound.
-- Use production metadata when a clip belongs on a timeline.
-- Export production records instead of handing off loose files.
+- Set the selected clip as the main variant before downloading or continuing from it.
 
 See [Video Playbook](/docs/video-playbook).
 
@@ -56,8 +55,7 @@ makefx derive --refs CHARACTER_VARIANT_ID,BACKGROUND_VARIANT_ID \
   --name "Hero In Market" --type scene -o keyframes/hero-market.png
 makefx video derive --refs KEYFRAME_VARIANT_ID \
   "Slow dolly-in, subtle crowd movement, keep the hero centered" \
-  --production-id episode-01 --shot-id shot-001 \
-  --scene-label "Market" --timeline-start-ms 0 --duration-ms 8000 \
+  --name "Market Dolly" --type animation \
   -o video/episode-01/shot-001.mp4
 ```
 

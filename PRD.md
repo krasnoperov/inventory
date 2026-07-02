@@ -29,20 +29,20 @@ A collaborative web application for creating, refining, and combining AI-generat
 
 ### Asset Management
 - Create new asset by providing a generation prompt
-- View assets in an inventory grid
+- View assets on a Space canvas
 - See all variants and select which is active
 - Delete assets and variants
-- Tag and organize assets with collections, relations, and compositions
+- Organize assets visually in Space without exposing manual relation or
+  composition forms
 
 ### Refinement
 - Refine any variant (not just active) with modification instructions
 - Compare variants side-by-side
 - See prompt history (recipe) for each variant
 
-### Forging (Composition)
+### Forging
 - Select multiple assets to derive a new asset
 - Specify combination instructions with structured labels
-- Bind exact variants into final compositions for production handoff
 - View lineage and import provenance for the generated or imported variants
 
 ### Collaboration

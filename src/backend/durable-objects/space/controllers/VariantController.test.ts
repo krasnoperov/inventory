@@ -102,8 +102,6 @@ function createMockRepo(): SpaceRepository {
     ),
     listAllCollectionItems: mock.fn(async () => []),
     listRelations: mock.fn(async () => []),
-    listCompositions: mock.fn(async () => []),
-    listAllCompositionItems: mock.fn(async () => []),
     listStylePresetPreviewsByCollection: mock.fn(async () => []),
   } as unknown as SpaceRepository;
 }
@@ -227,32 +225,6 @@ describe('VariantController', () => {
         created_at: 1,
         updated_at: 1,
       };
-      const compositionBefore = {
-        id: 'composition-1',
-        name: 'Opening',
-        description: null,
-        status: 'draft',
-        output_asset_id: 'asset-1',
-        output_variant_id: 'variant-1',
-        metadata: '{}',
-        sort_index: 0,
-        created_by: 'user-1',
-        created_at: 1,
-        updated_at: 1,
-      };
-      const compositionAfter = { ...compositionBefore, output_variant_id: null, updated_at: 2 };
-      const compositionItem = {
-        id: 'composition-item-1',
-        composition_id: 'composition-1',
-        role: 'output',
-        asset_id: 'asset-1',
-        variant_id: 'variant-1',
-        metadata: '{}',
-        sort_index: 0,
-        created_by: 'user-1',
-        created_at: 1,
-        updated_at: 1,
-      };
       const { ctx, broadcasts } = createMockContext({
         getVariantById: mock.fn(async () => variant),
         getAssetById: mock.fn(async () => asset),
@@ -262,8 +234,6 @@ describe('VariantController', () => {
         }),
         listAllCollectionItems: mock.fn(async () => deleted ? [pinnedAfter] : [pinnedBefore, variantItem]),
         listRelations: mock.fn(async () => deleted ? [] : [relation]),
-        listCompositions: mock.fn(async () => deleted ? [compositionAfter] : [compositionBefore]),
-        listAllCompositionItems: mock.fn(async () => deleted ? [] : [compositionItem]),
         listStylePresetPreviewsByCollection: mock.fn(async () => [{
           id: 'preset-1',
           name: 'Painterly',
@@ -280,9 +250,6 @@ describe('VariantController', () => {
 
       assert.ok(broadcasts.some((b) => b.type === 'collection_item:updated' && b.item.pinned_variant_id === null));
       assert.ok(broadcasts.some((b) => b.type === 'collection_item:deleted' && b.itemId === 'collection-item-variant'));
-      assert.ok(broadcasts.some((b) => b.type === 'relation:deleted' && b.relationId === 'relation-1'));
-      assert.ok(broadcasts.some((b) => b.type === 'composition:updated' && b.composition.output_variant_id === null));
-      assert.ok(broadcasts.some((b) => b.type === 'composition_item:deleted' && b.itemId === 'composition-item-1'));
       assert.ok(broadcasts.some((b) => b.type === 'style_preset:updated' && b.preset.style_reference_variant_ids.includes('variant-2')));
     });
 

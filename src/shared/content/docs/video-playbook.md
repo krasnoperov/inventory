@@ -4,12 +4,12 @@ A video prompt gets easier after the first frame is already right. Make keyframe
 
 ## Start from locked keyframes
 
-Text-to-video from a cold prompt is the least controlled path. For characters, scenes, and repeatable productions:
+Text-to-video from a cold prompt is the least controlled path. For characters, scenes, and repeatable assets:
 
 1. Generate or derive the keyframe as an image.
 2. Check identity, composition, and style.
 3. Use that completed variant as the reference for video.
-4. Attach production metadata if the clip belongs on a timeline.
+4. Set the best result as the main variant or continue from it.
 
 ```sh
 makefx derive --refs CHARACTER_VARIANT_ID,BACKGROUND_VARIANT_ID \
@@ -19,8 +19,6 @@ makefx derive --refs CHARACTER_VARIANT_ID,BACKGROUND_VARIANT_ID \
 
 makefx video derive --refs KEYFRAME_VARIANT_ID \
   --name "Episode 01 Shot 001" --type animation \
-  --production-id episode-01 --shot-id shot-001 \
-  --scene-label "Market" --timeline-start-ms 0 --duration-ms 8000 \
   "Slow dolly-in, subtle crowd movement, keep the hero centered" \
   -o video/episode-01/shot-001.mp4
 ```
@@ -57,15 +55,17 @@ For a multi-beat clip, timestamp the beats:
 
 Keep the number of beats honest for the duration you will actually get.
 
-## Hand off production clips
+## Keep the selected clip
 
-Use production metadata while generating so the clip is already attached to the shot record:
+Use the Space canvas and Details view to compare variants, set the strongest one as the asset's main variant, and continue from that variant when you need another pass.
 
 ```sh
-makefx productions export --production-id episode-01 -o handoff/episode-01.scenes.args
+makefx assets show ASSET_ID
+makefx assets set-active ASSET_ID VARIANT_ID
+makefx assets download VARIANT_ID -o video/episode-01/shot-001.mp4
 ```
 
-The export pulls selected media from the workspace and writes ordered handoff records for your editor, game, or render pipeline.
+The selected variant is the handoff point: it stays visible on Space, keeps lineage, and can be refined or used as a reference for the next asset.
 
 ## Quick reference
 
@@ -75,6 +75,6 @@ The export pulls selected media from the workspace and writes ordered handoff re
 | Controlled motion | `video derive --refs KEYFRAME_ID` |
 | Directed shot | Camera + subject + action + context + style |
 | Multi-beat clip | Timestamp each beat |
-| Timeline handoff | Add production metadata and export |
+| Chosen clip | Set the best variant as main and download it |
 
-See [Model & Parameter Selection](/docs/model-and-parameter-selection) for Veo defaults, reference limits, aspect ratios, and the difference between generated clip length and production timeline duration.
+See [Model & Parameter Selection](/docs/model-and-parameter-selection) for Veo defaults, reference limits, aspect ratios, and provider clip duration.

@@ -26,27 +26,13 @@ import type {
   RotationView,
   TileSet,
   TilePosition,
-  ProductionRecord,
-  Production,
-  ProductionShot,
-  ProductionCue,
-  ProductionCueType,
-  ProductionPlacement,
-  ProductionPlacementTargetKind,
   SpaceSubjectType,
   SpaceCollection,
   CollectionItem,
   StylePreset,
   StylePresetPreview,
   StyleReferenceCollectionPreview,
-  SpaceRelation,
-  SpaceRelationType,
-  Composition,
-  CompositionStatus,
-  CompositionItem,
-  CompositionItemRole,
   SpaceCollectionOverview,
-  CompositionOverview,
 } from '../types';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
 import type { SimplePlan } from '../../../../shared/websocket-types';
@@ -63,16 +49,8 @@ import {
   RotationViewQueries,
   TileSetQueries,
   TilePositionQueries,
-  ProductionRecordQueries,
-  ProductionQueries,
-  ProductionShotQueries,
-  ProductionCueQueries,
-  ProductionPlacementQueries,
   SpaceCollectionQueries,
   CollectionItemQueries,
-  SpaceRelationQueries,
-  CompositionQueries,
-  CompositionItemQueries,
   buildAssetUpdateQuery,
   buildInClause,
 } from '../queries';
@@ -123,9 +101,6 @@ export interface SpaceState {
   lineage: Lineage[];
   collections: SpaceCollection[];
   collectionItems: CollectionItem[];
-  relations: SpaceRelation[];
-  compositions: Composition[];
-  compositionItems: CompositionItem[];
   stylePresets: StylePresetPreview[];
   styleReferenceCollections: StyleReferenceCollectionPreview[];
   rotationSets: RotationSet[];
@@ -140,7 +115,6 @@ export interface SpaceOverviewState {
   variants: Variant[];
   collections: SpaceCollectionOverview[];
   collectionItems: CollectionItem[];
-  compositions: CompositionOverview[];
   stylePresets: StylePresetPreview[];
   styleReferenceCollections: StyleReferenceCollectionPreview[];
   rotationSets: RotationSet[];
@@ -237,7 +211,6 @@ export interface SpaceSubjectInput {
 }
 
 export interface ParentHierarchyBackfillOptions {
-  createManualRelations?: boolean;
   createStarterCollectionsForAllNullParents?: boolean;
   createdBy?: string;
 }
@@ -341,10 +314,6 @@ function parentCollectionId(parentAssetId: string): string {
 
 function parentCollectionItemId(parentAssetId: string, assetId: string): string {
   return `migration:${PARENT_HIERARCHY_MIGRATION_VERSION}:collection-item:${parentAssetId}:${assetId}`;
-}
-
-function parentRelationId(parentAssetId: string, childAssetId: string): string {
-  return `migration:${PARENT_HIERARCHY_MIGRATION_VERSION}:relation:${parentAssetId}:${childAssetId}`;
 }
 
 function starterCollectionId(key: string): string {
@@ -759,64 +728,6 @@ export class SpaceRepository {
       assetId
     );
     await this.sql.exec(
-      `UPDATE compositions
-       SET output_asset_id = CASE WHEN output_asset_id = ? THEN NULL ELSE output_asset_id END,
-           output_variant_id = CASE
-             WHEN output_variant_id IN (SELECT id FROM variants WHERE asset_id = ?) THEN NULL
-             ELSE output_variant_id
-           END,
-           updated_at = ?
-       WHERE deleted_at IS NULL
-         AND (
-           output_asset_id = ?
-           OR output_variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
-         )`,
-      assetId,
-      assetId,
-      now,
-      assetId,
-      assetId
-    );
-    await this.sql.exec(
-      `UPDATE composition_items
-       SET deleted_at = ?, updated_at = ?
-       WHERE deleted_at IS NULL
-         AND (
-           asset_id = ?
-           OR variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
-         )`,
-      now,
-      now,
-      assetId,
-      assetId
-    );
-    await this.sql.exec(
-      `UPDATE production_records
-       SET deleted_at = ?, updated_at = ?
-       WHERE deleted_at IS NULL
-         AND (
-           asset_id = ?
-           OR variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
-         )`,
-      now,
-      now,
-      assetId,
-      assetId
-    );
-    await this.sql.exec(
-      `UPDATE production_placements
-       SET deleted_at = ?, updated_at = ?
-       WHERE deleted_at IS NULL
-         AND (
-           asset_id = ?
-           OR variant_id IN (SELECT id FROM variants WHERE asset_id = ?)
-         )`,
-      now,
-      now,
-      assetId,
-      assetId
-    );
-    await this.sql.exec(
       `UPDATE rotation_views
        SET deleted_at = ?
        WHERE deleted_at IS NULL
@@ -885,37 +796,6 @@ export class SpaceRepository {
       now,
       now,
       variantId,
-      variantId
-    );
-    await this.sql.exec(
-      `UPDATE compositions
-       SET output_variant_id = NULL, updated_at = ?
-       WHERE deleted_at IS NULL AND output_variant_id = ?`,
-      now,
-      variantId
-    );
-    await this.sql.exec(
-      `UPDATE composition_items
-       SET deleted_at = ?, updated_at = ?
-       WHERE deleted_at IS NULL AND variant_id = ?`,
-      now,
-      now,
-      variantId
-    );
-    await this.sql.exec(
-      `UPDATE production_records
-       SET deleted_at = ?, updated_at = ?
-       WHERE deleted_at IS NULL AND variant_id = ?`,
-      now,
-      now,
-      variantId
-    );
-    await this.sql.exec(
-      `UPDATE production_placements
-       SET deleted_at = ?, updated_at = ?
-       WHERE deleted_at IS NULL AND variant_id = ?`,
-      now,
-      now,
       variantId
     );
     await this.sql.exec(
@@ -1992,142 +1872,11 @@ export class SpaceRepository {
     return { sizeBytes, thumbKey };
   }
 
-  async listRelations(): Promise<SpaceRelation[]> {
-    const result = await this.sql.exec(SpaceRelationQueries.GET_ALL);
-    return result.toArray() as SpaceRelation[];
-  }
-
-  async getRelationById(relationId: string): Promise<SpaceRelation | null> {
-    const result = await this.sql.exec(SpaceRelationQueries.GET_BY_ID, relationId);
-    return (result.toArray()[0] as SpaceRelation) ?? null;
-  }
-
-  async listRelationsForSubject(subjectType: SpaceSubjectType, id: string): Promise<SpaceRelation[]> {
-    const column = subjectType === 'asset' ? 'subject_asset_id' : 'subject_variant_id';
-    const result = await this.sql.exec(
-      `SELECT * FROM space_relations WHERE ${column} = ? AND deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC`,
-      id
-    );
-    return result.toArray() as SpaceRelation[];
-  }
-
-  async listRelationsForObject(objectType: SpaceSubjectType, id: string): Promise<SpaceRelation[]> {
-    const column = objectType === 'asset' ? 'object_asset_id' : 'object_variant_id';
-    const result = await this.sql.exec(
-      `SELECT * FROM space_relations WHERE ${column} = ? AND deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC`,
-      id
-    );
-    return result.toArray() as SpaceRelation[];
-  }
-
-  async listRelationsForEntity(subjectType: SpaceSubjectType, id: string): Promise<SpaceRelation[]> {
-    const subjectColumn = subjectType === 'asset' ? 'subject_asset_id' : 'subject_variant_id';
-    const objectColumn = subjectType === 'asset' ? 'object_asset_id' : 'object_variant_id';
-    const result = await this.sql.exec(
-      `SELECT * FROM space_relations WHERE (${subjectColumn} = ? OR ${objectColumn} = ?) AND deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC`,
-      id,
-      id
-    );
-    return result.toArray() as SpaceRelation[];
-  }
-
-  async createRelation(data: {
-    id: string;
-    subject: SpaceSubjectInput;
-    object: SpaceSubjectInput;
-    relationType: SpaceRelationType;
-    label?: string | null;
-    context?: string | null;
-    metadata?: Record<string, unknown>;
-    sortIndex?: number;
-    createdBy: string;
-  }): Promise<SpaceRelation> {
-    const now = Date.now();
-    const subject = getSubjectColumns(data.subject);
-    const object = getSubjectColumns(data.object);
-    await this.sql.exec(
-      SpaceRelationQueries.INSERT,
-      data.id,
-      data.subject.subjectType,
-      subject.assetId,
-      subject.variantId,
-      data.object.subjectType,
-      object.assetId,
-      object.variantId,
-      data.relationType,
-      data.label ?? null,
-      data.context ?? null,
-      JSON.stringify(data.metadata ?? {}),
-      data.sortIndex ?? 0,
-      data.createdBy,
-      now,
-      now
-    );
-    return (await this.getRelationById(data.id))!;
-  }
-
-  async updateRelation(
-    relationId: string,
-    changes: {
-      relationType?: SpaceRelationType;
-      label?: string | null;
-      context?: string | null;
-      metadata?: Record<string, unknown>;
-      sortIndex?: number;
-    }
-  ): Promise<SpaceRelation | null> {
-    const existing = await this.getRelationById(relationId);
-    if (!existing) return null;
-
-    const updates: string[] = [];
-    const values: unknown[] = [];
-    if (changes.relationType !== undefined) {
-      updates.push('relation_type = ?');
-      values.push(changes.relationType);
-    }
-    if (changes.label !== undefined) {
-      updates.push('label = ?');
-      values.push(changes.label);
-    }
-    if (changes.context !== undefined) {
-      updates.push('context = ?');
-      values.push(changes.context);
-    }
-    if (changes.metadata !== undefined) {
-      updates.push('metadata = ?');
-      values.push(JSON.stringify(changes.metadata));
-    }
-    if (changes.sortIndex !== undefined) {
-      updates.push('sort_index = ?');
-      values.push(changes.sortIndex);
-    }
-    if (updates.length === 0) return existing;
-
-    updates.push('updated_at = ?');
-    values.push(Date.now());
-    await this.sql.exec(
-      `UPDATE space_relations SET ${updates.join(', ')} WHERE id = ?`,
-      ...values,
-      relationId
-    );
-    return this.getRelationById(relationId);
-  }
-
-  async deleteRelation(relationId: string): Promise<boolean> {
-    const existing = await this.getRelationById(relationId);
-    if (!existing) return false;
-
-    const now = Date.now();
-    await this.sql.exec(SpaceRelationQueries.DELETE, now, now, relationId);
-    return true;
-  }
-
   async backfillParentHierarchyToOrganization(
     options: ParentHierarchyBackfillOptions = {}
   ): Promise<ParentHierarchyBackfillResult> {
     const assets = await this.getAllAssets();
     const createdBy = options.createdBy ?? MIGRATION_CREATED_BY;
-    const createManualRelations = options.createManualRelations ?? true;
     const createStarterCollections = options.createStarterCollectionsForAllNullParents ?? true;
     const result: ParentHierarchyBackfillResult = {
       mode: 'empty',
@@ -2200,29 +1949,6 @@ export class SpaceRepository {
           }
         }
 
-        if (!createManualRelations) continue;
-
-        const sortedChildren = [...children].sort((left, right) => {
-          return left.created_at - right.created_at || left.id.localeCompare(right.id);
-        });
-        for (const [index, child] of sortedChildren.entries()) {
-          const relationId = parentRelationId(parentAssetId, child.id);
-          if (!(await this.getRelationById(relationId))) {
-            await this.createRelation({
-              id: relationId,
-              subject: { subjectType: 'asset', assetId: child.id },
-              object: { subjectType: 'asset', assetId: parentAssetId },
-              relationType: 'part_of',
-              context: JSON.stringify({
-                migration: PARENT_HIERARCHY_MIGRATION_VERSION,
-                migrated_parent_asset_id: parentAssetId,
-              }),
-              sortIndex: index,
-              createdBy,
-            });
-            result.relationsCreated += 1;
-          }
-        }
       }
 
       return result;
@@ -2276,258 +2002,6 @@ export class SpaceRepository {
     }
 
     return result;
-  }
-
-  async listCompositions(): Promise<Composition[]> {
-    const result = await this.sql.exec(CompositionQueries.GET_ALL);
-    return result.toArray() as Composition[];
-  }
-
-  async listCompositionOverviews(): Promise<CompositionOverview[]> {
-    const result = await this.sql.exec(`
-      SELECT
-        c.id,
-        c.name,
-        c.description,
-        c.status,
-        c.output_asset_id,
-        c.output_variant_id,
-        c.sort_index,
-        COUNT(i.id) as item_count,
-        c.created_at,
-        c.updated_at
-      FROM compositions c
-      LEFT JOIN composition_items i ON i.composition_id = c.id AND i.deleted_at IS NULL
-      WHERE c.deleted_at IS NULL
-      GROUP BY c.id
-      ORDER BY c.sort_index ASC, c.created_at ASC
-    `);
-    return result.toArray() as CompositionOverview[];
-  }
-
-  async getCompositionById(compositionId: string): Promise<Composition | null> {
-    const result = await this.sql.exec(CompositionQueries.GET_BY_ID, compositionId);
-    return (result.toArray()[0] as Composition) ?? null;
-  }
-
-  async createComposition(data: {
-    id: string;
-    name: string;
-    description?: string | null;
-    status?: CompositionStatus;
-    outputAssetId?: string | null;
-    outputVariantId?: string | null;
-    metadata?: Record<string, unknown>;
-    sortIndex?: number;
-    createdBy: string;
-  }): Promise<Composition> {
-    const now = Date.now();
-    await this.sql.exec(
-      CompositionQueries.INSERT,
-      data.id,
-      data.name,
-      data.description ?? null,
-      data.status ?? 'draft',
-      data.outputAssetId ?? null,
-      data.outputVariantId ?? null,
-      JSON.stringify(data.metadata ?? {}),
-      data.sortIndex ?? 0,
-      data.createdBy,
-      now,
-      now
-    );
-    return (await this.getCompositionById(data.id))!;
-  }
-
-  async updateComposition(
-    compositionId: string,
-    changes: {
-      name?: string;
-      description?: string | null;
-      status?: CompositionStatus;
-      outputAssetId?: string | null;
-      outputVariantId?: string | null;
-      metadata?: Record<string, unknown>;
-      sortIndex?: number;
-    }
-  ): Promise<Composition | null> {
-    const existing = await this.getCompositionById(compositionId);
-    if (!existing) return null;
-
-    const updates: string[] = [];
-    const values: unknown[] = [];
-    if (changes.name !== undefined) {
-      updates.push('name = ?');
-      values.push(changes.name);
-    }
-    if (changes.description !== undefined) {
-      updates.push('description = ?');
-      values.push(changes.description);
-    }
-    if (changes.status !== undefined) {
-      updates.push('status = ?');
-      values.push(changes.status);
-    }
-    if (changes.outputAssetId !== undefined) {
-      updates.push('output_asset_id = ?');
-      values.push(changes.outputAssetId);
-    }
-    if (changes.outputVariantId !== undefined) {
-      updates.push('output_variant_id = ?');
-      values.push(changes.outputVariantId);
-    }
-    if (changes.metadata !== undefined) {
-      updates.push('metadata = ?');
-      values.push(JSON.stringify(changes.metadata));
-    }
-    if (changes.sortIndex !== undefined) {
-      updates.push('sort_index = ?');
-      values.push(changes.sortIndex);
-    }
-    if (updates.length === 0) return existing;
-
-    updates.push('updated_at = ?');
-    values.push(Date.now());
-    await this.sql.exec(
-      `UPDATE compositions SET ${updates.join(', ')} WHERE id = ?`,
-      ...values,
-      compositionId
-    );
-    return this.getCompositionById(compositionId);
-  }
-
-  async deleteComposition(compositionId: string): Promise<boolean> {
-    const existing = await this.getCompositionById(compositionId);
-    if (!existing) return false;
-
-    const now = Date.now();
-    await this.sql.exec(
-      'UPDATE composition_items SET deleted_at = ?, updated_at = ? WHERE composition_id = ? AND deleted_at IS NULL',
-      now,
-      now,
-      compositionId
-    );
-    await this.sql.exec(CompositionQueries.DELETE, now, now, compositionId);
-    return true;
-  }
-
-  async listCompositionItems(compositionId: string): Promise<CompositionItem[]> {
-    const result = await this.sql.exec(CompositionItemQueries.GET_BY_COMPOSITION, compositionId);
-    return result.toArray() as CompositionItem[];
-  }
-
-  async listAllCompositionItems(): Promise<CompositionItem[]> {
-    const result = await this.sql.exec(CompositionItemQueries.GET_ALL);
-    return result.toArray() as CompositionItem[];
-  }
-
-  async getCompositionItemById(itemId: string): Promise<CompositionItem | null> {
-    const result = await this.sql.exec(CompositionItemQueries.GET_BY_ID, itemId);
-    return (result.toArray()[0] as CompositionItem) ?? null;
-  }
-
-  async createCompositionItem(data: {
-    id: string;
-    compositionId: string;
-    role: CompositionItemRole;
-    variantId: string;
-    label?: string | null;
-    assetId?: string | null;
-    metadata?: Record<string, unknown>;
-    sortIndex?: number;
-    createdBy: string;
-  }): Promise<CompositionItem> {
-    const now = Date.now();
-    await this.sql.exec(
-      CompositionItemQueries.INSERT,
-      data.id,
-      data.compositionId,
-      data.role,
-      data.label ?? null,
-      data.assetId ?? null,
-      data.variantId,
-      JSON.stringify(data.metadata ?? {}),
-      data.sortIndex ?? 0,
-      data.createdBy,
-      now,
-      now
-    );
-    return (await this.getCompositionItemById(data.id))!;
-  }
-
-  async updateCompositionItem(
-    itemId: string,
-    changes: {
-      role?: CompositionItemRole;
-      label?: string | null;
-      variantId?: string;
-      assetId?: string | null;
-      metadata?: Record<string, unknown>;
-      sortIndex?: number;
-    }
-  ): Promise<CompositionItem | null> {
-    const existing = await this.getCompositionItemById(itemId);
-    if (!existing) return null;
-
-    const updates: string[] = [];
-    const values: unknown[] = [];
-    if (changes.role !== undefined) {
-      updates.push('role = ?');
-      values.push(changes.role);
-    }
-    if (changes.label !== undefined) {
-      updates.push('label = ?');
-      values.push(changes.label);
-    }
-    if (changes.variantId !== undefined) {
-      updates.push('variant_id = ?');
-      values.push(changes.variantId);
-    }
-    if (changes.assetId !== undefined) {
-      updates.push('asset_id = ?');
-      values.push(changes.assetId);
-    }
-    if (changes.metadata !== undefined) {
-      updates.push('metadata = ?');
-      values.push(JSON.stringify(changes.metadata));
-    }
-    if (changes.sortIndex !== undefined) {
-      updates.push('sort_index = ?');
-      values.push(changes.sortIndex);
-    }
-    if (updates.length === 0) return existing;
-
-    updates.push('updated_at = ?');
-    values.push(Date.now());
-    await this.sql.exec(
-      `UPDATE composition_items SET ${updates.join(', ')} WHERE id = ?`,
-      ...values,
-      itemId
-    );
-    return this.getCompositionItemById(itemId);
-  }
-
-  async reorderCompositionItems(compositionId: string, itemIds: string[]): Promise<CompositionItem[]> {
-    const now = Date.now();
-    for (const [index, itemId] of itemIds.entries()) {
-      await this.sql.exec(
-        'UPDATE composition_items SET sort_index = ?, updated_at = ? WHERE id = ? AND composition_id = ?',
-        index,
-        now,
-        itemId,
-        compositionId
-      );
-    }
-    return this.listCompositionItems(compositionId);
-  }
-
-  async deleteCompositionItem(itemId: string): Promise<boolean> {
-    const existing = await this.getCompositionItemById(itemId);
-    if (!existing) return false;
-
-    const now = Date.now();
-    await this.sql.exec(CompositionItemQueries.DELETE, now, now, itemId);
-    return true;
   }
 
   // ==========================================================================
@@ -2645,286 +2119,6 @@ export class SpaceRepository {
   }
 
   // ==========================================================================
-  // Production Record Operations
-  // ==========================================================================
-
-  async getProductionRecordById(recordId: string): Promise<ProductionRecord | null> {
-    const result = await this.sql.exec(ProductionRecordQueries.GET_BY_ID, recordId);
-    return (result.toArray()[0] as ProductionRecord) ?? null;
-  }
-
-  async getProductionRecordsByProductionId(productionId: string): Promise<ProductionRecord[]> {
-    try {
-      const result = await this.sql.exec(ProductionRecordQueries.GET_BY_PRODUCTION, productionId);
-      return result.toArray() as ProductionRecord[];
-    } catch {
-      return [];
-    }
-  }
-
-  async upsertProductionRecord(data: {
-    id: string;
-    productionId: string;
-    variantId: string;
-    assetId: string;
-    mediaKind: MediaKind;
-    shotId?: string | null;
-    sceneLabel: string;
-    timelineStartMs: number;
-    durationMs?: number | null;
-    motionPrompt?: string | null;
-    sourceRefs?: string[];
-    sourceVariantIds?: string[];
-    metadata?: Record<string, unknown>;
-    createdBy: string;
-  }): Promise<ProductionRecord> {
-    const existing = await this.getProductionRecordById(data.id);
-    const now = Date.now();
-    await this.sql.exec(
-      ProductionRecordQueries.UPSERT,
-      data.id,
-      data.productionId,
-      data.variantId,
-      data.assetId,
-      data.mediaKind,
-      data.shotId ?? null,
-      data.sceneLabel,
-      data.timelineStartMs,
-      data.durationMs ?? null,
-      data.motionPrompt ?? null,
-      JSON.stringify(data.sourceRefs ?? []),
-      JSON.stringify(data.sourceVariantIds ?? []),
-      JSON.stringify(data.metadata ?? {}),
-      existing?.created_by ?? data.createdBy,
-      existing?.created_at ?? now,
-      now
-    );
-    return (await this.getProductionRecordById(data.id))!;
-  }
-
-  async deleteProductionRecord(recordId: string): Promise<boolean> {
-    const existing = await this.getProductionRecordById(recordId);
-    if (!existing) return false;
-
-    const now = Date.now();
-    await this.sql.exec(ProductionPlacementQueries.DELETE, now, now, recordId);
-    await this.sql.exec(ProductionRecordQueries.DELETE, now, now, recordId);
-    return true;
-  }
-
-  // ==========================================================================
-  // Production Model Operations
-  // ==========================================================================
-
-  async getAllProductions(): Promise<Production[]> {
-    try {
-      const result = await this.sql.exec(ProductionQueries.GET_ALL);
-      return result.toArray() as Production[];
-    } catch {
-      return [];
-    }
-  }
-
-  async getProductionById(productionId: string): Promise<Production | null> {
-    const result = await this.sql.exec(ProductionQueries.GET_BY_ID, productionId);
-    return (result.toArray()[0] as Production) ?? null;
-  }
-
-  async upsertProduction(data: {
-    id: string;
-    name: string;
-    description?: string | null;
-    metadata?: Record<string, unknown>;
-    createdBy: string;
-  }): Promise<Production> {
-    const existing = await this.getProductionById(data.id);
-    const now = Date.now();
-    await this.sql.exec(
-      ProductionQueries.UPSERT,
-      data.id,
-      data.name,
-      data.description ?? null,
-      JSON.stringify(data.metadata ?? {}),
-      existing?.created_by ?? data.createdBy,
-      existing?.created_at ?? now,
-      now
-    );
-    return (await this.getProductionById(data.id))!;
-  }
-
-  async deleteProduction(productionId: string): Promise<boolean> {
-    const existing = await this.getProductionById(productionId);
-    if (!existing) return false;
-
-    const now = Date.now();
-    await this.sql.exec(ProductionPlacementQueries.DELETE_BY_PRODUCTION, now, now, productionId);
-    await this.sql.exec(ProductionRecordQueries.DELETE_BY_PRODUCTION, now, now, productionId);
-    await this.sql.exec(ProductionShotQueries.DELETE_BY_PRODUCTION, now, now, productionId);
-    await this.sql.exec(ProductionCueQueries.DELETE_BY_PRODUCTION, now, now, productionId);
-    await this.sql.exec(ProductionQueries.DELETE, now, now, productionId);
-    return true;
-  }
-
-  async getProductionShots(productionId: string): Promise<ProductionShot[]> {
-    const result = await this.sql.exec(ProductionShotQueries.GET_BY_PRODUCTION, productionId);
-    return result.toArray() as ProductionShot[];
-  }
-
-  async getProductionShotById(shotId: string): Promise<ProductionShot | null> {
-    const result = await this.sql.exec(ProductionShotQueries.GET_BY_ID, shotId);
-    return (result.toArray()[0] as ProductionShot) ?? null;
-  }
-
-  async upsertProductionShot(data: {
-    id: string;
-    productionId: string;
-    shotId?: string | null;
-    label: string;
-    timelineStartMs: number;
-    durationMs?: number | null;
-    metadata?: Record<string, unknown>;
-    createdBy: string;
-  }): Promise<ProductionShot> {
-    const existing = await this.getProductionShotById(data.id);
-    const now = Date.now();
-    await this.sql.exec(
-      ProductionShotQueries.UPSERT,
-      data.id,
-      data.productionId,
-      data.shotId ?? null,
-      data.label,
-      data.timelineStartMs,
-      data.durationMs ?? null,
-      JSON.stringify(data.metadata ?? {}),
-      existing?.created_by ?? data.createdBy,
-      existing?.created_at ?? now,
-      now
-    );
-    return (await this.getProductionShotById(data.id))!;
-  }
-
-  async deleteProductionShot(shotId: string): Promise<boolean> {
-    const existing = await this.getProductionShotById(shotId);
-    if (!existing) return false;
-
-    const now = Date.now();
-    await this.sql.exec(ProductionPlacementQueries.DELETE_BY_TARGET, now, now, 'shot', shotId);
-    await this.sql.exec(ProductionShotQueries.DELETE, now, now, shotId);
-    return true;
-  }
-
-  async getProductionCues(productionId: string): Promise<ProductionCue[]> {
-    const result = await this.sql.exec(ProductionCueQueries.GET_BY_PRODUCTION, productionId);
-    return result.toArray() as ProductionCue[];
-  }
-
-  async getProductionCueById(cueId: string): Promise<ProductionCue | null> {
-    const result = await this.sql.exec(ProductionCueQueries.GET_BY_ID, cueId);
-    return (result.toArray()[0] as ProductionCue) ?? null;
-  }
-
-  async upsertProductionCue(data: {
-    id: string;
-    productionId: string;
-    cueType: ProductionCueType;
-    label: string;
-    timelineStartMs: number;
-    durationMs?: number | null;
-    metadata?: Record<string, unknown>;
-    createdBy: string;
-  }): Promise<ProductionCue> {
-    const existing = await this.getProductionCueById(data.id);
-    const now = Date.now();
-    await this.sql.exec(
-      ProductionCueQueries.UPSERT,
-      data.id,
-      data.productionId,
-      data.cueType,
-      data.label,
-      data.timelineStartMs,
-      data.durationMs ?? null,
-      JSON.stringify(data.metadata ?? {}),
-      existing?.created_by ?? data.createdBy,
-      existing?.created_at ?? now,
-      now
-    );
-    return (await this.getProductionCueById(data.id))!;
-  }
-
-  async deleteProductionCue(cueId: string): Promise<boolean> {
-    const existing = await this.getProductionCueById(cueId);
-    if (!existing) return false;
-
-    const now = Date.now();
-    await this.sql.exec(ProductionPlacementQueries.DELETE_BY_TARGET, now, now, 'cue', cueId);
-    await this.sql.exec(ProductionCueQueries.DELETE, now, now, cueId);
-    return true;
-  }
-
-  async getProductionPlacements(productionId: string): Promise<ProductionPlacement[]> {
-    const result = await this.sql.exec(ProductionPlacementQueries.GET_BY_PRODUCTION, productionId);
-    return result.toArray() as ProductionPlacement[];
-  }
-
-  async getProductionPlacementById(placementId: string): Promise<ProductionPlacement | null> {
-    const result = await this.sql.exec(ProductionPlacementQueries.GET_BY_ID, placementId);
-    return (result.toArray()[0] as ProductionPlacement) ?? null;
-  }
-
-  async getProductionPlacementsByTarget(
-    targetKind: ProductionPlacementTargetKind,
-    targetId: string
-  ): Promise<ProductionPlacement[]> {
-    const result = await this.sql.exec(ProductionPlacementQueries.GET_BY_TARGET, targetKind, targetId);
-    return result.toArray() as ProductionPlacement[];
-  }
-
-  async upsertProductionPlacement(data: {
-    id: string;
-    productionId: string;
-    targetKind: ProductionPlacementTargetKind;
-    targetId: string;
-    variantId: string;
-    assetId: string;
-    mediaKind: MediaKind;
-    role?: string | null;
-    sourceRefs?: string[];
-    sourceVariantIds?: string[];
-    metadata?: Record<string, unknown>;
-    createdBy: string;
-  }): Promise<ProductionPlacement> {
-    const existing = await this.getProductionPlacementById(data.id);
-    const now = Date.now();
-    await this.sql.exec(
-      ProductionPlacementQueries.UPSERT,
-      data.id,
-      data.productionId,
-      data.targetKind,
-      data.targetId,
-      data.variantId,
-      data.assetId,
-      data.mediaKind,
-      data.role ?? null,
-      JSON.stringify(data.sourceRefs ?? []),
-      JSON.stringify(data.sourceVariantIds ?? []),
-      JSON.stringify(data.metadata ?? {}),
-      existing?.created_by ?? data.createdBy,
-      existing?.created_at ?? now,
-      now
-    );
-    return (await this.getProductionPlacementById(data.id))!;
-  }
-
-  async deleteProductionPlacement(placementId: string): Promise<boolean> {
-    const existing = await this.getProductionPlacementById(placementId);
-    if (!existing) return false;
-
-    const now = Date.now();
-    await this.sql.exec(ProductionPlacementQueries.DELETE, now, now, placementId);
-    return true;
-  }
-
-  // ==========================================================================
   // State Operations
   // ==========================================================================
 
@@ -2935,9 +2129,6 @@ export class SpaceRepository {
       lineage,
       collections,
       collectionItems,
-      relations,
-      compositions,
-      compositionItems,
       stylePresets,
       styleReferenceCollections,
       rotationSets,
@@ -2950,9 +2141,6 @@ export class SpaceRepository {
       this.getAllLineage(),
       this.listCollections(),
       this.listAllCollectionItems(),
-      this.listRelations(),
-      this.listCompositions(),
-      this.listAllCompositionItems(),
       this.listStylePresetPreviews(),
       this.listStyleReferenceCollections(),
       this.getAllRotationSets(),
@@ -2966,9 +2154,6 @@ export class SpaceRepository {
       lineage,
       collections,
       collectionItems,
-      relations,
-      compositions,
-      compositionItems,
       stylePresets,
       styleReferenceCollections,
       rotationSets,
@@ -2984,7 +2169,6 @@ export class SpaceRepository {
       overviewVariants,
       collections,
       collectionItems,
-      compositions,
       stylePresets,
       styleReferenceCollections,
       rotationSets,
@@ -2996,7 +2180,6 @@ export class SpaceRepository {
       this.getOverviewVariants(),
       this.listCollectionOverviews(),
       this.listAllCollectionItems(),
-      this.listCompositionOverviews(),
       this.listStylePresetPreviews(),
       this.listStyleReferenceCollections(),
       this.getAllRotationSets(),
@@ -3014,7 +2197,6 @@ export class SpaceRepository {
       ...rotationViews.map((view) => view.variant_id),
       ...tileSets.flatMap((set) => set.seed_variant_id ? [set.seed_variant_id] : []),
       ...tilePositions.map((position) => position.variant_id),
-      ...compositions.flatMap((composition) => composition.output_variant_id ? [composition.output_variant_id] : []),
       ...collectionItems.flatMap((item) => [
         item.variant_id,
         item.pinned_variant_id,
@@ -3026,7 +2208,7 @@ export class SpaceRepository {
       ...inProgressVariants.filter((variant) => !overviewVariants.some((overviewVariant) => overviewVariant.id === variant.id)),
       ...referencedVariants.filter((variant) => !variantIds.has(variant.id)),
     ];
-    return { assets, variants, collections, collectionItems, compositions, stylePresets, styleReferenceCollections, rotationSets, rotationViews, tileSets, tilePositions };
+    return { assets, variants, collections, collectionItems, stylePresets, styleReferenceCollections, rotationSets, rotationViews, tileSets, tilePositions };
   }
 
   // ==========================================================================

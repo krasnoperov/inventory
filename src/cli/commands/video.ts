@@ -74,9 +74,5 @@ Veo 3.1 frames:
 Audio:
   --audio       Request native synchronized Veo audio (default)
   --no-audio    Not supported by current Veo models; rejected before a job is created.
-
-Production metadata:
-  --scene-label <label> --timeline-start-ms <ms> --duration-ms <ms>
-  --shot-id <id> --production-id <id>
 `);
 }

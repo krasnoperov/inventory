@@ -5,7 +5,7 @@ test('landing create-space dialog uses shared name field', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 560 });
   await mountComponent(page, 'LandingCreateSpaceDialog', {
     isCreating: false,
-    newSpaceName: 'Production board',
+    newSpaceName: 'Asset board',
     onClose: '__record__:close',
     onNameChange: '__record__:name',
     onSubmit: '__record__:submit',

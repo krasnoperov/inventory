@@ -69,7 +69,7 @@ export function contentNegotiationWithRenderer(
     if (rawPath === AGENT_CARD_PATH) {
       return jsonResponse(c, {
         name: 'Make Effects',
-        description: 'CLI-first media generation with project memory for variants, prompts, lineage, collaboration, and production handoff.',
+        description: 'CLI-first media generation with project memory for assets, variants, prompts, lineage, and collaboration.',
         url: PUBLIC_SITE_ORIGIN,
         schema: 'makefx-agent-discovery-v1',
         provider: {
@@ -77,7 +77,7 @@ export function contentNegotiationWithRenderer(
           url: PUBLIC_SITE_ORIGIN,
         },
         capabilities: {
-          stores: ['assets', 'variants', 'recipes', 'lineage', 'production-records'],
+          stores: ['spaces', 'assets', 'variants', 'recipes', 'lineage'],
           public_interfaces: ['markdown-docs', 'llms.txt', 'makefx-cli'],
         },
         documentation_url: `${PUBLIC_SITE_ORIGIN}/docs`,
@@ -97,7 +97,7 @@ export function contentNegotiationWithRenderer(
           {
             id: 'use-cli',
             name: 'Use the makefx CLI',
-            description: 'Generate media, inspect assets, watch jobs, and export production handoff data.',
+            description: 'Generate media, inspect assets, watch jobs, upload local media, and download results.',
             inputModes: ['application/json', 'text/plain'],
             outputModes: ['application/json', 'text/plain'],
             url: `${PUBLIC_SITE_ORIGIN}/docs/cli.md`,
@@ -121,7 +121,7 @@ export function contentNegotiationWithRenderer(
           {
             id: 'use-cli',
             name: 'Operate through the makefx CLI',
-            description: 'Generate media, inspect assets, watch jobs, and export production handoff data with JSON-friendly commands.',
+            description: 'Generate media, inspect assets, watch jobs, upload local media, and download results with JSON-friendly commands.',
             href: `${PUBLIC_SITE_ORIGIN}/docs/cli.md`,
             type: 'text/markdown',
           },
@@ -134,8 +134,8 @@ export function contentNegotiationWithRenderer(
           },
           {
             id: 'video-playbook',
-            name: 'Generate production video',
-            description: 'Use keyframes, shot direction, and production metadata for video handoff.',
+            name: 'Generate video assets',
+            description: 'Use keyframes, references, and shot direction to create video variants.',
             href: `${PUBLIC_SITE_ORIGIN}/docs/video-playbook.md`,
             type: 'text/markdown',
           },

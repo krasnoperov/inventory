@@ -2,31 +2,22 @@ import { StrictMode, type ComponentProps, type ComponentType, type ReactNode } f
 import { createRoot } from 'react-dom/client';
 import { AppHeader } from './components/AppHeader';
 import { AudioPlayer } from './components/AudioPlayer/AudioPlayer';
-import { AssetCanvas } from './components/AssetCanvas';
 import { AssetCard } from './components/AssetCard';
 import { AssetMenu } from './components/AssetMenu';
 import { AssetPicker } from './components/AssetPicker';
-import { CollectionPlacementPicker } from './components/CollectionPlacementPicker';
-import { CompositionDetail, CompositionUsageList } from './components/CompositionDetail';
-import { CompositionPlacementControl } from './components/CompositionPlacementControl';
 import { CanvasDropHint } from './components/CanvasDropHint';
 import { CanvasToolbar, CanvasToolbarButton, CanvasToolbarDivider, CanvasToolbarLink, CanvasToolbarTitle } from './components/CanvasToolbar';
 import { CreateSpaceDialog } from './components/CreateSpaceDialog';
 import { ForgeTray } from './components/ForgeTray';
 import { FormContainer, FormTitle } from './components/forms';
 import { ImageLightbox } from './components/ImageLightbox';
-import { LineageTree } from './components/LineageTree';
 import { Pagination } from './components/Pagination';
 import { PublicNav } from './components/PublicNav';
 import { PublicThemeToggle } from './components/PublicThemeToggle';
-import { RelationEditorDialog, RelationsPanel } from './components/RelationsPanel';
-import { RelationsCanvas } from './components/RelationsCanvas/RelationsCanvas';
 import { RotationPanel } from './components/RotationPanel/RotationPanel';
 import { SpacesOverview } from './components/SpacesOverview';
-import { SpaceBoard } from './components/SpaceBoard';
 import { SpaceCanvas } from './components/SpaceCanvas';
 import { SpaceSharingPanel } from './components/SpaceSharingPanel';
-import { StyleReferenceUsagePanel } from './components/StyleReferenceUsagePanel';
 import { Thumbnail } from './components/Thumbnail';
 import { TileGrid } from './components/TileGrid/TileGrid';
 import { TileSetPanel } from './components/TileSetPanel/TileSetPanel';
@@ -34,7 +25,6 @@ import { TopLoadingBar } from './components/TopLoadingBar';
 import { UsageIndicatorView } from './components/UsageIndicator/UsageIndicator';
 import { VariantCanvas } from './components/VariantCanvas';
 import { VariantDetailsPanel } from './components/VariantCanvas/VariantDetailsPanel';
-import { StylePanel } from './components/ForgeTray/StylePanel';
 import { BillingPlanActions, UsageBar } from './components/BillingSection';
 import { VoicePicker } from './components/ForgeTray/VoicePicker';
 import { WorkspaceChrome } from './components/WorkspaceChrome';
@@ -43,29 +33,20 @@ import { Button, ButtonLink, Checkbox, IconButton, SegmentedControl, TextArea, T
 import type { MeterStatus } from './hooks/useBillingStatus';
 import { AdminSpendView } from './pages/AdminSpendPage';
 import { AuthorizationDecisionActions } from './pages/AuthorizationApprovalPage';
-import { AssetCollectionsPanel, AssetDetailsContext, AssetDetailsInspector, AssetDetailsStrip, AssetGenerationDock, AssetTitleInlineEditor, AssetTypeSelect } from './pages/AssetDetailPage';
+import { AssetDetailsContext, AssetDetailsStrip, AssetGenerationDock, AssetTitleInlineEditor, AssetTypeSelect } from './pages/AssetDetailPage';
 import assetDetailStyles from './pages/AssetDetailPage.module.css';
 import DocsPage from './pages/DocsPage';
 import landingStyles from './pages/LandingPage.module.css';
 import { GoogleLoginButton } from './pages/LoginPage';
-import { HyperbolicCanvas } from './components/HyperbolicCanvas/HyperbolicCanvas';
 import PricingPage from './pages/PricingPage';
 import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
 import profileStyles from './pages/ProfilePage.module.css';
-import { ProductionHandoffControls, ProductionPlacementControls, ProductionRecordsPanel } from './pages/ProductionPage';
 import { SpaceAccessRequestView } from './pages/SpaceAccessRequestPage';
 import spacePageStyles from './pages/SpacePage.module.css';
 import variantCanvasStyles from './components/VariantCanvas/VariantCanvas.module.css';
 import UnknownPage from './pages/UnknownPage';
 import type {
   Asset,
-  CollectionItem,
-  Composition,
-  CompositionItem,
-  Lineage,
-  SpaceCollection,
-  SpaceRelation,
-  StylePresetRaw,
   Variant,
 } from './space/protocol';
 import './styles/theme.css';
@@ -79,15 +60,10 @@ declare global {
   }
 }
 
-const ProductionPlacementHarness = ProductionPlacementControls as unknown as ComponentType<Record<string, unknown>>;
-const ProductionHandoffHarness = ProductionHandoffControls as unknown as ComponentType<Record<string, unknown>>;
-const ProductionRecordsHarness = ProductionRecordsPanel as unknown as ComponentType<Record<string, unknown>>;
 const AssetTypeSelectHarness = AssetTypeSelect as unknown as ComponentType<Record<string, unknown>>;
 const AssetTitleInlineEditorHarness = AssetTitleInlineEditor as unknown as ComponentType<Record<string, unknown>>;
-const AssetCollectionsPanelHarness = AssetCollectionsPanel as unknown as ComponentType<Record<string, unknown>>;
 const AssetGenerationDockHarness = AssetGenerationDock as unknown as ComponentType<Record<string, unknown>>;
 const AssetDetailsContextHarness = AssetDetailsContext as unknown as ComponentType<Record<string, unknown>>;
-const AssetDetailsInspectorHarness = AssetDetailsInspector as unknown as ComponentType<Record<string, unknown>>;
 const AssetDetailsStripHarness = AssetDetailsStrip as unknown as ComponentType<Record<string, unknown>>;
 const ProfileProviderKeyRowHarness = ProfileProviderKeyRow as unknown as ComponentType<Record<string, unknown>>;
 const ProfileDangerZoneHarness = ProfileDangerZone as unknown as ComponentType<Record<string, unknown>>;
@@ -160,226 +136,12 @@ const stackVariants: Variant[] = [
   stackVariant('output', 'output-variant'),
 ];
 
-const stackCollections: SpaceCollection[] = [
-  {
-    id: 'cast',
-    name: 'Cast',
-    kind: 'cast',
-    color: null,
-    description: null,
-    sort_index: 0,
-    item_count: 1,
-    created_by: 'user-1',
-    created_at: stackBaseTime,
-    updated_at: stackBaseTime,
-  },
-  {
-    id: 'style',
-    name: 'Style refs',
-    kind: 'style_refs',
-    color: null,
-    description: null,
-    sort_index: 1,
-    item_count: 1,
-    created_by: 'user-1',
-    created_at: stackBaseTime,
-    updated_at: stackBaseTime,
-  },
-];
-
-const stackCollectionItems: CollectionItem[] = [
-  {
-    id: 'cast-hero',
-    collection_id: 'cast',
-    subject_type: 'asset',
-    asset_id: 'hero',
-    variant_id: null,
-    role: 'hero',
-    pinned_variant_id: 'hero-variant',
-    sort_index: 0,
-    created_by: 'user-1',
-    created_at: stackBaseTime,
-    updated_at: stackBaseTime,
-  },
-  {
-    id: 'style-hero',
-    collection_id: 'style',
-    subject_type: 'variant',
-    asset_id: null,
-    variant_id: 'hero-variant',
-    role: 'style_ref',
-    pinned_variant_id: null,
-    sort_index: 1,
-    created_by: 'user-1',
-    created_at: stackBaseTime,
-    updated_at: stackBaseTime,
-  },
-];
-
-const stackStylePreset: StylePresetRaw = {
-  id: 'preset-russafa',
-  name: 'Russafa watercolor',
-  description: null,
-  style_prompt: 'Loose watercolor game concept art',
-  collection_id: 'style',
-  enabled: true,
-  is_default: true,
-  created_by: 'user-1',
-  created_at: stackBaseTime,
-  updated_at: stackBaseTime,
-  collection_name: 'Style refs',
-  reference_count: 1,
-  style_reference_variant_ids: ['hero-variant'],
-  style_reference_image_keys: ['images/space/hero-variant.png'],
-};
-
-const stackRelations: SpaceRelation[] = [
-  {
-    id: 'relation-out',
-    subject_type: 'asset',
-    subject_asset_id: 'hero',
-    subject_variant_id: null,
-    object_type: 'asset',
-    object_asset_id: 'atlas',
-    object_variant_id: null,
-    relation_type: 'thumbnail_for',
-    context: JSON.stringify({ label: 'Card art' }),
-    sort_index: 0,
-    created_by: 'user-1',
-    created_at: stackBaseTime,
-    updated_at: stackBaseTime,
-  },
-  {
-    id: 'relation-in',
-    subject_type: 'asset',
-    subject_asset_id: 'map',
-    subject_variant_id: null,
-    object_type: 'variant',
-    object_asset_id: null,
-    object_variant_id: 'hero-variant',
-    relation_type: 'map_for',
-    context: JSON.stringify({ context: 'world map' }),
-    sort_index: 1,
-    created_by: 'user-1',
-    created_at: stackBaseTime,
-    updated_at: stackBaseTime,
-  },
-];
-
-const stackLineage: Lineage[] = [
-  {
-    id: 'lineage-hero-atlas',
-    parent_variant_id: 'hero-variant',
-    child_variant_id: 'atlas-variant',
-    relation_type: 'derived',
-    severed: false,
-    created_at: stackBaseTime,
-  },
-  {
-    id: 'lineage-atlas-output',
-    parent_variant_id: 'atlas-variant',
-    child_variant_id: 'output-variant',
-    relation_type: 'refined',
-    severed: false,
-    created_at: stackBaseTime + 1,
-  },
-];
-
-const stackCompositions: Composition[] = [
-  {
-    id: 'composition-1',
-    name: 'Scene Bar composition',
-    description: null,
-    status: 'draft',
-    output_asset_id: 'output',
-    output_variant_id: 'output-variant',
-    metadata: '{}',
-    sort_index: 0,
-    created_by: 'user-1',
-    created_at: stackBaseTime,
-    updated_at: stackBaseTime,
-  },
-  {
-    id: 'composition-2',
-    name: 'Pinned variant scene',
-    description: null,
-    status: 'draft',
-    output_asset_id: null,
-    output_variant_id: null,
-    metadata: '{}',
-    sort_index: 1,
-    created_by: 'user-1',
-    created_at: stackBaseTime,
-    updated_at: stackBaseTime,
-  },
-];
-
-const stackCompositionItems: CompositionItem[] = [
-  {
-    id: 'composition-item-1',
-    composition_id: 'composition-1',
-    role: 'character',
-    asset_id: 'hero',
-    variant_id: 'hero-variant',
-    metadata: '{}',
-    sort_index: 0,
-    created_by: 'user-1',
-    created_at: stackBaseTime,
-    updated_at: stackBaseTime,
-  },
-  {
-    id: 'composition-item-2',
-    composition_id: 'composition-2',
-    role: 'thumbnail',
-    asset_id: null,
-    variant_id: 'hero-variant',
-    metadata: '{}',
-    sort_index: 0,
-    created_by: 'user-1',
-    created_at: stackBaseTime,
-    updated_at: stackBaseTime,
-  },
-];
-
-function ProductionControlsHarness(props: Record<string, unknown>) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 380px) minmax(320px, 1fr)', gap: '16px', alignItems: 'start' }}>
-      <ProductionPlacementHarness {...props} />
-      <ProductionHandoffHarness {...props} />
-    </div>
-  );
-}
-
-function ProductionRecordsPanelPreview(props: Record<string, unknown>) {
-  const assetById = new Map(stackAssets.map((asset) => [asset.id, asset]));
-  const variantById = new Map(stackVariants.map((variant) => [variant.id, variant]));
-  return (
-    <div style={{ maxWidth: '560px' }}>
-      <ProductionRecordsHarness
-        activeProductionId="episode-01"
-        assetById={assetById}
-        canEdit
-        isDeleting={false}
-        isLoading={false}
-        hasError={false}
-        onDeletePlacement={() => undefined}
-        onEditPlacement={() => undefined}
-        sortedRecords={[]}
-        spaceId="space-1"
-        variantById={variantById}
-        {...props}
-      />
-    </div>
-  );
-}
-
 function AssetDetailControlsHarness(props: Record<string, unknown>) {
   return (
     <div style={{ display: 'grid', gap: '12px', maxWidth: '760px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <AssetTypeSelectHarness {...props} />
       </div>
-      <AssetCollectionsPanelHarness {...props} />
     </div>
   );
 }
@@ -404,20 +166,12 @@ function CanvasToolbarControlsPreview(props: Record<string, unknown>) {
       <CanvasToolbar ariaLabel="Toolbar preview">
         <CanvasToolbarTitle>Crystal Gate</CanvasToolbarTitle>
         <CanvasToolbarDivider />
-        <CanvasToolbarButton title="Board view" onClick={onAction}>
+        <CanvasToolbarButton active title="Canvas view" onClick={onAction}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="4" width="8" height="6" rx="1.5" />
             <rect x="14" y="4" width="7" height="9" rx="1.5" />
             <rect x="3" y="13" width="8" height="7" rx="1.5" />
             <rect x="14" y="16" width="7" height="4" rx="1.5" />
-          </svg>
-        </CanvasToolbarButton>
-        <CanvasToolbarButton active title="Relations view">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="5" cy="6" r="2.5" />
-            <circle cx="19" cy="6" r="2.5" />
-            <circle cx="12" cy="18" r="2.5" />
-            <path d="M7 7.5 17 7.5M6.5 8 11 16M17.5 8 13 16" />
           </svg>
         </CanvasToolbarButton>
         <CanvasToolbarButton danger title="Delete asset">
@@ -468,18 +222,8 @@ function AssetDetailsStripPreview(props: Record<string, unknown>) {
 
 function AssetDetailsContextPreview(props: Record<string, unknown>) {
   return (
-    <div style={{ maxWidth: '520px', position: 'relative', minHeight: '220px' }}>
+    <div style={{ maxWidth: '520px', position: 'relative' }}>
       <AssetDetailsContextHarness {...props} />
-      <AssetDetailsInspectorHarness open>
-        <section aria-label="Inspector sample details" style={{ display: 'grid', gap: 8 }}>
-          <div style={{ padding: 8, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)' }}>
-            Collections
-          </div>
-          <div style={{ padding: 8, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)' }}>
-            Relations
-          </div>
-        </section>
-      </AssetDetailsInspectorHarness>
     </div>
   );
 }
@@ -487,9 +231,7 @@ function AssetDetailsContextPreview(props: Record<string, unknown>) {
 function AssetGenerationDockPreview(props: Record<string, unknown>) {
   const {
     variantInspector: rawVariantInspector,
-    showCompositionDetail,
     showDockSummary,
-    showRelationEditor,
     ...contextProps
   } = props;
   const variantInspector = rawVariantInspector as ReactNode | undefined;
@@ -499,93 +241,9 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
     ? stackVariants.filter((variant) => variant.asset_id === 'hero').findIndex((variant) => variant.id === selectedVariant.id)
     : undefined;
 
-  const detailsInspector = (
-    <AssetDetailsInspector open>
-          <AssetCollectionsPanel
-            assetPlacementDrafts={[]}
-            collections={stackCollections}
-            collectionItems={stackCollectionItems}
-            onApplyAssetPlacements={() => undefined}
-            onApplyVariantPlacements={() => undefined}
-            onAssetPlacementDraftsChange={() => undefined}
-            onDeleteCollectionItem={() => undefined}
-            onUpdateCollectionItem={() => undefined}
-            onVariantPlacementDraftsChange={() => undefined}
-            selectedVariant={selectedVariant}
-            variantPlacementDrafts={[]}
-            variants={stackVariants}
-          />
-          <StyleReferenceUsagePanel
-            spaceId="space-1"
-            collections={[stackCollections[1]]}
-            presets={[stackStylePreset]}
-            outputs={[stackAssets[4]]}
-          />
-          <CompositionUsageList
-            targetAssetId="hero"
-            assets={stackAssets}
-            variants={stackVariants}
-            compositions={stackCompositions}
-            compositionItems={stackCompositionItems}
-            onOpenComposition={() => undefined}
-          />
-          {showCompositionDetail === true && (
-            <div className={assetDetailStyles.compositionPanelContainer}>
-              <CompositionDetail
-                spaceId="space-1"
-                layout="rail"
-                compositions={stackCompositions}
-                compositionItems={stackCompositionItems}
-                assets={stackAssets}
-                variants={stackVariants}
-                lineage={stackLineage}
-                collections={stackCollections}
-                collectionItems={stackCollectionItems}
-                selectedCompositionId="composition-1"
-                canEdit
-                onSelectComposition={() => undefined}
-                onCreateComposition={() => undefined}
-                onUpdateComposition={() => undefined}
-                onDeleteComposition={() => undefined}
-                onCreateItem={() => undefined}
-                onUpdateItem={() => undefined}
-                onDeleteItem={() => undefined}
-                onReorderItems={() => undefined}
-                onOpenAsset={() => undefined}
-                onClose={() => undefined}
-              />
-            </div>
-          )}
-          {showRelationEditor === true && (
-            <RelationEditorDialog
-              mode="create"
-              assets={stackAssets}
-              variants={stackVariants}
-              sourceSubject={{ subjectType: 'asset', assetId: 'hero' }}
-              onCancel={() => undefined}
-              onCreate={() => undefined}
-              onUpdate={() => undefined}
-            />
-          )}
-          <RelationsPanel
-            assets={stackAssets}
-            variants={stackVariants}
-            relations={stackRelations}
-            subjects={[
-              { subjectType: 'asset', assetId: 'hero' },
-              { subjectType: 'variant', variantId: 'hero-variant' },
-            ]}
-            primarySubject={{ subjectType: 'asset', assetId: 'hero' }}
-            onCreate={() => undefined}
-            onEdit={() => undefined}
-            onDelete={() => undefined}
-          />
-    </AssetDetailsInspector>
-  );
-
   return (
     <div
-      className={`${assetDetailStyles.canvasContainer} ${assetDetailStyles.canvasContainerWithInspector}`}
+      className={assetDetailStyles.canvasContainer}
       style={{ height: '100vh' }}
     >
       <div className={assetDetailStyles.canvasStage}>
@@ -606,10 +264,8 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
           <AssetDetailsContextHarness
             {...contextProps}
             asset={stackAssets[0]}
-            assetCollectionCount={1}
             selectedVariant={selectedVariant}
             selectedVariantIndex={selectedVariantIndex}
-            selectedVariantCollectionCount={1}
             variantCount={stackVariants.filter((variant) => variant.asset_id === 'hero').length}
           />
         ) : undefined}
@@ -623,7 +279,6 @@ function AssetGenerationDockPreview(props: Record<string, unknown>) {
           />
         )}
       />
-      {detailsInspector}
     </div>
   );
 }
@@ -651,10 +306,8 @@ function AssetGenerationDockAudioNoEllipsisPreview() {
       details={(
         <AssetDetailsContextHarness
           asset={audioAsset}
-          assetCollectionCount={0}
           selectedVariant={audioVariant}
           selectedVariantIndex={0}
-          selectedVariantCollectionCount={0}
           variantCount={1}
         />
       )}
@@ -740,7 +393,7 @@ function AssetDetailOverlayChromePreview() {
       <section className={assetDetailStyles.tileGridOverlay} role="region" aria-label="Tile grid overlay">
         <div style={{ padding: '0.75rem', display: 'grid', gap: '0.35rem' }}>
           <strong>Tile grid</strong>
-          <span>4x4 production preview</span>
+          <span>4x4 variant preview</span>
         </div>
       </section>
       <section className={assetDetailStyles.jobsOverlay} role="region" aria-label="Generation jobs">
@@ -752,89 +405,6 @@ function AssetDetailOverlayChromePreview() {
           </span>
         </div>
       </section>
-    </div>
-  );
-}
-
-function RelationsCanvasPreview(props: Record<string, unknown>) {
-  const {
-    previewWidth = '900px',
-    previewHeight = '640px',
-    ...canvasProps
-  } = props;
-  return (
-    <div style={{ position: 'relative', width: String(previewWidth), height: String(previewHeight), border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-      <RelationsCanvas
-        spaceId="space-1"
-        assets={stackAssets}
-        variants={stackVariants}
-        lineage={stackLineage}
-        relations={stackRelations}
-        collections={stackCollections}
-        collectionItems={stackCollectionItems}
-        compositions={stackCompositions}
-        compositionItems={stackCompositionItems}
-        {...canvasProps}
-        onAssetClick={(canvasProps.onAssetClick as ((asset: Asset) => void) | undefined) ?? (() => undefined)}
-      />
-    </div>
-  );
-}
-
-const lineagePreviewCurrent = {
-  id: 'hero-variant',
-  asset_id: 'hero',
-  image_key: 'images/space/hero-variant.png',
-  thumb_key: 'images/space/hero-variant_thumb.webp',
-};
-
-function LineageTreePreview(props: Record<string, unknown>) {
-  const overrides = props as Partial<ComponentProps<typeof LineageTree>>;
-  const defaults: ComponentProps<typeof LineageTree> = {
-    currentVariant: lineagePreviewCurrent,
-    parents: [
-      {
-        variant: {
-          id: 'map-variant',
-          asset_id: 'map',
-          image_key: 'images/space/map-variant.png',
-          thumb_key: 'images/space/map-variant_thumb.webp',
-        },
-        relation_type: 'derived',
-        lineage_id: 'lineage-map-hero',
-      },
-    ],
-    children: [
-      {
-        variant: {
-          id: 'atlas-variant',
-          asset_id: 'atlas',
-          image_key: 'images/space/atlas-variant.png',
-          thumb_key: 'images/space/atlas-variant_thumb.webp',
-        },
-        relation_type: 'refined',
-        lineage_id: 'lineage-hero-atlas',
-      },
-      {
-        variant: {
-          id: 'output-variant',
-          asset_id: 'output',
-          image_key: 'images/space/output-variant.png',
-          thumb_key: 'images/space/output-variant_thumb.webp',
-        },
-        relation_type: 'forked',
-        severed: true,
-        lineage_id: 'lineage-hero-output',
-      },
-    ],
-    onSelectVariant: () => undefined,
-    onSeverLineage: () => undefined,
-    spaceId: 'space-1',
-  };
-
-  return (
-    <div style={{ maxWidth: '520px' }}>
-      <LineageTree {...defaults} {...overrides} />
     </div>
   );
 }
@@ -1061,7 +631,7 @@ function LandingCardHoverChromePreview() {
           <article className={landingStyles.featureItem}>
             <span className={landingStyles.featureIcon}>A</span>
             <h3 className={landingStyles.featureText}>Assets stay connected</h3>
-            <p className={landingStyles.featureDescription}>Variants, prompts, and production notes remain readable without extra chrome.</p>
+            <p className={landingStyles.featureDescription}>Variants, prompts, and lineage stay readable without extra chrome.</p>
           </article>
           <article className={landingStyles.featureItem}>
             <span className={landingStyles.featureIcon}>B</span>
@@ -1073,7 +643,7 @@ function LandingCardHoverChromePreview() {
           <SpacesOverview
             spaces={[{ id: 'preview', name: 'Market scene board', owner_id: 'user-1', role: 'owner', created_at: Date.UTC(2026, 5, 30) }]}
             isLoading={false}
-            emptyDescription="Create your first space to start organizing your production assets."
+            emptyDescription="Create your first space to start organizing assets."
             onCreateSpace={() => undefined}
           />
         </section>
@@ -1092,7 +662,7 @@ function SpacesOverviewPreview(props: Record<string, unknown>) {
           { id: 'encounter', name: 'Encounter props', owner_id: 'user-2', role: 'editor', created_at: Date.UTC(2026, 5, 29) },
         ]}
         isLoading={false}
-        emptyDescription="Create your first space to start organizing your production assets."
+        emptyDescription="Create your first space to start organizing assets."
         onCreateSpace={() => undefined}
       />
     </div>
@@ -1147,75 +717,35 @@ function LandingDualChromePreview() {
 }
 
 function SpacePageOverlayChromePreview(props: Record<string, unknown>) {
-  const sidePanel = typeof props.sidePanel === 'string'
-    ? props.sidePanel
-    : props.showCompositionRail === true
-      ? 'composition'
-      : '';
-  const showSideRail = sidePanel === 'composition' || sidePanel === 'sharing' || sidePanel === 'style';
+  const showSharingRail = props.sidePanel === 'sharing';
   return (
     <div className={spacePageStyles.page}>
       <div className={spacePageStyles.canvasContainer}>
-        <div className={`${spacePageStyles.canvasWorkspace} ${showSideRail ? spacePageStyles.canvasWorkspaceWithInspector : ''}`}>
+        <div className={`${spacePageStyles.canvasWorkspace} ${showSharingRail ? spacePageStyles.canvasWorkspaceWithInspector : ''}`}>
           <div className={spacePageStyles.canvasStage}>
-        <CanvasToolbar ariaLabel="Space controls">
-          <CanvasToolbarTitle>
-            <h1 className={spacePageStyles.spaceTitle}>Cinematic Marketplace Space With Readable Production Asset Names</h1>
-          </CanvasToolbarTitle>
-          <CanvasToolbarDivider />
-          <CanvasToolbarButton title="Open compositions" aria-label="Open compositions">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="4" y="4" width="7" height="7" rx="1" />
-              <rect x="13" y="4" width="7" height="7" rx="1" />
-              <rect x="8.5" y="13" width="7" height="7" rx="1" />
-            </svg>
-          </CanvasToolbarButton>
-        </CanvasToolbar>
-        <div className={spacePageStyles.jobsOverlay}>
-          <div className={`${spacePageStyles.jobCard} ${spacePageStyles.processing}`}>
-            <span className={spacePageStyles.jobStatus} aria-label="Generating job" />
-            <div className={spacePageStyles.jobInfo}>
-              <span className={spacePageStyles.jobAssetName}>Crystal Gate With Very Long Readable Generation Name</span>
-              <span className={spacePageStyles.jobPrompt}>"clean asset detail chrome without hiding important production wording"</span>
+            <CanvasToolbar ariaLabel="Space controls">
+              <CanvasToolbarTitle>
+                <h1 className={spacePageStyles.spaceTitle}>Cinematic Marketplace Space With Readable Asset Names</h1>
+              </CanvasToolbarTitle>
+            </CanvasToolbar>
+            <div className={spacePageStyles.jobsOverlay}>
+              <div className={`${spacePageStyles.jobCard} ${spacePageStyles.processing}`}>
+                <span className={spacePageStyles.jobStatus} aria-label="Generating job" />
+                <div className={spacePageStyles.jobInfo}>
+                  <span className={spacePageStyles.jobAssetName}>Crystal Gate With Very Long Readable Generation Name</span>
+                  <span className={spacePageStyles.jobPrompt}>"clean asset detail chrome without hiding important wording"</span>
+                </div>
+              </div>
+              <div className={`${spacePageStyles.jobCard} ${spacePageStyles.completed}`}>
+                <span className={spacePageStyles.jobStatus} aria-label="Done job" />
+                <div className={spacePageStyles.jobInfo}>
+                  <span className={spacePageStyles.jobAssetName}>Scout Variant Ready For Review With Long Name</span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className={`${spacePageStyles.jobCard} ${spacePageStyles.completed}`}>
-            <span className={spacePageStyles.jobStatus} aria-label="Done job" />
-            <div className={spacePageStyles.jobInfo}>
-              <span className={spacePageStyles.jobAssetName}>Scout Variant Ready For Review With Long Name</span>
-            </div>
-          </div>
-        </div>
           </div>
 
-          {sidePanel === 'composition' && (
-            <div className={spacePageStyles.spaceSidePanelContainer}>
-              <CompositionDetail
-                spaceId="space-1"
-                layout="dock"
-                compositions={stackCompositions}
-                compositionItems={stackCompositionItems}
-                assets={stackAssets}
-                variants={stackVariants}
-                lineage={stackLineage}
-                collections={stackCollections}
-                collectionItems={stackCollectionItems}
-                selectedCompositionId="composition-1"
-                canEdit
-                onSelectComposition={() => undefined}
-                onCreateComposition={() => undefined}
-                onUpdateComposition={() => undefined}
-                onDeleteComposition={() => undefined}
-                onCreateItem={() => undefined}
-                onUpdateItem={() => undefined}
-                onDeleteItem={() => undefined}
-                onReorderItems={() => undefined}
-                onOpenAsset={() => undefined}
-                onClose={() => undefined}
-              />
-            </div>
-          )}
-          {sidePanel === 'sharing' && (
+          {showSharingRail && (
             <div className={spacePageStyles.spaceSidePanelContainer}>
               <SpaceSharingPanel
                 currentUserRole="owner"
@@ -1233,24 +763,13 @@ function SpacePageOverlayChromePreview(props: Record<string, unknown>) {
                       user_id: 'user-editor',
                       role: 'editor',
                       joined_at: stackBaseTime,
-                      user: { id: 'user-editor', email: 'long.editor.address@example.com', name: 'Collaborator With A Long Readable Production Name' },
+                      user: { id: 'user-editor', email: 'long.editor.address@example.com', name: 'Collaborator With A Long Readable Asset Name' },
                     },
                   ],
                   pendingAccessRequests: [],
                   pendingInvitations: [],
                 }}
                 onClose={() => undefined}
-              />
-            </div>
-          )}
-          {sidePanel === 'style' && (
-            <div className={spacePageStyles.spaceSidePanelContainer}>
-              <StylePanel
-                spaceId="space-1"
-                layout="rail"
-                onClose={() => undefined}
-                stylePresets={[stackStylePreset]}
-                styleReferenceCollections={stackCollections.filter((collection) => collection.kind === 'style_refs')}
               />
             </div>
           )}
@@ -1313,7 +832,7 @@ function AppPrimaryActionChromePreview() {
     <div style={{ display: 'grid', gap: '0.75rem', padding: '2rem', width: '320px' }}>
       <ButtonLink to="/dashboard" variant="primary">Dashboard primary</ButtonLink>
       <ButtonLink to="/spaces/space-1" variant="primary" size="sm">Space primary</ButtonLink>
-      <ButtonLink to="/production" variant="primary" size="sm">Production primary</ButtonLink>
+      <ButtonLink to="/spaces/space-1/assets/asset-1" variant="primary" size="sm">Details primary</ButtonLink>
       <ButtonLink to="/assets/asset-1" variant="primary" size="sm">Asset primary</ButtonLink>
     </div>
   );
@@ -1339,7 +858,6 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AppHeaderPreview,
   AdminSpendView: AdminSpendView as unknown as ComponentType<Record<string, unknown>>,
   AudioPlayer: AudioPlayer as unknown as ComponentType<Record<string, unknown>>,
-  AssetCanvas: AssetCanvas as unknown as ComponentType<Record<string, unknown>>,
   AssetCard: AssetCard as unknown as ComponentType<Record<string, unknown>>,
   AssetMenu: AssetMenu as unknown as ComponentType<Record<string, unknown>>,
   AssetPicker: AssetPicker as unknown as ComponentType<Record<string, unknown>>,
@@ -1357,22 +875,16 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AssetDetailOverlayChrome: AssetDetailOverlayChromePreview,
   AssetDetailsContext: AssetDetailsContextPreview,
   AssetDetailsStrip: AssetDetailsStripPreview,
-  CollectionPlacementPicker: CollectionPlacementPicker as unknown as ComponentType<Record<string, unknown>>,
-  CompositionDetail: CompositionDetail as unknown as ComponentType<Record<string, unknown>>,
-  CompositionUsageList: CompositionUsageList as unknown as ComponentType<Record<string, unknown>>,
-  CompositionPlacementControl: CompositionPlacementControl as unknown as ComponentType<Record<string, unknown>>,
   CreateSpaceDialog: CreateSpaceDialog as unknown as ComponentType<Record<string, unknown>>,
   DashboardHoverChrome: DashboardHoverChromePreview,
   DocsPage: DocsPagePreview,
   GoogleLoginButton: GoogleLoginButton as unknown as ComponentType<Record<string, unknown>>,
-  HyperbolicCanvas: HyperbolicCanvas as unknown as ComponentType<Record<string, unknown>>,
   LandingCreateSpaceDialog: LandingCreateSpaceDialogPreview,
   LandingCardHoverChrome: LandingCardHoverChromePreview,
   LandingDualChrome: LandingDualChromePreview,
   FormContainerPreview,
   ForgeTray: ForgeTray as unknown as ComponentType<Record<string, unknown>>,
   ImageLightbox: ImageLightbox as unknown as ComponentType<Record<string, unknown>>,
-  LineageTree: LineageTreePreview,
   Pagination: Pagination as unknown as ComponentType<Record<string, unknown>>,
   PricingPage: PricingPagePreview,
   ProfileBillingActions: ProfileBillingActionsHarness,
@@ -1380,20 +892,12 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   PublicNav: PublicNavPreview,
   PublicThemeToggle: PublicThemeToggle as unknown as ComponentType<Record<string, unknown>>,
   SegmentedControl: SegmentedControlPreview,
-  ProductionControls: ProductionControlsHarness,
-  ProductionHandoffControls: ProductionHandoffHarness,
-  ProductionRecordsPanel: ProductionRecordsPanelPreview,
-  RelationsPanel: RelationsPanel as unknown as ComponentType<Record<string, unknown>>,
-  RelationEditorDialog: RelationEditorDialog as unknown as ComponentType<Record<string, unknown>>,
-  RelationsCanvas: RelationsCanvasPreview,
   RotationPanel: RotationPanel as unknown as ComponentType<Record<string, unknown>>,
-  SpaceBoard: SpaceBoard as unknown as ComponentType<Record<string, unknown>>,
   SpaceCanvas: SpaceCanvas as unknown as ComponentType<Record<string, unknown>>,
   SpacePageOverlayChrome: SpacePageOverlayChromePreview,
   SpaceSharingPanel: SpaceSharingPanel as unknown as ComponentType<Record<string, unknown>>,
   SpaceAccessRequestView: SpaceAccessRequestView as unknown as ComponentType<Record<string, unknown>>,
   SpacesOverview: SpacesOverviewPreview,
-  StyleReferenceUsagePanel: StyleReferenceUsagePanel as unknown as ComponentType<Record<string, unknown>>,
   Thumbnail: Thumbnail as unknown as ComponentType<Record<string, unknown>>,
   TileGrid: TileGrid as unknown as ComponentType<Record<string, unknown>>,
   TileSetPanel: TileSetPanel as unknown as ComponentType<Record<string, unknown>>,

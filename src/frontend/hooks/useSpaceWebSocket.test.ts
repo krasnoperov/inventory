@@ -86,7 +86,6 @@ describe('space state snapshot cache', () => {
       assets: [asset()],
       variants: [variant()],
       lineage: [],
-      relations: [],
       collections: [],
       collectionItems: [],
       presence: [],
@@ -143,7 +142,6 @@ describe('space state snapshot cache', () => {
       assets: [asset()],
       variants: [variant()],
       lineage: [],
-      relations: [],
       collections: [],
       collectionItems: [],
       presence: [],
@@ -178,11 +176,8 @@ describe('space message handling', () => {
       setAssets: store.setAssets,
       setVariants: store.setVariants,
       setLineage: store.setLineage,
-      setRelations: store.setRelations,
       setCollections: store.setCollections,
       setCollectionItems: store.setCollectionItems,
-      setCompositions: store.setCompositions,
-      setCompositionItems: store.setCompositionItems,
       setJobs: store.setJobs,
       setPresence: store.setPresence,
       setRotationSets: store.setRotationSets,
@@ -202,7 +197,6 @@ describe('space message handling', () => {
       assets: [asset()],
       variants: [variant()],
       lineage: [],
-      relations: [],
       collections: [],
       collectionItems: [],
     }, messageContext(store));
@@ -340,7 +334,7 @@ describe('space message handling', () => {
     assert.equal(useSpaceSessionStore.getState().collectionItems.length, 0);
   });
 
-  test('applies remote composition mutations to live store state', () => {
+  test('ignores legacy composition mutations in the simplified client state', () => {
     const store = useSpaceSessionStore.getState();
     store.hydrateFromSnapshot('space-1', null);
     const context = messageContext(store);
@@ -397,13 +391,11 @@ describe('space message handling', () => {
     }, context);
 
     const next = useSpaceSessionStore.getState();
-    assert.equal(next.compositions.length, 1);
-    assert.equal(next.compositions[0]?.name, 'Updated scene composition');
-    assert.deepEqual(next.compositionItems.map((item) => item.id), ['item-2']);
-    assert.equal(next.compositionItems[0]?.sort_index, 0);
+    assert.equal('compositions' in next, false);
+    assert.equal('compositionItems' in next, false);
   });
 
-  test('preserves composition detail items across overview refreshes', () => {
+  test('preserves collection items across overview refreshes while ignoring legacy compositions', () => {
     const store = useSpaceSessionStore.getState();
     store.hydrateFromSnapshot('space-1', null);
     const context = messageContext(store);
@@ -462,7 +454,6 @@ describe('space message handling', () => {
       assets: [asset()],
       variants: [variant()],
       lineage: [],
-      relations: [],
       collections: [collection],
       collectionItems: [collectionItem],
       compositions: [composition],
@@ -480,9 +471,9 @@ describe('space message handling', () => {
 
     const next = useSpaceSessionStore.getState();
     assert.equal(next.collections[0]?.name, 'Updated Cast');
-    assert.equal(next.compositions[0]?.name, 'Overview scene composition');
     assert.deepEqual(next.collectionItems.map((item) => item.id), ['collection-item-1']);
-    assert.deepEqual(next.compositionItems.map((item) => item.id), ['composition-item-1']);
+    assert.equal('compositions' in next, false);
+    assert.equal('compositionItems' in next, false);
   });
 });
 
