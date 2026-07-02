@@ -21,7 +21,7 @@
 //
 // Run: `pnpm tokens:guard` (chained into `lint:tokens`).
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -152,6 +152,7 @@ function listCssFiles() {
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean)
+    .filter((file) => existsSync(resolve(repoRoot, file)))
     // Design sketches under `src/frontend/__sketches__/` are dev-only
     // references mounted by the component harness, not production code.
     // They intentionally hardcode colors so a future designer can read the

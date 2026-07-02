@@ -32,8 +32,6 @@ import type {
   StylePreset,
   StylePresetPreview,
   StyleReferenceCollectionPreview,
-  SpaceRelation,
-  SpaceRelationType,
   SpaceCollectionOverview,
 } from '../types';
 import { DEFAULT_MEDIA_KIND } from '../../../../shared/websocket-types';
@@ -53,7 +51,6 @@ import {
   TilePositionQueries,
   SpaceCollectionQueries,
   CollectionItemQueries,
-  SpaceRelationQueries,
   buildAssetUpdateQuery,
   buildInClause,
 } from '../queries';
@@ -104,7 +101,6 @@ export interface SpaceState {
   lineage: Lineage[];
   collections: SpaceCollection[];
   collectionItems: CollectionItem[];
-  relations: SpaceRelation[];
   stylePresets: StylePresetPreview[];
   styleReferenceCollections: StyleReferenceCollectionPreview[];
   rotationSets: RotationSet[];
@@ -215,7 +211,6 @@ export interface SpaceSubjectInput {
 }
 
 export interface ParentHierarchyBackfillOptions {
-  createManualRelations?: boolean;
   createStarterCollectionsForAllNullParents?: boolean;
   createdBy?: string;
 }
@@ -319,10 +314,6 @@ function parentCollectionId(parentAssetId: string): string {
 
 function parentCollectionItemId(parentAssetId: string, assetId: string): string {
   return `migration:${PARENT_HIERARCHY_MIGRATION_VERSION}:collection-item:${parentAssetId}:${assetId}`;
-}
-
-function parentRelationId(parentAssetId: string, childAssetId: string): string {
-  return `migration:${PARENT_HIERARCHY_MIGRATION_VERSION}:relation:${parentAssetId}:${childAssetId}`;
 }
 
 function starterCollectionId(key: string): string {
@@ -1881,142 +1872,11 @@ export class SpaceRepository {
     return { sizeBytes, thumbKey };
   }
 
-  async listRelations(): Promise<SpaceRelation[]> {
-    const result = await this.sql.exec(SpaceRelationQueries.GET_ALL);
-    return result.toArray() as SpaceRelation[];
-  }
-
-  async getRelationById(relationId: string): Promise<SpaceRelation | null> {
-    const result = await this.sql.exec(SpaceRelationQueries.GET_BY_ID, relationId);
-    return (result.toArray()[0] as SpaceRelation) ?? null;
-  }
-
-  async listRelationsForSubject(subjectType: SpaceSubjectType, id: string): Promise<SpaceRelation[]> {
-    const column = subjectType === 'asset' ? 'subject_asset_id' : 'subject_variant_id';
-    const result = await this.sql.exec(
-      `SELECT * FROM space_relations WHERE ${column} = ? AND deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC`,
-      id
-    );
-    return result.toArray() as SpaceRelation[];
-  }
-
-  async listRelationsForObject(objectType: SpaceSubjectType, id: string): Promise<SpaceRelation[]> {
-    const column = objectType === 'asset' ? 'object_asset_id' : 'object_variant_id';
-    const result = await this.sql.exec(
-      `SELECT * FROM space_relations WHERE ${column} = ? AND deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC`,
-      id
-    );
-    return result.toArray() as SpaceRelation[];
-  }
-
-  async listRelationsForEntity(subjectType: SpaceSubjectType, id: string): Promise<SpaceRelation[]> {
-    const subjectColumn = subjectType === 'asset' ? 'subject_asset_id' : 'subject_variant_id';
-    const objectColumn = subjectType === 'asset' ? 'object_asset_id' : 'object_variant_id';
-    const result = await this.sql.exec(
-      `SELECT * FROM space_relations WHERE (${subjectColumn} = ? OR ${objectColumn} = ?) AND deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC`,
-      id,
-      id
-    );
-    return result.toArray() as SpaceRelation[];
-  }
-
-  async createRelation(data: {
-    id: string;
-    subject: SpaceSubjectInput;
-    object: SpaceSubjectInput;
-    relationType: SpaceRelationType;
-    label?: string | null;
-    context?: string | null;
-    metadata?: Record<string, unknown>;
-    sortIndex?: number;
-    createdBy: string;
-  }): Promise<SpaceRelation> {
-    const now = Date.now();
-    const subject = getSubjectColumns(data.subject);
-    const object = getSubjectColumns(data.object);
-    await this.sql.exec(
-      SpaceRelationQueries.INSERT,
-      data.id,
-      data.subject.subjectType,
-      subject.assetId,
-      subject.variantId,
-      data.object.subjectType,
-      object.assetId,
-      object.variantId,
-      data.relationType,
-      data.label ?? null,
-      data.context ?? null,
-      JSON.stringify(data.metadata ?? {}),
-      data.sortIndex ?? 0,
-      data.createdBy,
-      now,
-      now
-    );
-    return (await this.getRelationById(data.id))!;
-  }
-
-  async updateRelation(
-    relationId: string,
-    changes: {
-      relationType?: SpaceRelationType;
-      label?: string | null;
-      context?: string | null;
-      metadata?: Record<string, unknown>;
-      sortIndex?: number;
-    }
-  ): Promise<SpaceRelation | null> {
-    const existing = await this.getRelationById(relationId);
-    if (!existing) return null;
-
-    const updates: string[] = [];
-    const values: unknown[] = [];
-    if (changes.relationType !== undefined) {
-      updates.push('relation_type = ?');
-      values.push(changes.relationType);
-    }
-    if (changes.label !== undefined) {
-      updates.push('label = ?');
-      values.push(changes.label);
-    }
-    if (changes.context !== undefined) {
-      updates.push('context = ?');
-      values.push(changes.context);
-    }
-    if (changes.metadata !== undefined) {
-      updates.push('metadata = ?');
-      values.push(JSON.stringify(changes.metadata));
-    }
-    if (changes.sortIndex !== undefined) {
-      updates.push('sort_index = ?');
-      values.push(changes.sortIndex);
-    }
-    if (updates.length === 0) return existing;
-
-    updates.push('updated_at = ?');
-    values.push(Date.now());
-    await this.sql.exec(
-      `UPDATE space_relations SET ${updates.join(', ')} WHERE id = ?`,
-      ...values,
-      relationId
-    );
-    return this.getRelationById(relationId);
-  }
-
-  async deleteRelation(relationId: string): Promise<boolean> {
-    const existing = await this.getRelationById(relationId);
-    if (!existing) return false;
-
-    const now = Date.now();
-    await this.sql.exec(SpaceRelationQueries.DELETE, now, now, relationId);
-    return true;
-  }
-
   async backfillParentHierarchyToOrganization(
     options: ParentHierarchyBackfillOptions = {}
   ): Promise<ParentHierarchyBackfillResult> {
     const assets = await this.getAllAssets();
     const createdBy = options.createdBy ?? MIGRATION_CREATED_BY;
-    const createManualRelations = options.createManualRelations ?? true;
     const createStarterCollections = options.createStarterCollectionsForAllNullParents ?? true;
     const result: ParentHierarchyBackfillResult = {
       mode: 'empty',
@@ -2089,29 +1949,6 @@ export class SpaceRepository {
           }
         }
 
-        if (!createManualRelations) continue;
-
-        const sortedChildren = [...children].sort((left, right) => {
-          return left.created_at - right.created_at || left.id.localeCompare(right.id);
-        });
-        for (const [index, child] of sortedChildren.entries()) {
-          const relationId = parentRelationId(parentAssetId, child.id);
-          if (!(await this.getRelationById(relationId))) {
-            await this.createRelation({
-              id: relationId,
-              subject: { subjectType: 'asset', assetId: child.id },
-              object: { subjectType: 'asset', assetId: parentAssetId },
-              relationType: 'part_of',
-              context: JSON.stringify({
-                migration: PARENT_HIERARCHY_MIGRATION_VERSION,
-                migrated_parent_asset_id: parentAssetId,
-              }),
-              sortIndex: index,
-              createdBy,
-            });
-            result.relationsCreated += 1;
-          }
-        }
       }
 
       return result;
@@ -2292,7 +2129,6 @@ export class SpaceRepository {
       lineage,
       collections,
       collectionItems,
-      relations,
       stylePresets,
       styleReferenceCollections,
       rotationSets,
@@ -2305,7 +2141,6 @@ export class SpaceRepository {
       this.getAllLineage(),
       this.listCollections(),
       this.listAllCollectionItems(),
-      this.listRelations(),
       this.listStylePresetPreviews(),
       this.listStyleReferenceCollections(),
       this.getAllRotationSets(),
@@ -2319,7 +2154,6 @@ export class SpaceRepository {
       lineage,
       collections,
       collectionItems,
-      relations,
       stylePresets,
       styleReferenceCollections,
       rotationSets,

@@ -321,12 +321,6 @@ export class SpaceDO extends DurableObject<Env> {
         return this.organizationCtrl.handleReorderCollectionItems(ws, meta, msg.collectionId, msg.itemIds);
       case 'collection_item:delete':
         return this.organizationCtrl.handleDeleteCollectionItem(ws, meta, msg.collectionId, msg.itemId);
-      case 'relation:create':
-        return this.organizationCtrl.handleCreateRelation(ws, meta, msg);
-      case 'relation:update':
-        return this.organizationCtrl.handleUpdateRelation(ws, meta, msg.relationId, msg.changes);
-      case 'relation:delete':
-        return this.organizationCtrl.handleDeleteRelation(ws, meta, msg.relationId);
       // Variant
       case 'variant:delete':
         return this.variantCtrl.handleDelete(ws, meta, msg.variantId);

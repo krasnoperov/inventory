@@ -232,18 +232,6 @@ export type CollectionKind =
   | 'deliverables'
   | 'custom';
 
-export type SpaceRelationType =
-  | 'appears_in'
-  | 'background_for'
-  | 'style_reference_for'
-  | 'thumbnail_for'
-  | 'alternate_of'
-  | 'prop_in'
-  | 'map_for'
-  | 'part_of'
-  | 'reference_for'
-  | 'custom';
-
 export interface SpaceCollection {
   id: string;
   name: string;
@@ -296,25 +284,6 @@ export interface StylePresetPreview extends StylePreset {
   reference_count: number;
   style_reference_variant_ids: string[];
   style_reference_image_keys: string[];
-}
-
-export interface SpaceRelation {
-  id: string;
-  subject_type: SpaceSubjectType;
-  subject_asset_id: string | null;
-  subject_variant_id: string | null;
-  object_type: SpaceSubjectType;
-  object_asset_id: string | null;
-  object_variant_id: string | null;
-  relation_type: SpaceRelationType;
-  label: string | null;
-  context: string | null;
-  metadata: string;
-  sort_index: number;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-  deleted_at: number | null;
 }
 
 export interface SpaceCollectionOverview {
@@ -514,9 +483,6 @@ export type ClientMessage =
   | { type: 'collection_item:update'; collectionId: string; itemId: string; changes: { role?: string; pinnedVariantId?: string | null; sortIndex?: number } }
   | { type: 'collection_items:reorder'; collectionId: string; itemIds: string[] }
   | { type: 'collection_item:delete'; collectionId: string; itemId: string }
-  | { type: 'relation:create'; id?: string; subject: { subjectType: SpaceSubjectType; assetId?: string; variantId?: string }; object: { subjectType: SpaceSubjectType; assetId?: string; variantId?: string }; relationType: SpaceRelationType; label?: string | null; context?: string | Record<string, unknown> | null; metadata?: Record<string, unknown>; sortIndex?: number }
-  | { type: 'relation:update'; relationId: string; changes: { relationType?: SpaceRelationType; label?: string | null; context?: string | Record<string, unknown> | null; metadata?: Record<string, unknown>; sortIndex?: number } }
-  | { type: 'relation:delete'; relationId: string }
   // Variant operations
   | { type: 'variant:delete'; variantId: string }
   | { type: 'variant:star'; variantId: string; starred: boolean }
@@ -577,7 +543,7 @@ export type ClientMessage =
  */
 export type ServerMessage =
   // Sync (full state)
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; relations?: SpaceRelation[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[] }
   | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; presence: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetPreview[]; styleReferenceCollections?: StyleReferenceCollectionPreview[]; collections?: SpaceCollectionOverview[]; collectionItems?: CollectionItem[] }
   // TODO: sync:chat_state is currently unused - chat history is loaded via REST API instead.
   // Consider implementing for WebSocket reconnection state recovery.
@@ -595,9 +561,6 @@ export type ServerMessage =
   | { type: 'collection_item:updated'; item: CollectionItem }
   | { type: 'collection_items:reordered'; collectionId: string; items: CollectionItem[] }
   | { type: 'collection_item:deleted'; collectionId: string; itemId: string }
-  | { type: 'relation:created'; relation: SpaceRelation }
-  | { type: 'relation:updated'; relation: SpaceRelation }
-  | { type: 'relation:deleted'; relationId: string }
   // Variant mutations
   | { type: 'variant:created'; variant: Variant }
   | { type: 'variant:updated'; variant: Variant }

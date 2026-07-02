@@ -86,21 +86,6 @@ function createMockRepo(): SpaceRepository {
     getActiveStyle: mock.fn(async () => null),
     getDefaultStylePreset: mock.fn(async () => null),
     resolveStylePresetReferences: mock.fn(async () => null),
-    createRelation: mock.fn(async (input) => ({
-      id: input.id,
-      subject_type: input.subject.subjectType,
-      subject_asset_id: input.subject.assetId ?? null,
-      subject_variant_id: input.subject.variantId ?? null,
-      object_type: input.object.subjectType,
-      object_asset_id: input.object.assetId ?? null,
-      object_variant_id: input.object.variantId ?? null,
-      relation_type: input.relationType,
-      context: input.context ?? null,
-      sort_index: input.sortIndex ?? 0,
-      created_by: input.createdBy,
-      created_at: Date.now(),
-      updated_at: Date.now(),
-    })),
     createAsset: mock.fn(async (input) => ({
       id: input.id,
       name: input.name,
@@ -349,11 +334,6 @@ describe('VariantFactory - Style Injection', () => {
       assert.deepStrictEqual(recipe.styleReferenceImageKeys, ['images/style-v1.png', 'images/style-v2.png']);
       assert.deepStrictEqual(recipe.styleImageKeys, ['images/style-v1.png', 'images/style-v2.png']);
       assert.deepStrictEqual(result.styleReferenceVariantIds, ['style-v1', 'style-v2']);
-      assert.strictEqual(asMock(repo.createRelation).mock.calls.length, 2);
-      assert.deepStrictEqual(
-        asMock(repo.createRelation).mock.calls.map((call) => call.arguments[0].subject.variantId),
-        ['style-v1', 'style-v2']
-      );
     });
 
     test('explicit style preset wins over default preset', async () => {
@@ -424,7 +404,6 @@ describe('VariantFactory - Style Injection', () => {
       assert.deepStrictEqual(recipe.sourceImageKeys, ['images/style-a.png', 'images/style-b.png']);
       assert.deepStrictEqual(recipe.styleReferenceVariantIds, ['style-a', 'style-b']);
       assert.deepStrictEqual(recipe.styleReferenceImageKeys, ['images/style-a.png', 'images/style-b.png']);
-      assert.strictEqual(asMock(repo.createRelation).mock.calls.length, 2);
     });
 
     test('snapshot does not change when collection resolution changes later', async () => {
@@ -852,7 +831,6 @@ describe('VariantFactory - Style Injection', () => {
       assert.deepStrictEqual(recipe.styleReferenceImageKeys, []);
       assert.strictEqual(result.styleImageKeys, undefined);
       assert.deepStrictEqual(recipe.sourceImageKeys, ['images/user-ref.png']);
-      assert.strictEqual(asMock(repo.createRelation).mock.calls.length, 0);
     });
 
     test('style images skipped when total exceeds 14', async () => {

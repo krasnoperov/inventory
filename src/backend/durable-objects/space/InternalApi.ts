@@ -23,7 +23,6 @@ import type {
   CollectionItem,
   StylePresetPreview,
   StyleReferenceCollectionPreview,
-  SpaceRelation,
 } from './types';
 import type { ParentHierarchyBackfillResult } from './repository/SpaceRepository';
 import { ConflictError, NotFoundError, ValidationError } from './controllers/types';
@@ -225,10 +224,6 @@ export interface InternalApiControllers {
     httpUpdateCollectionItem(collectionId: string, itemId: string, data: unknown): Promise<CollectionItem>;
     httpReorderCollectionItems(collectionId: string, itemIds: unknown): Promise<CollectionItem[]>;
     httpDeleteCollectionItem(collectionId: string, itemId: string): Promise<void>;
-    httpListRelations(): Promise<SpaceRelation[]>;
-    httpCreateRelation(data: unknown): Promise<SpaceRelation>;
-    httpUpdateRelation(relationId: string, data: unknown): Promise<SpaceRelation>;
-    httpDeleteRelation(relationId: string): Promise<void>;
     httpBackfillParentHierarchy(data?: unknown): Promise<ParentHierarchyBackfillResult>;
   };
   stylePreset: {
@@ -591,29 +586,6 @@ export function createInternalApi(controllers: InternalApiControllers): Hono {
       c.req.param('collectionId'),
       c.req.param('itemId')
     );
-    return c.json({ success: true });
-  });
-
-  app.get('/internal/relations', async (c) => {
-    const relations = await controllers.organization.httpListRelations();
-    return c.json({ success: true, relations });
-  });
-
-  app.post('/internal/relations', async (c) => {
-    const relation = await controllers.organization.httpCreateRelation(await c.req.json());
-    return c.json({ success: true, relation });
-  });
-
-  app.patch('/internal/relations/:relationId', async (c) => {
-    const relation = await controllers.organization.httpUpdateRelation(
-      c.req.param('relationId'),
-      await c.req.json()
-    );
-    return c.json({ success: true, relation });
-  });
-
-  app.delete('/internal/relations/:relationId', async (c) => {
-    await controllers.organization.httpDeleteRelation(c.req.param('relationId'));
     return c.json({ success: true });
   });
 

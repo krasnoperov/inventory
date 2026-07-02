@@ -224,9 +224,6 @@ export function handleSpaceServerMessage(message: ServerMessage, context: SpaceM
                 );
                 break;
 
-              case 'relation:created':
-              case 'relation:updated':
-              case 'relation:deleted':
               case 'composition:created':
               case 'composition:updated':
               case 'composition:deleted':

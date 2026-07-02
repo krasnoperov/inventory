@@ -152,8 +152,7 @@ test('variant canvas shows derivatives as lineage nodes', async ({ page }) => {
   await page.waitForSelector('.react-flow__node');
   await expect(page.locator('.react-flow__controls').first()).toHaveCSS('box-shadow', 'none');
   await expect(page.locator('.react-flow__controls').first()).toHaveCSS('border-top-width', '1px');
-  await expect(page.locator('.react-flow__minimap').first()).toHaveCSS('box-shadow', 'none');
-  await expect(page.locator('.react-flow__minimap').first()).toHaveCSS('border-top-width', '1px');
+  await expect(page.locator('.react-flow__minimap')).toHaveCount(0);
   for (const f of families) {
     await expect(page.getByText(`Sprite: ${f}_grow`)).toBeVisible();
   }
@@ -262,7 +261,7 @@ test('space-level variant details dock below the clicked node', async ({ page })
   });
 
   await page.waitForSelector('.react-flow__node');
-  await expect(page.locator('.react-flow__minimap')).toBeVisible();
+  await expect(page.locator('.react-flow__minimap')).toHaveCount(0);
   const node = page.locator('.react-flow__node').first();
   await node.click();
   const detailsPanel = page.getByRole('complementary', { name: 'Variant details' });

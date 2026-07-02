@@ -6,7 +6,6 @@ import { MemberDAO } from '../../dao/member-dao';
 import { DEFAULT_MEDIA_KIND, type MediaKind } from '../../shared/websocket-types';
 import {
   MediaKindSchema,
-  SpaceRelationTypeSchema,
   SpaceSubjectTypeSchema,
 } from '../../shared/api/schemas';
 import { immutableMediaHttpMetadata } from '../media/r2-metadata';
@@ -22,7 +21,6 @@ interface ExportManifest {
   collections?: ExportCollection[];
   collectionItems?: ExportCollectionItem[];
   stylePresets?: ExportStylePreset[];
-  relations?: ExportRelation[];
 }
 
 interface ExportAsset {
@@ -93,21 +91,6 @@ interface ExportStylePreset {
   isDefault: boolean;
 }
 
-interface ExportRelation {
-  id: string;
-  subjectType: ExportSubjectType;
-  subjectAssetId: string | null;
-  subjectVariantId: string | null;
-  objectType: ExportSubjectType;
-  objectAssetId: string | null;
-  objectVariantId: string | null;
-  relationType: string;
-  label: string | null;
-  context: string | null;
-  metadata: unknown;
-  sortIndex: number;
-}
-
 export const exportRoutes = new Hono<AppContext>();
 
 function sanitizePathSegment(value: string): string {
@@ -132,21 +115,6 @@ function parseJsonForManifest(value: string | null | undefined): unknown {
   } catch {
     return value;
   }
-}
-
-function parseMetadataObject(value: unknown, label: string): Record<string, unknown> {
-  if (value === undefined || value === null) return {};
-  if (typeof value === 'string') {
-    const parsed = JSON.parse(value) as unknown;
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
-    }
-    throw new Error(`${label} must be a JSON object`);
-  }
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  throw new Error(`${label} must be an object`);
 }
 
 function requireMappedId(map: Map<string, string>, id: string | null | undefined, label: string): string | null {
@@ -211,22 +179,6 @@ function remapImportJsonValue(
   return result;
 }
 
-function remapImportJsonishValue(
-  value: unknown,
-  maps: Parameters<typeof remapImportJsonValue>[1]
-): unknown {
-  if (typeof value !== 'string') {
-    return remapImportJsonValue(value, maps);
-  }
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    const remapped = remapImportJsonValue(parsed, maps);
-    return JSON.stringify(remapped) === JSON.stringify(parsed) ? value : remapped;
-  } catch {
-    return value;
-  }
-}
-
 function subjectInput(
   subjectType: ExportSubjectType,
   assetId: string | null | undefined,
@@ -274,11 +226,6 @@ function optionalNullableStringField(value: unknown, label: string): string | nu
   return value === undefined || value === null || typeof value === 'string'
     ? null
     : `${label} must be a string or null`;
-}
-
-function optionalNullableStringOrJsonField(value: unknown, label: string): string | null {
-  if (value === undefined || value === null || typeof value === 'string') return null;
-  return typeof value === 'object' ? null : `${label} must be a string, object, or null`;
 }
 
 function integerField(value: unknown, label: string): string | null {
@@ -358,22 +305,6 @@ function validateManifestReferences(manifest: ExportManifest): string | null {
       return `Style preset ${preset.id} collectionId must reference a style_ref-only collection`;
     }
   }
-  for (const relation of optionalArray(manifest.relations)) {
-    const subjectError = hasSubject(
-      relation.subjectType,
-      relation.subjectAssetId,
-      relation.subjectVariantId,
-      `Relation ${relation.id} subject`
-    );
-    if (subjectError) return subjectError;
-    const objectError = hasSubject(
-      relation.objectType,
-      relation.objectAssetId,
-      relation.objectVariantId,
-      `Relation ${relation.id} object`
-    );
-    if (objectError) return objectError;
-  }
   return null;
 }
 
@@ -382,13 +313,11 @@ function validateManifestOrganizationFields(manifest: ExportManifest): string | 
     collections?: unknown;
     collectionItems?: unknown;
     stylePresets?: unknown;
-    relations?: unknown;
   };
   const optionalSections: Array<[unknown, string]> = [
     [rawManifest.collections, 'collections'],
     [rawManifest.collectionItems, 'collectionItems'],
     [rawManifest.stylePresets, 'stylePresets'],
-    [rawManifest.relations, 'relations'],
   ];
   for (const [value, label] of optionalSections) {
     const error = validateOptionalArraySection(value, label);
@@ -432,17 +361,6 @@ function validateManifestOrganizationFields(manifest: ExportManifest): string | 
     if (preset.isDefault && !preset.enabled) return `Style preset ${preset.id} cannot be default while disabled`;
   }
 
-  for (const relation of optionalArray(manifest.relations)) {
-    const idError = requiredStringField(relation.id, 'Relation id');
-    if (idError) return idError;
-    const labelError = optionalNullableStringField(relation.label, `Relation ${relation.id} label`);
-    if (labelError) return labelError;
-    const contextError = optionalNullableStringOrJsonField(relation.context, `Relation ${relation.id} context`);
-    if (contextError) return contextError;
-    const sortIndexError = integerField(relation.sortIndex, `Relation ${relation.id} sortIndex`);
-    if (sortIndexError) return sortIndexError;
-  }
-
   return null;
 }
 
@@ -457,9 +375,6 @@ function validateManifestVocabulary(manifest: ExportManifest): string | null {
     value === 'derived' || value === 'refined' || value === 'forked'
       ? null
       : `${label} relationType must be derived, refined, or forked`;
-  const hasRelationType = (value: unknown, label: string) =>
-    SpaceRelationTypeSchema.safeParse(value).success ? null : `${label} relationType is invalid`;
-
   for (const asset of manifest.assets) {
     const assetMediaKindError = hasMediaKind(asset.mediaKind, `Asset ${asset.id}`);
     if (assetMediaKindError) return assetMediaKindError;
@@ -480,25 +395,6 @@ function validateManifestVocabulary(manifest: ExportManifest): string | null {
   for (const item of optionalArray(manifest.collectionItems)) {
     const error = hasSubjectType(item.subjectType, `Collection item ${item.id}`);
     if (error) return error;
-  }
-  for (const relation of optionalArray(manifest.relations)) {
-    const subjectError = hasSubjectType(relation.subjectType, `Relation ${relation.id} subject`);
-    if (subjectError) return subjectError;
-    const objectError = hasSubjectType(relation.objectType, `Relation ${relation.id} object`);
-    if (objectError) return objectError;
-    const relationTypeError = hasRelationType(relation.relationType, `Relation ${relation.id}`);
-    if (relationTypeError) return relationTypeError;
-  }
-  return null;
-}
-
-function validateManifestMetadata(manifest: ExportManifest): string | null {
-  try {
-    for (const relation of optionalArray(manifest.relations)) {
-      parseMetadataObject(relation.metadata, `Relation ${relation.id} metadata`);
-    }
-  } catch (error) {
-    return error instanceof Error ? error.message : 'Invalid metadata';
   }
   return null;
 }
@@ -606,20 +502,6 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
       enabled: boolean | number;
       is_default: boolean | number;
     }>;
-    relations?: Array<{
-      id: string;
-      subject_type: ExportSubjectType;
-      subject_asset_id: string | null;
-      subject_variant_id: string | null;
-      object_type: ExportSubjectType;
-      object_asset_id: string | null;
-      object_variant_id: string | null;
-      relation_type: string;
-      label?: string | null;
-      context: string | null;
-      metadata?: string;
-      sort_index: number;
-    }>;
   };
 
   // Prepare ZIP contents
@@ -636,7 +518,6 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
     collections: [],
     collectionItems: [],
     stylePresets: [],
-    relations: [],
   };
 
   const exportedAssetIds = new Set<string>();
@@ -785,26 +666,6 @@ exportRoutes.get('/api/spaces/:id/export', async (c) => {
     enabled: Boolean(preset.enabled),
     isDefault: Boolean(preset.is_default),
   }));
-  manifest.relations = (state.relations || [])
-    .filter(relation =>
-      subjectExported(relation.subject_type, relation.subject_asset_id, relation.subject_variant_id) &&
-      subjectExported(relation.object_type, relation.object_asset_id, relation.object_variant_id)
-    )
-    .map(relation => ({
-      id: relation.id,
-      subjectType: relation.subject_type,
-      subjectAssetId: relation.subject_asset_id,
-      subjectVariantId: relation.subject_variant_id,
-      objectType: relation.object_type,
-      objectAssetId: relation.object_asset_id,
-      objectVariantId: relation.object_variant_id,
-      relationType: relation.relation_type,
-      label: relation.label ?? null,
-      context: relation.context,
-      metadata: parseJsonForManifest(relation.metadata),
-      sortIndex: relation.sort_index,
-    }));
-
   // Add manifest to ZIP
   zipFiles['manifest.json'] = strToU8(JSON.stringify(manifest, null, 2));
 
@@ -875,10 +736,6 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
   if (manifestReferenceError) {
     return c.json({ error: `Invalid export manifest: ${manifestReferenceError}` }, 400);
   }
-  const manifestMetadataError = validateManifestMetadata(manifest);
-  if (manifestMetadataError) {
-    return c.json({ error: `Invalid export manifest: ${manifestMetadataError}` }, 400);
-  }
   const manifestMediaError = validateManifestMediaFiles(manifest, unzipped);
   if (manifestMediaError) {
     return c.json({ error: `Invalid export file: ${manifestMediaError}` }, 400);
@@ -900,14 +757,12 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
   const stylePresetIdMap = new Map<string, string>();
   const imageKeyMap = new Map<string, string>();
   const variantMediaKeys = new Map<string, { mediaKey: string; imageKey: string | null; thumbKey: string | null }>();
-  const relationIdMap = new Map<string, string>();
 
   const importedAssets: string[] = [];
   const importedVariants: string[] = [];
   const importedCollections: string[] = [];
   const importedCollectionItems: string[] = [];
   const importedStylePresets: string[] = [];
-  const importedRelations: string[] = [];
 
   for (const asset of manifest.assets) {
     assetIdMap.set(asset.id, crypto.randomUUID());
@@ -1126,54 +981,6 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
     importedStylePresets.push(newPresetId);
   }
 
-  for (const relation of optionalArray(manifest.relations)) {
-    const newRelationId = crypto.randomUUID();
-    relationIdMap.set(relation.id, newRelationId);
-    const response = await doStub.fetch(new Request('http://do/internal/relations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: newRelationId,
-        subject: subjectInput(
-          relation.subjectType,
-          relation.subjectAssetId,
-          relation.subjectVariantId,
-          assetIdMap,
-          variantIdMap,
-          `Relation ${relation.id} subject`
-        ),
-        object: subjectInput(
-          relation.objectType,
-          relation.objectAssetId,
-          relation.objectVariantId,
-          assetIdMap,
-          variantIdMap,
-          `Relation ${relation.id} object`
-        ),
-        relationType: relation.relationType,
-        label: relation.label ?? null,
-        context: remapImportJsonishValue(relation.context, {
-          assetIdMap,
-          variantIdMap,
-          collectionIdMap,
-          stylePresetIdMap,
-          imageKeyMap,
-        }),
-        metadata: remapImportJsonValue(parseMetadataObject(relation.metadata, `Relation ${relation.id} metadata`), {
-          assetIdMap,
-          variantIdMap,
-          collectionIdMap,
-          stylePresetIdMap,
-          imageKeyMap,
-        }),
-        sortIndex: relation.sortIndex,
-        createdBy: userId,
-      }),
-    }));
-    if (!response.ok) return c.json({ error: 'Failed to import relation' }, response.status as 400 | 500);
-    importedRelations.push(newRelationId);
-  }
-
   return c.json({
     success: true,
     imported: {
@@ -1183,7 +990,6 @@ exportRoutes.post('/api/spaces/:id/import', async (c) => {
       collections: importedCollections.length,
       collectionItems: importedCollectionItems.length,
       stylePresets: importedStylePresets.length,
-      relations: importedRelations.length,
     },
   });
 });

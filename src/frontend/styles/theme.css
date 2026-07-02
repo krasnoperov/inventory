@@ -117,8 +117,7 @@
   --color-star-border: var(--palette-amber-border);
   --color-danger: var(--palette-red);
   --color-danger-bg: var(--palette-red-bg);
-  /* Sky-blue node accent for the canvas/graph views (AssetCanvas, VariantCanvas,
-     HyperbolicCanvas). Light branch matches the prior #6ea8fe fallback exactly. */
+  /* Sky-blue node accent for canvas graph views. */
   --color-accent: light-dark(oklch(72.9% 0.14 258), oklch(78% 0.13 258));
 
   /* ---- Semantic: job/process status colors ---- */

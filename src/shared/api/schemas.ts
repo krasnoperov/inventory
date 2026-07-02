@@ -490,18 +490,6 @@ export const CollectionKindSchema = z.enum([
   'deliverables',
   'custom',
 ]);
-export const SpaceRelationTypeSchema = z.enum([
-  'appears_in',
-  'background_for',
-  'style_reference_for',
-  'thumbnail_for',
-  'alternate_of',
-  'prop_in',
-  'map_for',
-  'part_of',
-  'reference_for',
-  'custom',
-]);
 export const CollectionIdParamsSchema = SpaceIdParamsSchema.extend({
   collectionId: z.string().openapi({
     param: {
@@ -524,15 +512,6 @@ export const StylePresetParamsSchema = SpaceIdParamsSchema.extend({
   presetId: z.string().openapi({
     param: {
       name: 'presetId',
-      in: 'path',
-    },
-  }),
-});
-
-export const RelationParamsSchema = SpaceIdParamsSchema.extend({
-  relationId: z.string().openapi({
-    param: {
-      name: 'relationId',
       in: 'path',
     },
   }),
@@ -600,26 +579,6 @@ export const StylePresetSchema = z
   })
   .openapi('StylePreset');
 
-export const SpaceRelationSchema = z
-  .object({
-    id: z.string(),
-    subject_type: SpaceSubjectTypeSchema,
-    subject_asset_id: z.string().nullable(),
-    subject_variant_id: z.string().nullable(),
-    object_type: SpaceSubjectTypeSchema,
-    object_asset_id: z.string().nullable(),
-    object_variant_id: z.string().nullable(),
-    relation_type: SpaceRelationTypeSchema,
-    label: z.string().nullable(),
-    context: z.string().nullable(),
-    metadata: z.string(),
-    sort_index: z.number().int(),
-    created_by: z.string(),
-    created_at: z.number(),
-    updated_at: z.number(),
-  })
-  .openapi('SpaceRelation');
-
 export const UpsertCollectionRequestSchema = z
   .object({
     id: z.string().optional(),
@@ -675,29 +634,6 @@ export const ReorderItemsRequestSchema = z
   })
   .openapi('ReorderItemsRequest');
 
-export const UpsertRelationRequestSchema = z
-  .object({
-    id: z.string().optional(),
-    subject: SpaceSubjectSchema,
-    object: SpaceSubjectSchema,
-    relationType: SpaceRelationTypeSchema,
-    label: z.string().nullable().optional(),
-    context: z.union([z.string(), z.record(z.string(), z.unknown())]).nullable().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-    sortIndex: z.number().int().optional(),
-  })
-  .openapi('UpsertRelationRequest');
-
-export const UpdateRelationRequestSchema = z
-  .object({
-    relationType: SpaceRelationTypeSchema.optional(),
-    label: z.string().nullable().optional(),
-    context: z.union([z.string(), z.record(z.string(), z.unknown())]).nullable().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-    sortIndex: z.number().int().optional(),
-  })
-  .openapi('UpdateRelationRequest');
-
 export const ListCollectionsResponseSchema = z
   .object({
     success: z.literal(true),
@@ -746,20 +682,6 @@ export const StylePresetResponseSchema = z
     preset: StylePresetSchema,
   })
   .openapi('StylePresetResponse');
-
-export const ListRelationsResponseSchema = z
-  .object({
-    success: z.literal(true),
-    relations: z.array(SpaceRelationSchema),
-  })
-  .openapi('ListRelationsResponse');
-
-export const RelationResponseSchema = z
-  .object({
-    success: z.literal(true),
-    relation: SpaceRelationSchema,
-  })
-  .openapi('RelationResponse');
 
 export const UsageSummaryQuerySchema = z.object({
   from: z.string().optional(),
@@ -1054,24 +976,18 @@ export type RestoreSupportSpaceResponse = z.infer<typeof RestoreSupportSpaceResp
 export type ListSpaceAssetsResponse = z.infer<typeof ListSpaceAssetsResponseSchema>;
 export type SpaceSubjectType = z.infer<typeof SpaceSubjectTypeSchema>;
 export type CollectionKind = z.infer<typeof CollectionKindSchema>;
-export type SpaceRelationType = z.infer<typeof SpaceRelationTypeSchema>;
 export type SpaceSubject = z.infer<typeof SpaceSubjectSchema>;
 export type SpaceCollection = z.infer<typeof SpaceCollectionSchema>;
 export type CollectionItem = z.infer<typeof CollectionItemSchema>;
-export type SpaceRelation = z.infer<typeof SpaceRelationSchema>;
 export type UpsertCollectionRequest = z.infer<typeof UpsertCollectionRequestSchema>;
 export type UpdateCollectionRequest = z.infer<typeof UpdateCollectionRequestSchema>;
 export type UpsertCollectionItemRequest = z.infer<typeof UpsertCollectionItemRequestSchema>;
 export type UpdateCollectionItemRequest = z.infer<typeof UpdateCollectionItemRequestSchema>;
 export type ReorderItemsRequest = z.infer<typeof ReorderItemsRequestSchema>;
-export type UpsertRelationRequest = z.infer<typeof UpsertRelationRequestSchema>;
-export type UpdateRelationRequest = z.infer<typeof UpdateRelationRequestSchema>;
 export type ListCollectionsResponse = z.infer<typeof ListCollectionsResponseSchema>;
 export type CollectionResponse = z.infer<typeof CollectionResponseSchema>;
 export type ListCollectionItemsResponse = z.infer<typeof ListCollectionItemsResponseSchema>;
 export type CollectionItemResponse = z.infer<typeof CollectionItemResponseSchema>;
-export type ListRelationsResponse = z.infer<typeof ListRelationsResponseSchema>;
-export type RelationResponse = z.infer<typeof RelationResponseSchema>;
 export type PlatformUsageTypeSummary = z.infer<typeof PlatformUsageTypeSummarySchema>;
 export type PlatformUsageMediaKindSummary = z.infer<typeof PlatformUsageMediaKindSummarySchema>;
 export type PlatformUsageSummaryResponse = z.infer<typeof PlatformUsageSummaryResponseSchema>;

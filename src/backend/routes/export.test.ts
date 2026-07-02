@@ -127,9 +127,6 @@ function buildApp(options: {
             if (path === '/internal/style-presets' && request.method === 'POST') {
               return Response.json({ success: true, preset: body });
             }
-            if (path === '/internal/relations' && request.method === 'POST') {
-              return Response.json({ success: true, relation: body });
-            }
             return Response.json({ error: 'Unexpected DO route' }, { status: 404 });
           },
         }),
@@ -197,20 +194,6 @@ function buildOrganizationImportManifest(): Record<string, any> {
       variantId: 'variant-source',
       role: 'hero',
       pinnedVariantId: null,
-      sortIndex: 0,
-    }],
-    relations: [{
-      id: 'relation-source',
-      subjectType: 'asset',
-      subjectAssetId: 'asset-source',
-      subjectVariantId: null,
-      objectType: 'variant',
-      objectAssetId: null,
-      objectVariantId: 'variant-source',
-      relationType: 'reference_for',
-      label: null,
-      context: null,
-      metadata: {},
       sortIndex: 0,
     }],
   };
@@ -520,7 +503,7 @@ describe('exportRoutes', () => {
     assert.deepEqual(manifest.lineage, []);
     assert.deepEqual(manifest.collectionItems.map((item: { id: string }) => item.id), ['collection-item-asset']);
     assert.equal(manifest.collectionItems[0].pinnedVariantId, null);
-    assert.deepEqual(manifest.relations, []);
+    assert.equal('relations' in manifest, false);
     assert.equal('compositions' in manifest, false);
     assert.equal('compositionItems' in manifest, false);
     assert.equal(strFromU8(unzipped[manifest.assets[0].variants[0].mediaFile]), 'complete-image');
@@ -639,9 +622,7 @@ describe('exportRoutes', () => {
     });
     assert.equal(manifest.collections[0].name, 'Opening Kit');
     assert.equal(manifest.collectionItems[0].pinnedVariantId, 'variant-2');
-    assert.equal(manifest.relations[0].relationType, 'reference_for');
-    assert.equal(manifest.relations[0].label, 'Paintover source');
-    assert.deepEqual(manifest.relations[0].metadata, { confidence: 'approved' });
+    assert.equal('relations' in manifest, false);
     assert.equal('compositions' in manifest, false);
     assert.equal('compositionItems' in manifest, false);
   });
@@ -864,7 +845,6 @@ describe('exportRoutes', () => {
       collections: 1,
       collectionItems: 2,
       stylePresets: 1,
-      relations: 2,
     });
 
     const applyCalls = doCalls.filter((call) => call.path === '/internal/apply-variant');
@@ -891,22 +871,7 @@ describe('exportRoutes', () => {
     assert.deepEqual(importedProvenance.styleReferenceVariantIds, [importedStyleAId, importedStyleBId]);
     assert.deepEqual(importedProvenance.styleReferenceImageKeys, [importedStyleAKey, importedStyleBKey]);
 
-    const relationCalls = doCalls.filter((call) => call.path === '/internal/relations');
-    const importedStyleRelation = relationCalls[0].body as {
-      subject: { variantId: string };
-      context: unknown;
-      metadata: unknown;
-    };
-    assert.equal(importedStyleRelation.subject.variantId, importedStyleAId);
-    assert.deepEqual(importedStyleRelation.context, {
-      role: 'style_reference',
-      stylePresetId: presetCall.body!.id,
-      styleCollectionId: collectionCall.body!.id,
-      styleImageKey: importedStyleAKey,
-    });
-    assert.deepEqual(importedStyleRelation.metadata, {
-      styleReferenceVariantIds: [importedStyleAId, importedStyleBId],
-    });
+    assert.equal(doCalls.some((call) => call.path === '/internal/relations'), false);
   });
 
   it('imports media-only video variants without requiring legacy image files', async () => {
@@ -1123,21 +1088,6 @@ describe('exportRoutes', () => {
         mutate: (manifest) => { manifest.collectionItems[0].subjectType = 'bogus'; },
         expected: /Collection item collection-item-source subjectType must be asset or variant/,
       },
-      {
-        name: 'manual relation subject type',
-        mutate: (manifest) => { manifest.relations[0].subjectType = 'bogus'; },
-        expected: /Relation relation-source subject subjectType must be asset or variant/,
-      },
-      {
-        name: 'manual relation type',
-        mutate: (manifest) => { manifest.relations[0].relationType = 'bogus'; },
-        expected: /Relation relation-source relationType is invalid/,
-      },
-      {
-        name: 'manual relation context',
-        mutate: (manifest) => { manifest.relations[0].context = 5; },
-        expected: /Relation relation-source context must be a string, object, or null/,
-      },
     ];
 
     for (const testCase of cases) {
@@ -1267,7 +1217,6 @@ describe('exportRoutes', () => {
       collections: 1,
       collectionItems: 1,
       stylePresets: 0,
-      relations: 1,
     });
 
     const assetId = doCalls.find((call) => call.path === '/internal/create-asset')!.body!.id;
@@ -1293,13 +1242,7 @@ describe('exportRoutes', () => {
     assert.equal(collectionItemCall.body!.pinnedVariantId, childVariantId);
     assert.equal(collectionItemCall.body!.role, 'hero');
 
-    const relationCall = doCalls.find((call) => call.path === '/internal/relations')!;
-    assert.deepEqual(relationCall.body!.subject, { subjectType: 'asset', assetId });
-    assert.deepEqual(relationCall.body!.object, { subjectType: 'variant', variantId: childVariantId });
-    assert.equal(relationCall.body!.relationType, 'reference_for');
-    assert.equal(relationCall.body!.label, 'Paintover source');
-    assert.equal(relationCall.body!.context, '{"label":"paintover"}');
-    assert.deepEqual(relationCall.body!.metadata, { confidence: 'approved' });
+    assert.equal(doCalls.some((call) => call.path === '/internal/relations'), false);
     assert.equal(doCalls.some((call) => call.path.includes('/internal/compositions')), false);
   });
 

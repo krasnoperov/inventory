@@ -33,7 +33,6 @@ export class SyncController extends BaseController {
       presence,
       collections: state.collections,
       collectionItems: state.collectionItems,
-      relations: state.relations,
       rotationSets: state.rotationSets,
       rotationViews: state.rotationViews,
       tileSets: state.tileSets,

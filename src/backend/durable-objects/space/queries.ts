@@ -196,15 +196,6 @@ export const CollectionItemQueries = {
   DELETE: 'UPDATE collection_items SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
 } as const;
 
-export const SpaceRelationQueries = {
-  GET_ALL: 'SELECT * FROM space_relations WHERE deleted_at IS NULL ORDER BY sort_index ASC, created_at ASC',
-  GET_BY_ID: 'SELECT * FROM space_relations WHERE id = ? AND deleted_at IS NULL',
-  INSERT: `INSERT INTO space_relations
-           (id, subject_type, subject_asset_id, subject_variant_id, object_type, object_asset_id, object_variant_id, relation_type, label, context, metadata, sort_index, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  DELETE: 'UPDATE space_relations SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
-} as const;
-
 // ============================================================================
 // Chat Queries
 // ============================================================================

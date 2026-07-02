@@ -197,7 +197,6 @@ describe('space message handling', () => {
       assets: [asset()],
       variants: [variant()],
       lineage: [],
-      relations: [],
       collections: [],
       collectionItems: [],
     }, messageContext(store));

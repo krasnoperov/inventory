@@ -4,7 +4,6 @@ import {
   ReactFlowProvider,
   Background,
   Controls,
-  MiniMap,
   useNodesState,
   useEdgesState,
   useReactFlow,
@@ -671,16 +670,6 @@ function VariantCanvasInner({
         >
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border)" />
           <Controls className={styles.controls} position="bottom-left" />
-          {scope !== 'asset-details' && !expandedVariant && (
-            <MiniMap
-              className={styles.minimap}
-              position="bottom-right"
-              pannable
-              zoomable
-              nodeColor="var(--color-accent)"
-              maskColor="var(--canvas-minimap-mask)"
-            />
-          )}
         </ReactFlow>
       </div>
 

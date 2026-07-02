@@ -2,25 +2,10 @@ import type {
   CollectionItem,
   CollectionKind,
   SpaceCollection,
-  SpaceRelation,
-  SpaceRelationType,
   SpaceSubjectType,
   WebSocketMeta,
 } from '../types';
 import { BaseController, type ControllerContext, NotFoundError, ValidationError } from './types';
-
-const RELATION_TYPES = new Set<SpaceRelationType>([
-  'appears_in',
-  'background_for',
-  'style_reference_for',
-  'thumbnail_for',
-  'alternate_of',
-  'prop_in',
-  'map_for',
-  'part_of',
-  'reference_for',
-  'custom',
-]);
 
 const COLLECTION_KINDS = new Set<CollectionKind>([
   'cast',
@@ -71,28 +56,7 @@ interface CollectionItemUpdateInput {
   sortIndex?: unknown;
 }
 
-interface RelationInput {
-  id?: unknown;
-  subject?: SubjectInput;
-  object?: SubjectInput;
-  relationType?: unknown;
-  label?: unknown;
-  context?: unknown;
-  metadata?: unknown;
-  sortIndex?: unknown;
-  createdBy?: unknown;
-}
-
-interface RelationUpdateInput {
-  relationType?: unknown;
-  label?: unknown;
-  context?: unknown;
-  metadata?: unknown;
-  sortIndex?: unknown;
-}
-
 interface ParentHierarchyBackfillInput {
-  createManualRelations?: unknown;
   createStarterCollectionsForAllNullParents?: unknown;
   createdBy?: unknown;
 }
@@ -158,36 +122,13 @@ export class OrganizationController extends BaseController {
     await this.broadcastStylePresetPreviewsForCollections([collectionId]);
   }
 
-  async httpListRelations(): Promise<SpaceRelation[]> {
-    return this.repo.listRelations();
-  }
-
-  async httpCreateRelation(data: RelationInput): Promise<SpaceRelation> {
-    const relation = await this.createRelation(data);
-    this.broadcast({ type: 'relation:created', relation });
-    return relation;
-  }
-
-  async httpUpdateRelation(relationId: string, data: RelationUpdateInput): Promise<SpaceRelation> {
-    const relation = await this.updateRelation(relationId, data);
-    this.broadcast({ type: 'relation:updated', relation });
-    return relation;
-  }
-
-  async httpDeleteRelation(relationId: string): Promise<void> {
-    await this.deleteRelation(relationId);
-    this.broadcast({ type: 'relation:deleted', relationId });
-  }
-
   async httpBackfillParentHierarchy(input: unknown = {}) {
     const data = normalizeBackfillInput(input);
-    const [beforeCollections, beforeItems, beforeRelations] = await Promise.all([
+    const [beforeCollections, beforeItems] = await Promise.all([
       this.repo.listCollections(),
       this.repo.listAllCollectionItems(),
-      this.repo.listRelations(),
     ]);
     const result = await this.repo.backfillParentHierarchyToOrganization({
-      createManualRelations: normalizeOptionalBoolean(data.createManualRelations),
       createStarterCollectionsForAllNullParents: normalizeOptionalBoolean(data.createStarterCollectionsForAllNullParents),
       createdBy: normalizeOptionalString(data.createdBy) ?? undefined,
     });
@@ -202,11 +143,9 @@ export class OrganizationController extends BaseController {
 
     const beforeCollectionIds = new Set(beforeCollections.map((collection) => collection.id));
     const beforeItemIds = new Set(beforeItems.map((item) => item.id));
-    const beforeRelationIds = new Set(beforeRelations.map((relation) => relation.id));
-    const [afterCollections, afterItems, afterRelations] = await Promise.all([
+    const [afterCollections, afterItems] = await Promise.all([
       this.repo.listCollections(),
       this.repo.listAllCollectionItems(),
-      this.repo.listRelations(),
     ]);
 
     for (const collection of afterCollections) {
@@ -217,11 +156,6 @@ export class OrganizationController extends BaseController {
     for (const item of afterItems) {
       if (!beforeItemIds.has(item.id)) {
         this.broadcast({ type: 'collection_item:created', item });
-      }
-    }
-    for (const relation of afterRelations) {
-      if (!beforeRelationIds.has(relation.id)) {
-        this.broadcast({ type: 'relation:created', relation });
       }
     }
 
@@ -275,24 +209,6 @@ export class OrganizationController extends BaseController {
     await this.deleteCollectionItem(collectionId, itemId);
     this.broadcast({ type: 'collection_item:deleted', collectionId, itemId });
     await this.broadcastStylePresetPreviewsForCollections([collectionId]);
-  }
-
-  async handleCreateRelation(_ws: WebSocket, meta: WebSocketMeta, data: RelationInput): Promise<void> {
-    this.requireEditor(meta);
-    const relation = await this.createRelation({ ...data, createdBy: meta.userId });
-    this.broadcast({ type: 'relation:created', relation });
-  }
-
-  async handleUpdateRelation(_ws: WebSocket, meta: WebSocketMeta, relationId: string, data: RelationUpdateInput): Promise<void> {
-    this.requireEditor(meta);
-    const relation = await this.updateRelation(relationId, data);
-    this.broadcast({ type: 'relation:updated', relation });
-  }
-
-  async handleDeleteRelation(_ws: WebSocket, meta: WebSocketMeta, relationId: string): Promise<void> {
-    this.requireEditor(meta);
-    await this.deleteRelation(relationId);
-    this.broadcast({ type: 'relation:deleted', relationId });
   }
 
   private async createCollection(data: CollectionInput): Promise<SpaceCollection> {
@@ -381,43 +297,6 @@ export class OrganizationController extends BaseController {
     const deleted = await this.repo.deleteCollectionItem(existing.id);
     if (!deleted) {
       throw new NotFoundError('Collection item not found');
-    }
-  }
-
-  private async createRelation(data: RelationInput): Promise<SpaceRelation> {
-    const subject = await this.normalizeAndValidateSubject(data.subject);
-    const object = await this.normalizeAndValidateSubject(data.object);
-    return this.repo.createRelation({
-      id: normalizeOptionalString(data.id) ?? crypto.randomUUID(),
-      subject,
-      object,
-      relationType: normalizeRelationType(data.relationType),
-      label: normalizeOptionalString(data.label),
-      context: data.context === undefined ? null : normalizeNullableStringOrJson(data.context, 'context'),
-      metadata: normalizeMetadata(data.metadata),
-      sortIndex: normalizeOptionalInteger(data.sortIndex, 'sortIndex') ?? 0,
-      createdBy: normalizeRequiredString(data.createdBy, 'createdBy'),
-    });
-  }
-
-  private async updateRelation(relationId: string, data: RelationUpdateInput): Promise<SpaceRelation> {
-    const relation = await this.repo.updateRelation(normalizeRequiredString(relationId, 'relationId'), {
-      relationType: data.relationType === undefined ? undefined : normalizeRelationType(data.relationType),
-      label: data.label === undefined ? undefined : normalizeOptionalString(data.label),
-      context: data.context === undefined ? undefined : normalizeNullableStringOrJson(data.context, 'context'),
-      metadata: data.metadata === undefined ? undefined : normalizeMetadata(data.metadata),
-      sortIndex: data.sortIndex === undefined ? undefined : normalizeInteger(data.sortIndex, 'sortIndex'),
-    });
-    if (!relation) {
-      throw new NotFoundError('Relation not found');
-    }
-    return relation;
-  }
-
-  private async deleteRelation(relationId: string): Promise<void> {
-    const deleted = await this.repo.deleteRelation(normalizeRequiredString(relationId, 'relationId'));
-    if (!deleted) {
-      throw new NotFoundError('Relation not found');
     }
   }
 
@@ -517,21 +396,6 @@ function normalizeOptionalString(value: unknown): string | null {
   return trimmed || null;
 }
 
-function normalizeNullableStringOrJson(value: unknown, field: string): string | null {
-  if (value === undefined || value === null) return null;
-  if (typeof value === 'string') return value;
-  if (typeof value === 'object') return JSON.stringify(value);
-  throw new ValidationError(`${field} must be a string, object, or null`);
-}
-
-function normalizeMetadata(value: unknown): Record<string, unknown> {
-  if (value === undefined || value === null) return {};
-  if (typeof value !== 'object' || Array.isArray(value)) {
-    throw new ValidationError('metadata must be an object');
-  }
-  return value as Record<string, unknown>;
-}
-
 function normalizeInteger(value: unknown, field: string): number {
   if (!Number.isInteger(value)) {
     throw new ValidationError(`${field} must be an integer`);
@@ -592,11 +456,4 @@ function normalizeCollectionColor(value: unknown): string | null {
     throw new ValidationError('color must be a hex color');
   }
   return color.toLowerCase();
-}
-
-function normalizeRelationType(value: unknown): SpaceRelationType {
-  if (RELATION_TYPES.has(value as SpaceRelationType)) {
-    return value as SpaceRelationType;
-  }
-  throw new ValidationError('Invalid relation type');
 }

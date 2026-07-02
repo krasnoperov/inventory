@@ -12,9 +12,6 @@ export type { AssetMenuProps } from '../AssetMenu';
 export { ForgeTray, AssetPickerModal } from '../ForgeTray';
 export type { ForgeTrayProps, ForgeSubmitParams, DestinationType, AssetPickerModalProps } from '../ForgeTray';
 
-// Detail view components
-export { LineageTree } from '../LineageTree';
-
 // Shared components
 export { AssetPicker } from '../AssetPicker';
 export type { AssetPickerProps } from '../AssetPicker';

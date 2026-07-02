@@ -250,7 +250,6 @@ describe('VariantController', () => {
 
       assert.ok(broadcasts.some((b) => b.type === 'collection_item:updated' && b.item.pinned_variant_id === null));
       assert.ok(broadcasts.some((b) => b.type === 'collection_item:deleted' && b.itemId === 'collection-item-variant'));
-      assert.ok(broadcasts.some((b) => b.type === 'relation:deleted' && b.relationId === 'relation-1'));
       assert.ok(broadcasts.some((b) => b.type === 'style_preset:updated' && b.preset.style_reference_variant_ids.includes('variant-2')));
     });
 

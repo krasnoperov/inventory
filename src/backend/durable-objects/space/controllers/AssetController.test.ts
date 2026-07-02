@@ -236,7 +236,6 @@ describe('AssetController', () => {
       await controller.handleDelete({} as WebSocket, createOwnerMeta(), 'asset-1');
 
       assert.ok(broadcasts.some((b) => b.type === 'collection_item:deleted' && b.itemId === 'collection-item-1'));
-      assert.ok(broadcasts.some((b) => b.type === 'relation:deleted' && b.relationId === 'relation-1'));
       assert.ok(broadcasts.some((b) => b.type === 'style_preset:updated' && b.preset.reference_count === 0));
     });
 

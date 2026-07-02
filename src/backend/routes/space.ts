@@ -9,10 +9,8 @@ import {
   createCollectionItemRoute,
   createCollectionRoute,
   createStylePresetRoute,
-  createRelationRoute,
   deleteCollectionItemRoute,
   deleteCollectionRoute,
-  deleteRelationRoute,
   deleteStylePresetRoute,
   deleteSpaceRoute,
   getSpaceRoute,
@@ -22,7 +20,6 @@ import {
   listCollectionsRoute,
   listStylePresetsRoute,
   listStyleReferenceCollectionsRoute,
-  listRelationsRoute,
   listSpaceAssetsRoute,
   listSpacesRoute,
   postSpaceRoute,
@@ -30,7 +27,6 @@ import {
   restoreSupportSpaceRoute,
   updateCollectionItemRoute,
   updateCollectionRoute,
-  updateRelationRoute,
   updateStylePresetRoute,
 } from '../../shared/api/routes';
 import {
@@ -40,10 +36,8 @@ import {
   ListCollectionsResponseSchema,
   ListStylePresetsResponseSchema,
   ListStyleReferenceCollectionsResponseSchema,
-  ListRelationsResponseSchema,
   ListSpaceAssetsResponseSchema,
   PlatformUsageSummaryResponseSchema,
-  RelationResponseSchema,
   StylePresetResponseSchema,
   type Space,
 } from '../../shared/api/schemas';
@@ -642,91 +636,6 @@ spaceRoutes.openapi(deleteStylePresetRoute, async (c) => {
   const response = await doResponse;
   if (!response.ok) {
     const message = await readSpaceDoError(response, 'Failed to delete style preset');
-    return organizationFailure(response.status, message);
-  }
-  return c.json({ success: true as const }, 200);
-});
-
-spaceRoutes.openapi(listRelationsRoute, async (c) => {
-  const userId = String(c.get('userId')!);
-  const memberDAO = c.get('container').get(MemberDAO);
-  const { id: spaceId } = c.req.valid('param');
-
-  const member = await memberDAO.getMember(spaceId, userId);
-  if (!member) return c.json({ error: 'Access denied' }, 403);
-
-  const doResponse = spaceDoFetch(c.env, spaceId, '/internal/relations');
-  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
-  const response = await doResponse;
-  if (!response.ok) {
-    const message = await readSpaceDoError(response, 'Failed to fetch relations');
-    return organizationFailure(response.status, message);
-  }
-  return c.json(ListRelationsResponseSchema.parse(await response.json()), 200);
-});
-
-spaceRoutes.openapi(createRelationRoute, async (c) => {
-  const userId = String(c.get('userId')!);
-  const memberDAO = c.get('container').get(MemberDAO);
-  const { id: spaceId } = c.req.valid('param');
-  const body = c.req.valid('json');
-
-  const member = await memberDAO.getMember(spaceId, userId);
-  if (!member) return c.json({ error: 'Access denied' }, 403);
-  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot modify relations' }, 403);
-
-  const doResponse = spaceDoFetch(c.env, spaceId, '/internal/relations', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...body, createdBy: userId }),
-  });
-  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
-  const response = await doResponse;
-  if (!response.ok) {
-    const message = await readSpaceDoError(response, 'Failed to create relation');
-    return organizationFailure(response.status, message);
-  }
-  return c.json(RelationResponseSchema.parse(await response.json()), 200);
-});
-
-spaceRoutes.openapi(updateRelationRoute, async (c) => {
-  const userId = String(c.get('userId')!);
-  const memberDAO = c.get('container').get(MemberDAO);
-  const { id: spaceId, relationId } = c.req.valid('param');
-  const body = c.req.valid('json');
-
-  const member = await memberDAO.getMember(spaceId, userId);
-  if (!member) return c.json({ error: 'Access denied' }, 403);
-  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot modify relations' }, 403);
-
-  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/relations/${encodeURIComponent(relationId)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
-  const response = await doResponse;
-  if (!response.ok) {
-    const message = await readSpaceDoError(response, 'Failed to update relation');
-    return organizationFailure(response.status, message);
-  }
-  return c.json(RelationResponseSchema.parse(await response.json()), 200);
-});
-
-spaceRoutes.openapi(deleteRelationRoute, async (c) => {
-  const userId = String(c.get('userId')!);
-  const memberDAO = c.get('container').get(MemberDAO);
-  const { id: spaceId, relationId } = c.req.valid('param');
-
-  const member = await memberDAO.getMember(spaceId, userId);
-  if (!member) return c.json({ error: 'Access denied' }, 403);
-  if (member.role === 'viewer') return c.json({ error: 'Viewers cannot delete relations' }, 403);
-
-  const doResponse = spaceDoFetch(c.env, spaceId, `/internal/relations/${encodeURIComponent(relationId)}`, { method: 'DELETE' });
-  if (!doResponse) return c.json({ error: 'Asset storage not available' }, 503);
-  const response = await doResponse;
-  if (!response.ok) {
-    const message = await readSpaceDoError(response, 'Failed to delete relation');
     return organizationFailure(response.status, message);
   }
   return c.json({ success: true as const }, 200);

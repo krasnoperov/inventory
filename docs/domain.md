@@ -240,7 +240,6 @@ CLI generation commands, docs, and tests should use the same matrix.
 
 **Frontend:**
 - `src/frontend/components/ForgeTray/` — Tray implementation
-- `src/frontend/components/AssetCanvas/` — Spatial asset visualization
 - `src/frontend/components/VariantCanvas/` — Lineage visualization
 - `src/frontend/pages/SpacePage.tsx` — Catalog view
 - `src/frontend/pages/AssetDetailPage.tsx` — Variant management

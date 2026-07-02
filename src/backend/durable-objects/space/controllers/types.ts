@@ -10,7 +10,6 @@ import type { SpaceRepository, SqlStorage } from '../repository/SpaceRepository'
 import type {
   CollectionItem,
   ServerMessage,
-  SpaceRelation,
   WebSocketMeta,
 } from '../types';
 import type { ErrorCode } from '../../../../shared/websocket-types';
@@ -61,7 +60,6 @@ export interface ControllerContext {
 
 interface OrganizationSnapshot {
   collectionItems: CollectionItem[];
-  relations: SpaceRelation[];
 }
 
 // ============================================================================
@@ -160,11 +158,8 @@ export abstract class BaseController {
   }
 
   protected async getOrganizationSnapshot(): Promise<OrganizationSnapshot> {
-    const [collectionItems, relations] = await Promise.all([
-      this.repo.listAllCollectionItems(),
-      this.repo.listRelations(),
-    ]);
-    return { collectionItems, relations };
+    const collectionItems = await this.repo.listAllCollectionItems();
+    return { collectionItems };
   }
 
   protected async broadcastOrganizationCascadeChanges(
@@ -181,13 +176,6 @@ export abstract class BaseController {
       } else if (JSON.stringify(current) !== JSON.stringify(item)) {
         this.broadcast({ type: 'collection_item:updated', item: current });
         affectedCollectionIds.add(current.collection_id);
-      }
-    }
-
-    const relationsAfter = new Set(after.relations.map((relation) => relation.id));
-    for (const relation of before.relations) {
-      if (!relationsAfter.has(relation.id)) {
-        this.broadcast({ type: 'relation:deleted', relationId: relation.id });
       }
     }
 

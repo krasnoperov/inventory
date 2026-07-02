@@ -174,46 +174,6 @@ export interface Lineage {
 
 export type SpaceSubjectType = 'asset' | 'variant';
 
-export type SpaceRelationType =
-  | 'appears_in'
-  | 'background_for'
-  | 'style_reference_for'
-  | 'thumbnail_for'
-  | 'alternate_of'
-  | 'prop_in'
-  | 'map_for'
-  | 'part_of'
-  | 'reference_for'
-  | 'custom';
-
-export interface SpaceSubject {
-  subjectType: SpaceSubjectType;
-  assetId?: string;
-  variantId?: string;
-}
-
-export interface SpaceRelationContext {
-  label?: string;
-  context?: string;
-  notes?: string;
-}
-
-export interface SpaceRelation {
-  id: string;
-  subject_type: SpaceSubjectType;
-  subject_asset_id: string | null;
-  subject_variant_id: string | null;
-  object_type: SpaceSubjectType;
-  object_asset_id: string | null;
-  object_variant_id: string | null;
-  relation_type: SpaceRelationType;
-  context: string | null;
-  sort_index: number;
-  created_by: string;
-  created_at: number;
-  updated_at: number;
-}
-
 export type CollectionKind =
   | 'cast'
   | 'style_refs'
@@ -854,8 +814,8 @@ export interface JobContext {
 
 // Server message types based on ARCHITECTURE.md
 export type ServerMessage =
-  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; relations?: SpaceRelation[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: unknown[]; compositionItems?: unknown[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
-  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; relations?: SpaceRelation[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: unknown[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
+  | { type: 'sync:state'; assets: Asset[]; variants: Variant[]; lineage: Lineage[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: unknown[]; compositionItems?: unknown[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
+  | { type: 'sync:overview'; assets: Asset[]; variants: Variant[]; collections?: SpaceCollection[]; collectionItems?: CollectionItem[]; compositions?: unknown[]; presence?: UserPresence[]; rotationSets?: RotationSet[]; rotationViews?: RotationView[]; tileSets?: TileSet[]; tilePositions?: TilePosition[]; stylePresets?: StylePresetRaw[]; styleReferenceCollections?: StyleReferenceCollectionRaw[] }
   | { type: 'asset:created'; asset: Asset }
   | { type: 'asset:updated'; asset: Asset }
   | { type: 'asset:deleted'; assetId: string }
@@ -865,9 +825,6 @@ export type ServerMessage =
   | { type: 'variant:deleted'; variantId: string }
   | { type: 'lineage:created'; lineage: Lineage }
   | { type: 'lineage:severed'; lineageId: string }
-  | { type: 'relation:created'; relation: SpaceRelation }
-  | { type: 'relation:updated'; relation: SpaceRelation }
-  | { type: 'relation:deleted'; relationId: string }
   | { type: 'collection:created'; collection: SpaceCollection }
   | { type: 'collection:updated'; collection: SpaceCollection }
   | { type: 'collection:deleted'; collectionId: string }

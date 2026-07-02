@@ -178,24 +178,6 @@ const stylePreset = {
   style_reference_image_keys: ['images/variant-1.png'],
 };
 
-const relation = {
-  id: 'relation-1',
-  subject_type: 'asset' as const,
-  subject_asset_id: asset.id,
-  subject_variant_id: null,
-  object_type: 'variant' as const,
-  object_asset_id: null,
-  object_variant_id: variant.id,
-  relation_type: 'appears_in' as const,
-  label: 'Opening shot',
-  context: null,
-  metadata: '{}',
-  sort_index: 0,
-  created_by: String(user.id),
-  created_at: 1_780_000_000_402,
-  updated_at: 1_780_000_000_402,
-};
-
 type FetchLike = NonNullable<ApiFetchOptions<ApiEndpointKey>['fetch']>;
 
 function bindFetch(app: OpenAPIHono<AppContext>): FetchLike {
@@ -1217,21 +1199,9 @@ describe('API contracts', () => {
             assert.deepEqual(body?.itemIds, ['collection-item-1']);
             return Response.json({ success: true, items: [collectionItem] });
           }
-          if (path === '/internal/relations' && method === 'GET') {
-            return Response.json({ success: true, relations: [relation] });
-          }
-          if (path === '/internal/relations' && method === 'POST') {
-            assert.equal(body?.createdBy, String(user.id));
-            return Response.json({ success: true, relation });
-          }
-          if (path === '/internal/relations/relation-1' && method === 'PATCH') {
-            assert.equal(body?.relationType, 'reference_for');
-            return Response.json({ success: true, relation: { ...relation, relation_type: 'reference_for' } });
-          }
           if (
             (path === '/internal/collections/collection-1/items/collection-item-1' && method === 'DELETE')
             || (path === '/internal/collections/collection-1' && method === 'DELETE')
-            || (path === '/internal/relations/relation-1' && method === 'DELETE')
           ) {
             return Response.json({ success: true });
           }
@@ -1270,14 +1240,6 @@ describe('API contracts', () => {
     assert.equal(listedCollections.collections[0].name, collection.name);
 
     memberRole = 'viewer';
-    const viewerRelations = await apiFetch('GET /api/spaces/:id/relations', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id },
-    });
-    assert.equal(viewerRelations.relations[0].id, relation.id);
-
     await assert.rejects(
       () => apiFetch('POST /api/spaces/:id/collections', {
         fetch,
@@ -1337,25 +1299,6 @@ describe('API contracts', () => {
       json: { itemIds: [collectionItem.id] },
     });
 
-    await apiFetch('POST /api/spaces/:id/relations', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id },
-      json: {
-        subject: { subjectType: 'asset', assetId: asset.id },
-        object: { subjectType: 'variant', variantId: variant.id },
-        relationType: 'appears_in',
-      },
-    });
-    await apiFetch('PATCH /api/spaces/:id/relations/:relationId', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, relationId: relation.id },
-      json: { relationType: 'reference_for' },
-    });
-
     await apiFetch('DELETE /api/spaces/:id/collections/:collectionId/items/:itemId', {
       fetch,
       baseUrl,
@@ -1368,14 +1311,8 @@ describe('API contracts', () => {
       headers: authHeaders,
       params: { id: space.id, collectionId: collection.id },
     });
-    await apiFetch('DELETE /api/spaces/:id/relations/:relationId', {
-      fetch,
-      baseUrl,
-      headers: authHeaders,
-      params: { id: space.id, relationId: relation.id },
-    });
     assert(calls.some((call) => call.path === '/internal/collections' && call.method === 'GET'));
-    assert(calls.some((call) => call.path === '/internal/relations/relation-1' && call.method === 'DELETE'));
+    assert.equal(calls.some((call) => call.path.includes('/internal/relations')), false);
   });
 
   it('round-trips media upload through the shared multipart contract', async () => {

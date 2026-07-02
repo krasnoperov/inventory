@@ -26,15 +26,12 @@ import {
   ListStylePresetsResponseSchema,
   ListStyleReferenceCollectionsResponseSchema,
   ListProviderKeysResponseSchema,
-  ListRelationsResponseSchema,
   ListSpacesResponseSchema,
   PlatformUsageSummaryResponseSchema,
   ProviderKeyParamsSchema,
   ProviderKeyResponseSchema,
   DeleteAccountRequestSchema,
   DeleteAccountResponseSchema,
-  RelationParamsSchema,
-  RelationResponseSchema,
   ReorderItemsRequestSchema,
   RestoreSupportSpaceResponseSchema,
   SpaceAccessRequestParamsSchema,
@@ -49,11 +46,9 @@ import {
   UsageSummaryQuerySchema,
   UpdateCollectionItemRequestSchema,
   UpdateCollectionRequestSchema,
-  UpdateRelationRequestSchema,
   UpdateStylePresetRequestSchema,
   UpsertCollectionItemRequestSchema,
   UpsertCollectionRequestSchema,
-  UpsertRelationRequestSchema,
   UpsertStylePresetRequestSchema,
   UpdateUserProfileRequestSchema,
   UpdateUserSettingsRequestSchema,
@@ -870,95 +865,6 @@ export const deleteStylePresetRoute = createRoute({
     200: {
       ...json(SuccessResponseSchema),
       description: 'Deleted style preset',
-    },
-    403: errorResponse,
-    404: errorResponse,
-    500: errorResponse,
-    503: errorResponse,
-  },
-});
-
-export const listRelationsRoute = createRoute({
-  method: 'get',
-  path: '/api/spaces/{id}/relations',
-  request: {
-    params: SpaceIdParamsSchema,
-  },
-  responses: {
-    200: {
-      ...json(ListRelationsResponseSchema),
-      description: 'Manual relations in a space',
-    },
-    403: errorResponse,
-    500: errorResponse,
-    503: errorResponse,
-  },
-});
-
-export const createRelationRoute = createRoute({
-  method: 'post',
-  path: '/api/spaces/{id}/relations',
-  request: {
-    params: SpaceIdParamsSchema,
-    body: {
-      content: {
-        'application/json': {
-          schema: UpsertRelationRequestSchema,
-        },
-      },
-      required: true,
-    },
-  },
-  responses: {
-    200: {
-      ...json(RelationResponseSchema),
-      description: 'Created manual relation',
-    },
-    400: errorResponse,
-    403: errorResponse,
-    404: errorResponse,
-    500: errorResponse,
-    503: errorResponse,
-  },
-});
-
-export const updateRelationRoute = createRoute({
-  method: 'patch',
-  path: '/api/spaces/{id}/relations/{relationId}',
-  request: {
-    params: RelationParamsSchema,
-    body: {
-      content: {
-        'application/json': {
-          schema: UpdateRelationRequestSchema,
-        },
-      },
-      required: true,
-    },
-  },
-  responses: {
-    200: {
-      ...json(RelationResponseSchema),
-      description: 'Updated manual relation',
-    },
-    400: errorResponse,
-    403: errorResponse,
-    404: errorResponse,
-    500: errorResponse,
-    503: errorResponse,
-  },
-});
-
-export const deleteRelationRoute = createRoute({
-  method: 'delete',
-  path: '/api/spaces/{id}/relations/{relationId}',
-  request: {
-    params: RelationParamsSchema,
-  },
-  responses: {
-    200: {
-      ...json(SuccessResponseSchema),
-      description: 'Deleted manual relation',
     },
     403: errorResponse,
     404: errorResponse,

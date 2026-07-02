@@ -2,7 +2,6 @@ import { StrictMode, type ComponentProps, type ComponentType, type ReactNode } f
 import { createRoot } from 'react-dom/client';
 import { AppHeader } from './components/AppHeader';
 import { AudioPlayer } from './components/AudioPlayer/AudioPlayer';
-import { AssetCanvas } from './components/AssetCanvas';
 import { AssetCard } from './components/AssetCard';
 import { AssetMenu } from './components/AssetMenu';
 import { AssetPicker } from './components/AssetPicker';
@@ -12,7 +11,6 @@ import { CreateSpaceDialog } from './components/CreateSpaceDialog';
 import { ForgeTray } from './components/ForgeTray';
 import { FormContainer, FormTitle } from './components/forms';
 import { ImageLightbox } from './components/ImageLightbox';
-import { LineageTree } from './components/LineageTree';
 import { Pagination } from './components/Pagination';
 import { PublicNav } from './components/PublicNav';
 import { PublicThemeToggle } from './components/PublicThemeToggle';
@@ -40,7 +38,6 @@ import assetDetailStyles from './pages/AssetDetailPage.module.css';
 import DocsPage from './pages/DocsPage';
 import landingStyles from './pages/LandingPage.module.css';
 import { GoogleLoginButton } from './pages/LoginPage';
-import { HyperbolicCanvas } from './components/HyperbolicCanvas/HyperbolicCanvas';
 import PricingPage from './pages/PricingPage';
 import { ProfileDangerZone, ProfileProviderKeyRow } from './pages/ProfilePage';
 import profileStyles from './pages/ProfilePage.module.css';
@@ -408,64 +405,6 @@ function AssetDetailOverlayChromePreview() {
           </span>
         </div>
       </section>
-    </div>
-  );
-}
-
-const lineagePreviewCurrent = {
-  id: 'hero-variant',
-  asset_id: 'hero',
-  image_key: 'images/space/hero-variant.png',
-  thumb_key: 'images/space/hero-variant_thumb.webp',
-};
-
-function LineageTreePreview(props: Record<string, unknown>) {
-  const overrides = props as Partial<ComponentProps<typeof LineageTree>>;
-  const defaults: ComponentProps<typeof LineageTree> = {
-    currentVariant: lineagePreviewCurrent,
-    parents: [
-      {
-        variant: {
-          id: 'map-variant',
-          asset_id: 'map',
-          image_key: 'images/space/map-variant.png',
-          thumb_key: 'images/space/map-variant_thumb.webp',
-        },
-        relation_type: 'derived',
-        lineage_id: 'lineage-map-hero',
-      },
-    ],
-    children: [
-      {
-        variant: {
-          id: 'atlas-variant',
-          asset_id: 'atlas',
-          image_key: 'images/space/atlas-variant.png',
-          thumb_key: 'images/space/atlas-variant_thumb.webp',
-        },
-        relation_type: 'refined',
-        lineage_id: 'lineage-hero-atlas',
-      },
-      {
-        variant: {
-          id: 'output-variant',
-          asset_id: 'output',
-          image_key: 'images/space/output-variant.png',
-          thumb_key: 'images/space/output-variant_thumb.webp',
-        },
-        relation_type: 'forked',
-        severed: true,
-        lineage_id: 'lineage-hero-output',
-      },
-    ],
-    onSelectVariant: () => undefined,
-    onSeverLineage: () => undefined,
-    spaceId: 'space-1',
-  };
-
-  return (
-    <div style={{ maxWidth: '520px' }}>
-      <LineageTree {...defaults} {...overrides} />
     </div>
   );
 }
@@ -919,7 +858,6 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   AppHeaderPreview,
   AdminSpendView: AdminSpendView as unknown as ComponentType<Record<string, unknown>>,
   AudioPlayer: AudioPlayer as unknown as ComponentType<Record<string, unknown>>,
-  AssetCanvas: AssetCanvas as unknown as ComponentType<Record<string, unknown>>,
   AssetCard: AssetCard as unknown as ComponentType<Record<string, unknown>>,
   AssetMenu: AssetMenu as unknown as ComponentType<Record<string, unknown>>,
   AssetPicker: AssetPicker as unknown as ComponentType<Record<string, unknown>>,
@@ -941,14 +879,12 @@ const registry: Record<string, ComponentType<Record<string, unknown>>> = {
   DashboardHoverChrome: DashboardHoverChromePreview,
   DocsPage: DocsPagePreview,
   GoogleLoginButton: GoogleLoginButton as unknown as ComponentType<Record<string, unknown>>,
-  HyperbolicCanvas: HyperbolicCanvas as unknown as ComponentType<Record<string, unknown>>,
   LandingCreateSpaceDialog: LandingCreateSpaceDialogPreview,
   LandingCardHoverChrome: LandingCardHoverChromePreview,
   LandingDualChrome: LandingDualChromePreview,
   FormContainerPreview,
   ForgeTray: ForgeTray as unknown as ComponentType<Record<string, unknown>>,
   ImageLightbox: ImageLightbox as unknown as ComponentType<Record<string, unknown>>,
-  LineageTree: LineageTreePreview,
   Pagination: Pagination as unknown as ComponentType<Record<string, unknown>>,
   PricingPage: PricingPagePreview,
   ProfileBillingActions: ProfileBillingActionsHarness,
