@@ -420,6 +420,40 @@ test('upload rejects relation type without a source variant before sending a req
   }
 });
 
+test('upload rejects retired organization flags before sending a request', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
+  const filePath = path.join(dir, 'hero.png');
+  let requested = false;
+
+  try {
+    await writeFile(filePath, new Uint8Array([1, 2, 3]));
+    await assert.rejects(
+      () => executeUpload({
+        positionals: [filePath],
+        options: {
+          space: 'space-1',
+          name: 'Hero',
+          collection: 'collection-cast',
+          'manual-relation': 'appears_in:asset:scene',
+        },
+      }, {
+        ...depsFor([], []),
+        loadProjectConfig: async () => {
+          requested = true;
+          return null;
+        },
+        fetch: async () => {
+          throw new Error('unexpected request');
+        },
+      }),
+      /--collection, --manual-relation were removed.*Space canvas.*--source-variant/
+    );
+    assert.equal(requested, false);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('upload rejects explicit media kind mismatches before sending a request', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'inventory-upload-command-'));
   const filePath = path.join(dir, 'theme.mp3');

@@ -71,6 +71,20 @@ const defaultDeps: UploadDeps = {
 
 class UploadUsageError extends Error {}
 
+const RETIRED_UPLOAD_ORGANIZATION_OPTIONS: Array<[string, string]> = [
+  ['collection', '--collection'],
+  ['collection-name', '--collection-name'],
+  ['collectionName', '--collection-name'],
+  ['collection-role', '--collection-role'],
+  ['collectionRole', '--collection-role'],
+  ['collection-subject', '--collection-subject'],
+  ['collectionSubject', '--collection-subject'],
+  ['manual-relation', '--manual-relation'],
+  ['manualRelation', '--manual-relation'],
+  ['manual-relation-context', '--manual-relation-context'],
+  ['manualRelationContext', '--manual-relation-context'],
+];
+
 export async function handleUpload(parsed: ParsedArgs): Promise<void> {
   try {
     await executeUpload(parsed);
@@ -91,6 +105,7 @@ export async function executeUpload(
   if (!filePath) {
     throw new UploadUsageError('File path is required');
   }
+  rejectRetiredUploadOrganizationOptions(parsed);
 
   const projectConfig = await deps.loadProjectConfig();
   const env = resolveCommandEnvironment(parsed, projectConfig);
@@ -357,6 +372,21 @@ function normalizeActiveVariantBehavior(value: string | undefined): ActiveVarian
   if (value === 'set-active' || value === 'set_active') return 'set-active';
   if (value === 'keep') return 'keep';
   throw new UploadUsageError('--active-variant-behavior must be if-missing, set-active, or keep');
+}
+
+function rejectRetiredUploadOrganizationOptions(parsed: ParsedArgs): void {
+  const usedOptions = RETIRED_UPLOAD_ORGANIZATION_OPTIONS
+    .filter(([key]) => parsed.options[key] !== undefined)
+    .map(([, flag]) => flag);
+
+  if (usedOptions.length === 0) return;
+
+  const uniqueFlags = Array.from(new Set(usedOptions)).join(', ');
+  throw new UploadUsageError(
+    `${uniqueFlags} ${usedOptions.length === 1 ? 'was' : 'were'} removed. ` +
+    'Upload creates assets or variants only; organize the result visually on the Space canvas. ' +
+    'Use --source-variant for immutable lineage provenance.'
+  );
 }
 
 function parseCsvOption(value: string | undefined, optionName: string): string[] {

@@ -430,30 +430,6 @@ makefx upload cocina.png --space abc123 --name "Cocina" --type scene \
 # Upload against local dev server
 makefx upload hero.png --space abc123 --name "Hero" --local
 
-# Place the uploaded asset in a collection and pin the uploaded variant
-makefx upload hero.png --space abc123 --name "Hero" \
-  --collection collection_cast \
-  --collection-role character
-
-# Resolve a collection by exact name before upload
-makefx upload hero.png --space abc123 --name "Hero" \
-  --collection-name "Cast" \
-  --collection-role character
-
-# Place the exact uploaded variant in a collection
-makefx upload hero-pose.png --space abc123 --asset asset_hero \
-  --collection collection_poses \
-  --collection-subject variant
-
-# Create a manual relation from the uploaded variant to an existing asset
-makefx upload thumbnail.png --space abc123 --asset asset_thumb \
-  --manual-relation thumbnail_for:asset:asset_target
-
-# Add relation metadata
-makefx upload prop.png --space abc123 --name "Market Prop" \
-  --manual-relation appears_in:variant:variant_scene \
-  --manual-relation-context '{"scene":"market"}'
-
 # Capture returned Space IDs for follow-up commands
 base_json=$(makefx upload base.png --space abc123 --name "Hero Base" --json)
 base_asset=$(printf '%s' "$base_json" | jq -r '.variant.asset_id')
@@ -464,13 +440,9 @@ makefx upload paintover.png --space abc123 --asset "$base_asset" \
   --json
 ```
 
-Manual relation types include `appears_in`, `background_for`,
-`thumbnail_for`, `map_for`, `style_reference_for`, and `reference_for`.
-Collection and manual relation targets are existing Space IDs and are checked
-before the media upload starts. Use `--collection-name` only when an exact
-collection name is intentional; if more than one collection has that name, use
-`--collection <id>`. Use `--source-variant` or `--source-variants` only for immutable upload lineage;
-use `--manual-relation` for editable organization links.
+Upload no longer accepts collection or manual relation flags. It creates an
+asset or variant, records immutable lineage with `--source-variant`, and leaves
+visual organization to the Space canvas.
 
 ---
 
